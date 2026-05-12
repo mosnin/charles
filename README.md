@@ -6,7 +6,7 @@ Your AI cofounder. One manager agent. Six departments. From idea to revenue with
 
 ## What it is
 
-Charles is a manager agent that runs an entire company. The founder talks to one agent. That agent holds the mission, the roadmap, and the current stage of the company, and delegates work across engineering, sales, marketing, design, support, and ops/finance.
+Charles is a manager agent that runs an entire company. The founder talks to one agent. That agent holds the mission, the roadmap, and the current stage of the company, and delegates work across engineering, sales, marketing, design, support, and Ops/Finance.
 
 It is not a chatbot, not a wrapper over a model, not a no-code builder. It is a coordination layer over specialist agents, each with their own tools and skills, each accountable to the same founder.
 
@@ -27,7 +27,7 @@ Founder (chat)
               ├── Marketing     →  copy · image/video · social
               ├── Design        →  logo · landing · brand
               ├── Support        →  inbox · helpdesk
-              └── Ops / Finance →  Stripe · expenses · reporting
+              └── Ops/Finance   →  Stripe · expenses · reporting
 
 Every external write goes through an approval gate.
 ```
@@ -46,13 +46,15 @@ See `PRODUCT_SCOPE.md` for the canonical definition. See `ROADMAP.md` for what's
 
 - Next.js 15 (App Router, Turbopack)
 - React 19
-- TypeScript
+- TypeScript 5.8
 - Clerk auth
 - Supabase (Postgres + pgvector)
+- Upstash Redis
 - Modal (Python agent runtime)
 - OpenAI Agents SDK
 - Stripe
 - Resend
+- Telnyx
 - Composio
 - MCP
 

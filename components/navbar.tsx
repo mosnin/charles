@@ -53,11 +53,11 @@ const drawerMenuVariants = {
 };
 
 const drawerFeatureLinks = [
-  { href: '/features/intake', icon: Link2, name: 'Intake Link' },
-  { href: '/features/ai-scoring', icon: Bot, name: 'AI Scoring' },
-  { href: '/features/crm', icon: Users, name: 'Contact CRM' },
-  { href: '/features/pipeline', icon: TrendingUp, name: 'Deal Pipeline' },
-  { href: '/features/analytics', icon: BarChart3, name: 'Analytics' },
+  { href: '/features/manager', icon: Bot, name: 'Manager' },
+  { href: '/features/departments', icon: Users, name: 'Departments' },
+  { href: '/features/approvals', icon: Link2, name: 'Approvals' },
+  { href: '/features/memory', icon: BarChart3, name: 'Memory' },
+  { href: '/features/integrations', icon: TrendingUp, name: 'Integrations' },
 ];
 
 export function Navbar() {

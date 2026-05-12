@@ -31,9 +31,9 @@ If a screen disagrees with this file, the screen is wrong. Fix it back. Don't dr
 
 ## Typography
 
-One typeface for the entire product. No display fonts. No decorative weights. Charles is a tool, not a magazine.
+One typeface family for the entire product. No display fonts. No decorative weights. Charles is a tool, not a magazine.
 
-- **Family:** Inter, with the system stack as fallback — `Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`.
+- **Family:** System font stack throughout — no web font is loaded. Body and UI use `-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, "Helvetica Neue", Arial, sans-serif` (SF Pro Text on Apple devices, Segoe UI on Windows). Headings use the same stack with SF Pro Display promoted. Mono uses `"SF Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`. A serif (`--font-title`) is reserved solely for the AI loader animation and must not appear elsewhere.
 - **Weights in use:** 400 (body), 500 (UI labels, buttons), 600 (wordmark, headings). No 700, no 800, no italics in chrome.
 - **Sizes (px):** 12, 14, 16, 20, 28, 40. No other sizes exist. If you reach for 18 or 32, you're wrong.
   - 12 — muted labels, captions, footnotes.

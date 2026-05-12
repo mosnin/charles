@@ -10,17 +10,17 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Charles — Your AI cofounder',
-  description: 'Charles is your AI cofounder — a manager agent that runs an entire company across engineering, sales, marketing, design, support, and ops, so a solo founder can ship from idea to revenue without hiring.',
+  description: 'Charles is your AI cofounder — a manager agent that runs an entire company across engineering, sales, marketing, design, support, and Ops/Finance, so a solo founder can ship from idea to revenue without hiring.',
   openGraph: {
     title: 'Charles — Your AI cofounder',
-    description: 'A manager agent that runs engineering, sales, marketing, design, support, and ops, so a solo founder can ship from idea to revenue.',
+    description: 'A manager agent that runs engineering, sales, marketing, design, support, and Ops/Finance, so a solo founder can ship from idea to revenue.',
     siteName: 'Charles',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Charles — Your AI cofounder',
-    description: 'A manager agent that runs engineering, sales, marketing, design, support, and ops, so a solo founder can ship from idea to revenue.',
+    description: 'A manager agent that runs engineering, sales, marketing, design, support, and Ops/Finance, so a solo founder can ship from idea to revenue.',
   },
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },

@@ -34,7 +34,7 @@ export default async function HomePage() {
         </h1>
         <p className="mt-6 max-w-[680px] text-lg leading-[1.5] text-muted-foreground md:text-xl">
           A manager agent that runs an entire company across engineering, sales,
-          marketing, design, support, and ops, so a solo founder can ship from
+          marketing, design, support, and Ops/Finance, so a solo founder can ship from
           idea to revenue without hiring.
         </p>
         <div className="mt-10">
@@ -53,8 +53,8 @@ export default async function HomePage() {
             One manager. Six departments.
           </h2>
           <p className="mt-4 text-base leading-[1.5] text-muted-foreground">
-            Charles is the manager. Underneath him sit engineering, sales,
-            marketing, design, support, and ops. You talk to one agent. He
+            Charles is the manager. Underneath Charles sit engineering, sales,
+            marketing, design, support, and Ops/Finance. You talk to one agent. Charles
             assigns the work, holds the context, and reports back when a
             decision is yours to make.
           </p>
