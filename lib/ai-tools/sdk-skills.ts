@@ -39,22 +39,20 @@ function pickTools(names: readonly string[]): ToolDefinition[] {
 }
 
 /**
- * Pipeline analyst — surveys the deal pipeline and reports stuck deals,
- * quiet hot persons, and overdue follow-ups in one paragraph.
+ * Pipeline analyst — surveys the contact and activity pipeline and returns
+ * a one-paragraph summary the founder can act on.
  */
 export function buildPipelineAnalystAgent(ctx: ToolContext, opts: { model?: string } = {}): Agent {
   const tools = pickTools([
-    'pipeline_summary',
-    'find_stuck_deals',
-    'find_quiet_hot_persons',
-    'find_overdue_followups',
-    'find_deal',
+    'find_person',
+    'recall_history',
+    'create_plan',
   ]).map((t) => toSdkTool(t, ctx));
 
   return new Agent({
     name: 'pipeline_analyst',
     instructions:
-      'You analyze the pipeline. Surface stuck deals, quiet hot persons, and overdue follow-ups. Return one paragraph the realtor can act on.',
+      'You analyze the contact pipeline. Surface who needs follow-up and what the next action should be. Return one paragraph the founder can act on.',
     tools,
     model: opts.model ?? DEFAULT_MODEL,
   });
@@ -67,7 +65,6 @@ export function buildPipelineAnalystAgent(ctx: ToolContext, opts: { model?: stri
 export function buildContactResearcherAgent(ctx: ToolContext, opts: { model?: string } = {}): Agent {
   const tools = pickTools([
     'find_person',
-    'find_deal',
     'recall_history',
   ]).map((t) => toSdkTool(t, ctx));
 

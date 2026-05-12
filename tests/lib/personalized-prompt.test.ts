@@ -75,9 +75,9 @@ describe('buildPersonalizedSnapshot', () => {
   });
 
   it('looks up connected apps via activeToolkits and resolves names', async () => {
-    activeToolkitsMock.mockResolvedValue(['gmail', 'slack']);
+    activeToolkitsMock.mockResolvedValue(['github', 'slack']);
     const snap = await buildPersonalizedSnapshot({ spaceId: 's', userId: 'u' });
-    expect(snap.connectedApps).toEqual(['Gmail', 'Slack']);
+    expect(snap.connectedApps).toEqual(['GitHub', 'Slack']);
   });
 
   it('serves the second call from cache (no second supabase round-trip)', async () => {

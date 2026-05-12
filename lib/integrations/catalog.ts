@@ -56,37 +56,33 @@ export interface IntegrationApp {
  * can't drift.
  */
 export const COMING_SOON_TOOLKITS = new Set<string>([
+  // Engineering
   'gitlab',
-  'supabase',
   'vercel',
-  'cloudflare',
-  'render',
-  'netlify',
+  'supabase',
+  'sentry',
+  // Domains
   'cloudflare_dns',
-  'namecheap',
-  'porkbun',
   'vercel_domains',
+  // Payments
   'lemonsqueezy',
   'paddle',
+  // Email / Messaging
   'loops',
-  'postmark',
-  'sendgrid',
-  'twilio',
   'discord',
+  // Marketing / Social
   'twitter',
   'linkedin',
-  'buffer',
   'beehiiv',
-  'substack',
-  'google_analytics',
   'posthog',
   'plausible',
+  // AI / Generative
   'openai',
   'anthropic',
   'replicate',
-  'runway',
   'elevenlabs',
   'figma',
+  // Docs / Files
   'google_drive',
   'dropbox',
 ]);
@@ -269,6 +265,22 @@ export const INTEGRATIONS: IntegrationApp[] = [
     name: 'Figma',
     blurb: 'Read designs and export assets.',
     category: 'ai-generative',
+    comingSoon: true,
+  },
+
+  // ── Domains ───────────────────────────────────────────────────────────
+  {
+    toolkit: 'cloudflare_dns',
+    name: 'Cloudflare DNS',
+    blurb: 'Manage DNS records and protect your domains.',
+    category: 'domains',
+    comingSoon: true,
+  },
+  {
+    toolkit: 'vercel_domains',
+    name: 'Vercel Domains',
+    blurb: 'Register and manage domains from your Vercel dashboard.',
+    category: 'domains',
     comingSoon: true,
   },
 

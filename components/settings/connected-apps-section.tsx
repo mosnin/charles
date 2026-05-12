@@ -121,31 +121,23 @@ function IntegrationHealthBadge({
 }
 
 const CATEGORY_LABEL: Record<IntegrationCategory, string> = {
-  email: 'Email',
-  messaging: 'Messaging',
-  calendar: 'Calendar',
-  docs: 'Documents',
-  crm: 'CRM',
-  'real-estate': 'Real estate',
-  'docs-sign': 'Signatures',
-  tasks: 'Tasks',
-  forms: 'Forms',
-  video: 'Video',
-  storage: 'Storage',
+  engineering:       'Engineering',
+  domains:           'Domains',
+  payments:          'Payments',
+  'email-messaging': 'Email & Messaging',
+  'marketing-social':'Marketing & Social',
+  'ai-generative':   'AI & Generative',
+  'docs-files':      'Docs & Files',
 };
 
 const CATEGORY_ORDER: IntegrationCategory[] = [
-  'email',
-  'messaging',
-  'calendar',
-  'docs',
-  'crm',
-  'real-estate',
-  'docs-sign',
-  'tasks',
-  'forms',
-  'video',
-  'storage',
+  'engineering',
+  'payments',
+  'email-messaging',
+  'marketing-social',
+  'ai-generative',
+  'domains',
+  'docs-files',
 ];
 
 export interface CallbackResult {

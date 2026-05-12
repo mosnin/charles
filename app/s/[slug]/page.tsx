@@ -35,6 +35,7 @@ interface StageGate {
   title: string;
   isComplete: boolean;
   order: number;
+  stage: string;
 }
 
 interface SwarmRun {
@@ -102,7 +103,7 @@ export default async function SpacePage({
       .maybeSingle(),
     supabase
       .from('StageGate')
-      .select('id, title, isComplete, order')
+      .select('id, title, isComplete, order, stage')
       .eq('spaceId', space.id)
       .order('order', { ascending: true }),
     supabase

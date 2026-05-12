@@ -17,6 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { H1, TITLE_FONT, BODY_MUTED, PAGE_RHYTHM } from '@/lib/typography';
 import { InboxRunActions } from './inbox-actions';
+import { DraftActions } from './draft-actions';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -256,10 +257,6 @@ function EmptyState() {
     </div>
   );
 }
-
-// ── Draft approve/dismiss buttons (client component import) ───────────────────
-
-import { DraftActions } from './draft-actions';
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
 

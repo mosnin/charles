@@ -30,27 +30,25 @@ describe('buildPipelineAnalystAgent', () => {
     expect(agent.tools.length).toBeGreaterThan(0);
   });
 
-  it('includes the pipeline aggregator tools the skill needs', () => {
+  it('includes the contact and history tools the skill needs', () => {
     const agent = buildPipelineAnalystAgent(makeCtx());
     const names = agent.tools.map((t) => t.name);
-    // The skill is meant to surface stuck/quiet/overdue — those tools must
-    // be in scope. If someone trims the allowlist later, this fails loudly.
-    expect(names).toContain('pipeline_summary');
-    expect(names).toContain('find_stuck_deals');
-    expect(names).toContain('find_quiet_hot_persons');
-    expect(names).toContain('find_overdue_followups');
+    // If someone trims the allowlist later, this fails loudly.
+    expect(names).toContain('find_person');
+    expect(names).toContain('recall_history');
+    expect(names).toContain('create_plan');
   });
 
-  it('asTool() produces a FunctionTool with the realtor-tuned name + description', () => {
+  it('asTool() produces a FunctionTool with the founder-tuned name + description', () => {
     const agent = buildPipelineAnalystAgent(makeCtx());
     const asTool = agent.asTool({
       toolName: 'analyze_pipeline',
       toolDescription:
-        'Analyze the pipeline for stuck deals, quiet hot persons, and overdue follow-ups.',
+        'Analyze the contact pipeline and surface who needs follow-up.',
     });
     expect(asTool.type).toBe('function');
     expect(asTool.name).toBe('analyze_pipeline');
-    expect(asTool.description).toMatch(/stuck deals/);
+    expect(asTool.description).toMatch(/contact pipeline/);
     // The SDK's FunctionTool exposes an `invoke` method — that's the
     // contract the runtime calls when the model picks this tool.
     expect(typeof asTool.invoke).toBe('function');
@@ -66,14 +64,14 @@ describe('buildContactResearcherAgent', () => {
     expect(agent.tools.length).toBeGreaterThan(0);
   });
 
-  it('includes find_person and find_deal — the core lookup tools', () => {
+  it('includes find_person and recall_history — the core lookup tools', () => {
     const agent = buildContactResearcherAgent(makeCtx());
     const names = agent.tools.map((t) => t.name);
     expect(names).toContain('find_person');
-    expect(names).toContain('find_deal');
+    expect(names).toContain('recall_history');
   });
 
-  it('asTool() produces a FunctionTool with the realtor-tuned name + description', () => {
+  it('asTool() produces a FunctionTool with the founder-tuned name + description', () => {
     const agent = buildContactResearcherAgent(makeCtx());
     const asTool = agent.asTool({
       toolName: 'research_person',

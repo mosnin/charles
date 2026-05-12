@@ -110,7 +110,7 @@ describe('every registered tool produces a strict-mode-compatible JSON schema', 
     },
   );
 
-  it('the registry has at least 30 tools to catch (sanity bound)', () => {
-    expect(tools.length).toBeGreaterThanOrEqual(30);
+  it('the registry has at least 19 tools to catch (sanity bound)', () => {
+    expect(tools.length).toBeGreaterThanOrEqual(19);
   });
 });
