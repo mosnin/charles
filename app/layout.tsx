@@ -9,33 +9,27 @@ import { Toaster } from 'sonner';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Chippi — AI-Powered CRM for Real Estate Agents',
-  description: 'Chippi helps real estate agents close deals faster with AI lead scoring, automated follow-ups, tour scheduling, and a deal pipeline built for how realtors work. Start your 7-day free trial.',
-  keywords: ['CRM', 'real estate', 'realtors', 'AI lead scoring', 'property management', 'deal pipeline', 'tour scheduling', 'brokerages'],
+  title: 'Charles — Your AI cofounder',
+  description: 'Charles is your AI cofounder — a manager agent that runs an entire company across engineering, sales, marketing, design, support, and ops, so a solo founder can ship from idea to revenue without hiring.',
   openGraph: {
-    title: 'Chippi — AI-Powered CRM for Real Estate Agents',
-    description: 'Score leads with AI, automate follow-ups, and manage your pipeline. Join agents closing deals faster with Chippi.',
-    siteName: 'Chippi',
+    title: 'Charles — Your AI cofounder',
+    description: 'A manager agent that runs engineering, sales, marketing, design, support, and ops, so a solo founder can ship from idea to revenue.',
+    siteName: 'Charles',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Chippi — AI-Powered CRM for Real Estate Agents',
-    description: 'Score leads with AI, automate follow-ups, and manage your pipeline. Join agents closing deals faster.',
+    title: 'Charles — Your AI cofounder',
+    description: 'A manager agent that runs engineering, sales, marketing, design, support, and ops, so a solo founder can ship from idea to revenue.',
   },
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0c0c0d' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0f' },
   ],
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default' as const,
-    title: 'Chippi',
-  },
-  icons: {
-    icon: '/chip-avatar.png',
-    apple: '/chip-avatar.png',
-    shortcut: '/chip-avatar.png',
+    title: 'Charles',
   },
 };
 

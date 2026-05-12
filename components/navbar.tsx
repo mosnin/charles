@@ -103,8 +103,8 @@ export function Navbar() {
           )}
         >
           <div className="flex h-[56px] items-center justify-between p-4">
-            <Link href="/" className="flex items-center gap-3" aria-label="Chippi home">
-              <BrandLogo className="h-6 w-auto" alt="Chippi" />
+            <Link href="/" className="flex items-center gap-3" aria-label="Charles home">
+              <BrandLogo className="text-base" alt="Charles" />
             </Link>
 
             <NavMenu />
@@ -153,8 +153,8 @@ export function Navbar() {
             >
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
-                  <Link href="/" className="flex items-center gap-3" aria-label="Chippi home">
-                    <BrandLogo className="h-6 w-auto" alt="Chippi" />
+                  <Link href="/" className="flex items-center gap-3" aria-label="Charles home">
+                    <BrandLogo className="text-base" alt="Charles" />
                   </Link>
                   <button
                     onClick={toggleDrawer}
