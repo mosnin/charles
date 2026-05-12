@@ -18,7 +18,6 @@ import { OnboardingShell } from '@/components/onboarding/onboarding-shell';
 import {
   MultiFieldStep,
   StepScaffold,
-  TextareaStep,
 } from '@/components/onboarding/onboarding-steps';
 
 // ── Types ──────────────────────────────────────────────────────────────────
