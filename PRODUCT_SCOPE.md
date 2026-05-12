@@ -1,108 +1,100 @@
-# PRODUCT_SCOPE.md
+# Product Scope
 
-Current product truth and scope guardrails for Chippi.
-
-This document protects the launch wedge and defines what is in scope now versus later.
+The canonical definition of what Charles is, who it serves, and what it refuses to be. If a feature, screen, or commit contradicts this document, the feature is wrong — fix it back, don't drift the scope.
 
 ---
 
-## 1. Primary user now
+## What Charles is
 
-New solo realtors in the U.S. who are handling renter and leasing leads.
+Charles is your AI cofounder — a manager agent that runs an entire company across engineering, sales, marketing, design, support, and ops/finance, so a solo founder can ship from idea to revenue without hiring.
 
-These users:
-- Are early in their career or building a solo practice
-- Need a fast, lightweight way to capture and qualify renter leads
-- Do not want or need enterprise CRM complexity
-- Value speed to first value over breadth of features
+You talk to one agent. Charles holds the mission, the roadmap, and the current stage of the company. It delegates to specialist departments, keeps the work coherent across them, remembers what matters, and asks before it spends, ships, or speaks on your behalf. The founder stays in the chair. Charles does the work.
 
 ---
 
-## 2. Launch wedge
+## Who it's for
 
-Chippi's launch wedge is **not** generic CRM breadth.
-
-The wedge is:
-
-1. One intake link — shareable anywhere (bio, DMs, ads, email)
-2. Structured renter qualification form — name, phone, budget, timeline, areas, notes
-3. Explainable AI-assisted lead scoring — practical triage, not black-box magic
-4. Lightweight CRM clarity — leads, contacts, deals in a clean interface
-5. Faster follow-up — less chaos, more context, professional workflow
-
-Everything in the product should serve this wedge until explicitly expanded.
+- **Solo founders** building a software product who would otherwise need to hire five people they can't afford yet.
+- **1–3 person teams** who want leverage, not headcount — engineers who need a marketer, designers who need an engineer, operators who need both.
+- **Not** a fit for established companies with full departments already in place. Charles replaces the founding team, not the org chart. Companies past product-market fit should hire humans.
 
 ---
 
-## 3. Core product promise
+## What it does
 
-Help realtors qualify renter and leasing leads faster, with less chaos, more context, and a more professional workflow.
+**One manager. Six departments. Six stages. Three layers of memory. One approval gate.**
 
----
+**Charles, the manager.** A single agent the founder talks to. It owns the mission, the roadmap, and the current stage. It routes work to departments, reconciles their output, and keeps the company moving in one direction.
 
-## 4. Current v1 scope (repo-confirmed)
+**Six departments**, each a specialist agent with its own tools and skills:
 
-| Feature | Status | Key files |
-|---|---|---|
-| Auth (Clerk sign-up/sign-in) | Implemented | `middleware.ts`, `app/(auth)/*` |
-| Onboarding wizard (7 steps to activation) | Implemented | `app/onboarding/*`, `app/api/onboarding/route.ts` |
-| Intake link setup and public form | Implemented | `app/apply/[slug]/*`, `app/api/public/apply/route.ts` |
-| Structured application ingestion into CRM | Implemented | `app/api/public/apply/route.ts` → Contact creation |
-| Lead scoring with explainable summary | Implemented | `lib/lead-scoring.ts` (OpenAI gpt-4o-mini) |
-| CRM: Leads list (intake-sourced) | Implemented | `app/s/[slug]/leads/page.tsx` |
-| CRM: Contacts CRUD with lifecycle types | Implemented | `app/s/[slug]/contacts/*`, `app/api/contacts/*` |
-| CRM: Deals kanban board | Implemented | `app/s/[slug]/deals/*`, `app/api/deals/*` |
-| AI assistant (chat with RAG context) | Implemented | `app/s/[slug]/ai/*`, `lib/ai.ts` |
-| Workspace settings | Implemented | `app/s/[slug]/settings/*`, `app/api/spaces/route.ts` |
-| Landing page | Implemented | `app/page.tsx` |
-| Legal pages (terms, privacy, cookies) | Implemented | `app/legal/*` |
+- **Engineering** — writes, reviews, and ships code; manages repos, databases, deploys.
+- **Sales** — finds prospects, drafts outreach, runs the pipeline, books calls.
+- **Marketing** — writes copy, generates images and video, posts to social, runs launches.
+- **Design** — produces the logo, the landing page, the brand system, the product surface.
+- **Support** — triages the inbox, answers customers, escalates what matters.
+- **Ops / Finance** — handles billing, expenses, vendors, and weekly reporting.
 
----
+**Six stages** the company moves through, in order. Charles enforces the exit gates; the founder can override.
 
-## 5. Explicit out-of-scope items (unless explicitly instructed)
+`Idea → Initial → Identity → Building → Selling → Scaling`
 
-- Broad "all-in-one CRM" expansion
-- Enterprise features (team accounts, roles, permissions)
-- Advanced automation systems not already present
-- Marketing campaign tools
-- Email sending or SMS integration
-- Property listing management
-- MLS integration
-- Transaction management
-- Document signing
-- Product direction rewrites
-- Multi-tenant team workspaces (currently one space per user)
+Each stage has a clear question to answer and a clear signal to move on. You don't write code before you know what you're building. You don't run ads before you have a thing to sell.
+
+**Three layers of memory.**
+
+- **Working memory** — the scratchpad for the current turn. Discarded after.
+- **Core memory** — roughly twenty persistent slots, always injected into every prompt. The mission, the user, the stage, the open commitments. Small and load-bearing.
+- **Long-term memory** — everything else, embedded into pgvector, recalled on demand.
+
+**One approval gate.** Every external write — a commit to main, a charge to a customer, a message sent in the founder's name, a domain purchase — goes through an approval gate by default. Per-department autonomy is configurable: `observe`, `ask`, `auto-low`, `autonomous`. The default is `ask`. The founder is always one click from saying no.
 
 ---
 
-## 6. Anti-goals
+## What it doesn't do
 
-1. Do not drift toward generic CRM dashboards with low activation value.
-2. Do not prioritize feature count over qualification speed and clarity.
-3. Do not introduce "AI magic" without explainability — every AI output should be practical and transparent.
-4. Do not add complexity that increases setup friction.
-5. Do not build for enterprise workflows when the user is a solo realtor.
-6. Do not optimize for vanity metrics (page views, sign-ups) over activation metrics (intake link generated, applications received).
+These are non-goals. Saying no to them is how Charles stays one thing.
 
----
-
-## 7. What success looks like (this phase)
-
-- **Fast setup**: realtor goes from sign-up to live intake link in under 5 minutes
-- **Activation**: intake link generated (the activation event)
-- **Usage**: repeated application submissions flowing through the CRM
-- **Reliability**: lead context arrives in CRM consistently with scoring
-- **Practical AI**: scoring helps follow-up decisions with explainable labels and summaries
-- **Retention signal**: repeated workflow use — realtor returns to check and act on leads
+1. **No enterprise admin tooling in v1.** No SSO directory sync, no SCIM, no fine-grained RBAC matrices. One founder, one company, maybe a couple of teammates.
+2. **No vertical CRMs.** Charles is not a real-estate tool, not a legal tool, not a medical tool. It is a horizontal cofounder for software products.
+3. **No team-of-50 collaboration.** No project management for large orgs. No multi-team handoffs. If you have fifty people, you don't need Charles, you need managers.
+4. **No human services marketplace.** Charles does not connect you to freelancers, lawyers, or accountants. It does the work itself or it asks you.
+5. **No autonomous incorporation, banking, or legal filings.** Charles will not form your LLC, open your bank account, or sign contracts. Those remain human.
+6. **No general-purpose chatbot.** Charles is not a wrapper over a model. Without a mission, a stage, and a roadmap, it refuses to do work.
+7. **No no-code form builder.** Charles is not a Typeform competitor, not a Notion competitor, not a Zapier competitor. It uses those tools; it does not replace them.
+8. **No black-box autonomy.** Charles will not run unattended for days, spending money and shipping code, without approval gates. Autonomy is opt-in per department and reversible.
+9. **No model training.** Charles uses frontier models through their APIs. It does not fine-tune, host, or distill its own weights in v1.
 
 ---
 
-## 8. Product principles that prevent drift
+## Boundaries / protected systems
 
-1. **Protect the wedge**: renter/leasing qualification for new solo realtors.
-2. **Activation over vanity**: measure intake link generation and application completions, not page views.
-3. **Setup friction must stay low**: onboarding should feel like 3 minutes, not a configuration project.
-4. **AI must be practical and explainable**: score + label + summary, not opaque scores or vague recommendations.
-5. **Modern, calm, product-first tone**: the UI and copy should feel clean, not cluttered or enterprise-y.
-6. **Speed and clarity over breadth**: a smaller set of features that work well beats a larger set that feels busy.
-7. **Qualify, don't overwhelm**: the CRM exists to triage and follow up, not to manage entire real estate operations.
+These systems are non-negotiable. Any agent — human or AI — working in this repo must respect them. Touching them requires explicit approval and a paper trail.
+
+- **Auth** — Clerk. No bypasses. No shadow user tables. No "service accounts" with founder-level access.
+- **Billing** — Stripe. No direct charges outside the billing module. No agent has a card on file it can swipe without an approval event.
+- **Row-level security (RLS)** — every Supabase table is RLS-enforced. No service-role keys in client code. No queries that bypass the policy layer.
+- **Approval gating** — every external write goes through the approvals subsystem. No tool may bypass the gate; tools that try are rejected at the runtime layer.
+- **Kill switch** — a single founder-facing control that halts all agent activity, in-flight and queued. It must work in under one second. It is tested.
+- **Audit log** — every tool call, every approval, every external write is logged with actor, timestamp, payload, and outcome. The log is append-only and queryable.
+- **Cost tracker** — every model call, every paid API call, every cloud resource is metered against a per-founder budget. When the budget is exceeded, autonomy drops to `ask` automatically.
+
+---
+
+## Vocabulary
+
+One-line definitions. Use these terms consistently across code, copy, and conversation.
+
+- **Mission** — the one-sentence answer to "what is this company for?" Set once, edited rarely.
+- **Roadmap** — the ordered list of outcomes Charles is driving toward. Living document.
+- **Stage** — where the company is in `Idea → Initial → Identity → Building → Selling → Scaling`.
+- **Department** — one of the six specialist agents (Engineering, Sales, Marketing, Design, Support, Ops/Finance).
+- **Manager** — Charles itself; the single agent the founder talks to, which delegates to departments.
+- **Core Memory** — the small, always-injected set of persistent facts about the founder, the company, and the current state.
+- **Working Memory** — the per-turn scratchpad; discarded after the turn ends.
+- **Long-term Memory** — the pgvector store of everything else, recalled on demand.
+- **Approval** — a founder decision on a proposed external write. Granted, denied, or deferred.
+- **Autonomy Level** — per-department setting: `observe`, `ask`, `auto-low`, `autonomous`. Default `ask`.
+- **Integration** — a connection to an external system Charles can read from or write to (GitHub, Stripe, Resend, etc.).
+- **Toolkit** — the set of tools a department can call. Scoped per department; not shared globally.
+- **Plugin** — a third-party or user-authored bundle of skills, tools, and slash-commands that extends Charles.
