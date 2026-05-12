@@ -1,16 +1,12 @@
 /**
- * The catalog of third-party apps Chippi can connect to. One entry per app
- * the realtor sees in the integrations panel. Composio's catalog has 100+
- * toolkits — we curate the subset that matters for a real-estate workflow
- * and surface those by name. The rest are reachable but not promoted.
+ * The catalog of third-party apps Charles can connect to. One entry per app
+ * the founder sees in the integrations panel.
  *
- * Curation principles (Jobs lens):
- *   - Default-promote the apps a realtor would already pay for. No "browse
- *     all 100" wall.
- *   - One entry per app, one connect button per entry. No multi-step
- *     wizards inside an entry.
- *   - Categories are guidance, not a filter dropdown — they help the
- *     realtor scan, not configure.
+ * Curation principles:
+ *   - Ship with what a founder actually needs on day one. No 80-app wall.
+ *   - comingSoon: false only for integrations that are fully wired today.
+ *   - composioKey only where Composio has a real, tested toolkit.
+ *   - Max 30 entries total — cut anything that adds noise without value.
  *
  * The `toolkit` slug is what Composio knows the app as. We pass it
  * verbatim to `composio.toolkits.get(slug)` and to `composio.tools.list({
@@ -19,127 +15,287 @@
  */
 
 export type IntegrationCategory =
-  | 'email'
-  | 'messaging'
-  | 'calendar'
-  | 'docs'
-  | 'crm'
-  | 'real-estate'
-  | 'docs-sign'
-  | 'tasks'
-  | 'forms'
-  | 'video'
-  | 'storage';
+  | 'engineering'
+  | 'domains'
+  | 'payments'
+  | 'email-messaging'
+  | 'marketing-social'
+  | 'ai-generative'
+  | 'docs-files';
 
 export interface IntegrationApp {
-  /** Composio toolkit slug — the canonical id we pass to the SDK. */
+  /** Canonical slug — also the Composio toolkit slug where composioKey is set. */
   toolkit: string;
-  /** Display name shown to the realtor. */
+  /** Display name shown to the founder. */
   name: string;
-  /** One-line description. Realtor language, no marketing fluff. */
+  /** One-line description. Founder language, no marketing fluff. */
   blurb: string;
   category: IntegrationCategory;
   /**
    * Promoted apps appear at the top of the integrations panel. Non-
-   * promoted apps still connect but live in a "More" section. Default
-   * true — anything in this catalog is at least curated.
+   * promoted apps live in a "More" section. Default true.
    */
   promoted?: boolean;
   /**
-   * True for apps we surface in the catalog but don't yet have a Composio
-   * toolkit (or custom adapter) for. The UI renders a disabled
-   * "Coming soon" pill instead of a Connect button. The connect route
-   * 501s the slug as a defense-in-depth check — even if a stale client
-   * sends a request, the route names the app and refuses cleanly.
-   *
-   * No active OAuth path → no IntegrationConnection row → these slugs
-   * never reach the chat agent's tool list. Zero risk to the runtime.
+   * True for apps we surface but don't yet have a live OAuth path for.
+   * The UI renders a disabled "Coming soon" pill. The connect route 501s
+   * the slug. No IntegrationConnection row → these never reach the agent.
    */
   comingSoon?: boolean;
+  /**
+   * Composio toolkit key — only set where Composio has a real integration.
+   * When set, OAuth is handled through Composio's connect flow.
+   * When absent, the adapter is custom (e.g. direct GitHub OAuth, Stripe keys).
+   */
+  composioKey?: string;
 }
 
 /**
- * Slugs that exist in the catalog but have no Composio toolkit (or custom
- * adapter) behind them yet. The connect route 501s these and the UI renders
- * them as a disabled "Coming soon" pill. Single source of truth so the
- * route and the catalog can't drift.
+ * Slugs that exist in the catalog but have no live OAuth path yet.
+ * The connect route 501s these. Single source of truth — catalog and route
+ * can't drift.
  */
 export const COMING_SOON_TOOLKITS = new Set<string>([
-  'follow_up_boss',
-  'compass',
-  'boomtown',
-  'kvcore',
-  'real_geeks',
+  'gitlab',
+  'supabase',
+  'vercel',
+  'cloudflare',
+  'render',
+  'netlify',
+  'cloudflare_dns',
+  'namecheap',
+  'porkbun',
+  'vercel_domains',
+  'lemonsqueezy',
+  'paddle',
+  'loops',
+  'postmark',
+  'sendgrid',
+  'twilio',
+  'discord',
+  'twitter',
+  'linkedin',
+  'buffer',
+  'beehiiv',
+  'substack',
+  'google_analytics',
+  'posthog',
+  'plausible',
+  'openai',
+  'anthropic',
+  'replicate',
+  'runway',
+  'elevenlabs',
+  'figma',
+  'google_drive',
+  'dropbox',
 ]);
 
 /**
- * Catalog ordering matters — this is the order the realtor sees them.
- * Group within categories by use-frequency, not alphabetical.
+ * Catalog ordering matters — this is the order the founder sees them.
+ * Grouped by category, ordered by day-one utility within each group.
  */
 export const INTEGRATIONS: IntegrationApp[] = [
-  // ── Email ────────────────────────────────────────────────────────────
-  { toolkit: 'gmail', name: 'Gmail', blurb: 'Send drafts and watch for replies.', category: 'email', promoted: true },
-  { toolkit: 'outlook', name: 'Outlook', blurb: 'Same, for Microsoft accounts.', category: 'email', promoted: true },
+  // ── Engineering ──────────────────────────────────────────────────────
+  {
+    toolkit: 'github',
+    name: 'GitHub',
+    blurb: 'Create repos, push files, and open PRs from Charles.',
+    category: 'engineering',
+    promoted: true,
+    composioKey: 'github',
+  },
+  {
+    toolkit: 'linear',
+    name: 'Linear',
+    blurb: 'Create and update issues as Charles ships work.',
+    category: 'engineering',
+    promoted: true,
+    composioKey: 'linear',
+  },
+  {
+    toolkit: 'gitlab',
+    name: 'GitLab',
+    blurb: 'Same as GitHub, for GitLab-hosted repos.',
+    category: 'engineering',
+    comingSoon: true,
+  },
+  {
+    toolkit: 'vercel',
+    name: 'Vercel',
+    blurb: 'Deploy and manage projects.',
+    category: 'engineering',
+    comingSoon: true,
+  },
+  {
+    toolkit: 'supabase',
+    name: 'Supabase',
+    blurb: 'Run migrations and inspect your database.',
+    category: 'engineering',
+    comingSoon: true,
+  },
+  {
+    toolkit: 'sentry',
+    name: 'Sentry',
+    blurb: 'Surface errors and resolve issues.',
+    category: 'engineering',
+    comingSoon: true,
+  },
 
-  // ── Calendar ─────────────────────────────────────────────────────────
-  { toolkit: 'googlecalendar', name: 'Google Calendar', blurb: 'Schedule tours, block time, see availability.', category: 'calendar', promoted: true },
-  { toolkit: 'outlook_calendar', name: 'Outlook Calendar', blurb: 'Same, for Microsoft accounts.', category: 'calendar', promoted: true },
-  { toolkit: 'calendly', name: 'Calendly', blurb: 'Sync your booking link with Chippi.', category: 'calendar', promoted: true },
-  { toolkit: 'cal', name: 'Cal.com', blurb: 'Open-source booking pages.', category: 'calendar' },
+  // ── Payments ─────────────────────────────────────────────────────────
+  {
+    toolkit: 'stripe',
+    name: 'Stripe',
+    blurb: 'Read revenue, create payment links, manage subscriptions.',
+    category: 'payments',
+    promoted: true,
+  },
+  {
+    toolkit: 'lemonsqueezy',
+    name: 'Lemon Squeezy',
+    blurb: 'Merchant of record — products, checkouts, payouts.',
+    category: 'payments',
+    comingSoon: true,
+  },
+  {
+    toolkit: 'paddle',
+    name: 'Paddle',
+    blurb: 'Same, for Paddle.',
+    category: 'payments',
+    comingSoon: true,
+  },
 
-  // ── Messaging ────────────────────────────────────────────────────────
-  { toolkit: 'slack', name: 'Slack', blurb: 'Post deals, alerts, and updates to your team channel.', category: 'messaging', promoted: true },
-  { toolkit: 'discord', name: 'Discord', blurb: 'Same, for Discord servers.', category: 'messaging' },
-  { toolkit: 'microsoft_teams', name: 'Microsoft Teams', blurb: 'Same, for Teams channels.', category: 'messaging' },
+  // ── Email / Messaging ─────────────────────────────────────────────────
+  {
+    toolkit: 'resend',
+    name: 'Resend',
+    blurb: 'Send transactional and marketing email.',
+    category: 'email-messaging',
+    promoted: true,
+  },
+  {
+    toolkit: 'slack',
+    name: 'Slack',
+    blurb: 'Post updates and alerts to your team channel.',
+    category: 'email-messaging',
+    promoted: true,
+    composioKey: 'slack',
+  },
+  {
+    toolkit: 'loops',
+    name: 'Loops',
+    blurb: 'Lifecycle email for SaaS — events, sequences, broadcasts.',
+    category: 'email-messaging',
+    comingSoon: true,
+  },
+  {
+    toolkit: 'discord',
+    name: 'Discord',
+    blurb: 'Post updates to a Discord server.',
+    category: 'email-messaging',
+    comingSoon: true,
+  },
 
-  // ── Docs ─────────────────────────────────────────────────────────────
-  { toolkit: 'notion', name: 'Notion', blurb: 'Capture deals, tours, and notes in your workspace.', category: 'docs', promoted: true },
-  { toolkit: 'googledocs', name: 'Google Docs', blurb: 'Open and edit listing descriptions, scripts, briefs.', category: 'docs' },
-  { toolkit: 'googlesheets', name: 'Google Sheets', blurb: 'Update lead trackers and pipeline reports.', category: 'docs', promoted: true },
+  // ── Marketing / Social ────────────────────────────────────────────────
+  {
+    toolkit: 'twitter',
+    name: 'X (Twitter)',
+    blurb: 'Draft and post from your company account.',
+    category: 'marketing-social',
+    promoted: true,
+    comingSoon: true,
+  },
+  {
+    toolkit: 'posthog',
+    name: 'PostHog',
+    blurb: 'Query product analytics and funnels.',
+    category: 'marketing-social',
+    promoted: true,
+    comingSoon: true,
+  },
+  {
+    toolkit: 'linkedin',
+    name: 'LinkedIn',
+    blurb: 'Post updates to your company page.',
+    category: 'marketing-social',
+    comingSoon: true,
+  },
+  {
+    toolkit: 'beehiiv',
+    name: 'Beehiiv',
+    blurb: 'Send newsletters and grow your audience.',
+    category: 'marketing-social',
+    comingSoon: true,
+  },
+  {
+    toolkit: 'plausible',
+    name: 'Plausible',
+    blurb: 'Privacy-friendly web analytics.',
+    category: 'marketing-social',
+    comingSoon: true,
+  },
 
-  // ── Storage ──────────────────────────────────────────────────────────
-  { toolkit: 'googledrive', name: 'Google Drive', blurb: 'Pull listing photos and disclosures Chippi can attach to drafts.', category: 'storage' },
-  { toolkit: 'onedrive', name: 'OneDrive', blurb: 'Same, for Microsoft accounts.', category: 'storage' },
-  { toolkit: 'dropbox', name: 'Dropbox', blurb: 'Same, for Dropbox.', category: 'storage' },
+  // ── AI / Generative ───────────────────────────────────────────────────
+  {
+    toolkit: 'openai',
+    name: 'OpenAI',
+    blurb: 'Call GPT models and manage fine-tunes.',
+    category: 'ai-generative',
+    comingSoon: true,
+  },
+  {
+    toolkit: 'anthropic',
+    name: 'Anthropic',
+    blurb: 'Call Claude models directly.',
+    category: 'ai-generative',
+    comingSoon: true,
+  },
+  {
+    toolkit: 'replicate',
+    name: 'Replicate',
+    blurb: 'Run image, video, and audio models.',
+    category: 'ai-generative',
+    comingSoon: true,
+  },
+  {
+    toolkit: 'elevenlabs',
+    name: 'ElevenLabs',
+    blurb: 'Generate voice-overs and audio clips.',
+    category: 'ai-generative',
+    comingSoon: true,
+  },
+  {
+    toolkit: 'figma',
+    name: 'Figma',
+    blurb: 'Read designs and export assets.',
+    category: 'ai-generative',
+    comingSoon: true,
+  },
 
-  // ── CRM (general) ────────────────────────────────────────────────────
-  // HubSpot is the one most realtors land on. The rest are here for the
-  // brokerage that already lives inside Salesforce/Pipedrive/Zoho — we
-  // call out what's distinct so the row doesn't read as catalog padding.
-  { toolkit: 'hubspot', name: 'HubSpot', blurb: 'Sync deals and contacts both ways.', category: 'crm', promoted: true },
-  { toolkit: 'salesforce', name: 'Salesforce', blurb: 'Mirror to your brokerage Salesforce org.', category: 'crm' },
-  { toolkit: 'pipedrive', name: 'Pipedrive', blurb: 'Push pipeline stages into Pipedrive.', category: 'crm' },
-  { toolkit: 'zoho', name: 'Zoho CRM', blurb: 'Two-way sync with Zoho.', category: 'crm' },
-
-  // ── Real estate ──────────────────────────────────────────────────────
-  // None of these have a Composio toolkit today. We surface them in the
-  // catalog so the realtor sees their working set is recognized, render a
-  // disabled "Coming soon" pill, and ship custom adapters in follow-ups.
-  // Slugs are the canonical name in `snake_case` to match `follow_up_boss`.
-  { toolkit: 'follow_up_boss', name: 'Follow-up Boss', blurb: 'Sync your Follow-up Boss pipeline into Chippi.', category: 'real-estate', promoted: true, comingSoon: true },
-  { toolkit: 'compass', name: 'Compass', blurb: 'Sync your Compass pipeline.', category: 'real-estate', promoted: true, comingSoon: true },
-  { toolkit: 'boomtown', name: 'BoomTown', blurb: 'Pull BoomTown leads into Chippi.', category: 'real-estate', promoted: true, comingSoon: true },
-  { toolkit: 'kvcore', name: 'kvCORE', blurb: 'Pull kvCORE leads and tasks into Chippi.', category: 'real-estate', promoted: true, comingSoon: true },
-  { toolkit: 'real_geeks', name: 'Real Geeks', blurb: 'Pull Real Geeks leads into Chippi.', category: 'real-estate', comingSoon: true },
-
-  // ── Documents + signing ──────────────────────────────────────────────
-  { toolkit: 'docusign', name: 'DocuSign', blurb: 'Send contracts and disclosures for signature.', category: 'docs-sign', promoted: true },
-  { toolkit: 'dropbox_sign', name: 'Dropbox Sign', blurb: 'Same, for Dropbox Sign.', category: 'docs-sign' },
-
-  // ── Tasks / project management ───────────────────────────────────────
-  { toolkit: 'asana', name: 'Asana', blurb: 'Task list for follow-ups, listing prep, closing checklist.', category: 'tasks' },
-  { toolkit: 'trello', name: 'Trello', blurb: 'Boards for prospects, listings, closings.', category: 'tasks' },
-
-  // ── Forms / lead intake ──────────────────────────────────────────────
-  { toolkit: 'typeform', name: 'Typeform', blurb: 'Pull form responses into Chippi as new leads.', category: 'forms' },
-  { toolkit: 'googleforms', name: 'Google Forms', blurb: 'Same, for Google Forms.', category: 'forms' },
-
-  // ── Video / meetings ─────────────────────────────────────────────────
-  { toolkit: 'zoom', name: 'Zoom', blurb: 'Schedule virtual showings and broker calls.', category: 'video' },
-  { toolkit: 'googlemeet', name: 'Google Meet', blurb: 'Same, for Google Meet.', category: 'video' },
-
-  // ── Spreadsheets / lists ─────────────────────────────────────────────
-  { toolkit: 'airtable', name: 'Airtable', blurb: 'Two-way sync for custom pipelines and lists.', category: 'docs' },
+  // ── Docs / Files ──────────────────────────────────────────────────────
+  {
+    toolkit: 'notion',
+    name: 'Notion',
+    blurb: 'Read and write pages in your workspace.',
+    category: 'docs-files',
+    promoted: true,
+    composioKey: 'notion',
+  },
+  {
+    toolkit: 'google_drive',
+    name: 'Google Drive',
+    blurb: 'Read and upload files to Drive.',
+    category: 'docs-files',
+    composioKey: 'googledrive',
+    comingSoon: true,
+  },
+  {
+    toolkit: 'dropbox',
+    name: 'Dropbox',
+    blurb: 'Same, for Dropbox.',
+    category: 'docs-files',
+    comingSoon: true,
+  },
 ];
 
 /** Look up by slug. Returns undefined for unknown toolkits. */
