@@ -22,10 +22,8 @@ import {
   Eye,
   FileText,
   Home,
-  Inbox,
   LineChart,
   LogOut,
-  Mail,
   MessageSquare,
   Network,
   Palette,
@@ -60,12 +58,10 @@ export const COMMAND_ITEMS: readonly CommandItem[] = [
   // Workspace (nav)
   { id: 'home',      kind: 'nav', label: 'Home',              shortcut: 'H', icon: Home,          group: 'Workspace', href: '',           keywords: ['mission', 'dashboard', 'start'] },
   { id: 'chat',      kind: 'nav', label: 'Chat with Charles', shortcut: 'C', icon: MessageSquare, group: 'Workspace', href: '/chat',      keywords: ['ask', 'prompt', 'assistant', 'chippi'] },
-  { id: 'inbox',     kind: 'nav', label: 'Inbox',             shortcut: 'I', icon: Inbox,         group: 'Workspace', href: '/inbox',     keywords: ['approvals', 'drafts', 'review'] },
   { id: 'tasks',     kind: 'nav', label: 'Tasks',             shortcut: 'T', icon: CheckSquare,   group: 'Workspace', href: '/tasks',     keywords: ['todo', 'to-do', 'work'] },
   { id: 'documents', kind: 'nav', label: 'Documents',         shortcut: 'D', icon: BookOpen,      group: 'Workspace', href: '/documents', keywords: ['docs', 'memory', 'notes'] },
   { id: 'brand',     kind: 'nav', label: 'Brand',                            icon: Palette,       group: 'Workspace', href: '/brand',     keywords: ['identity', 'voice', 'logo'] },
   { id: 'analytics', kind: 'nav', label: 'Analytics',                        icon: LineChart,     group: 'Workspace', href: '/analytics', keywords: ['metrics', 'stats', 'numbers'] },
-  { id: 'campaigns', kind: 'nav', label: 'Campaigns',                        icon: Mail,          group: 'Workspace', href: '/campaigns', keywords: ['email', 'outreach', 'marketing'] },
   { id: 'agent-templates', kind: 'nav', label: 'Agent templates',             icon: Sparkles,      group: 'Workspace', href: '/agents/templates', keywords: ['workflows', 'subagents', 'builder', 'custom agents'] },
 
   // Create (action)
