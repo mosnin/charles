@@ -50,6 +50,7 @@ import { ORBIT_ORDER, orbitPoint } from '@/lib/canvas/orbit';
 import type { DeptCounts } from '@/lib/canvas/dept-counts';
 import type { AuditEvent } from '@/lib/observability/audit-feed';
 import { subscribeToDeptActivity, subscribeToAuditFeed } from '@/lib/canvas/realtime';
+import { useCanvasActivity } from '@/lib/convex/use-canvas-activity';
 
 export interface CanvasHomeProps {
   slug: string;
@@ -86,6 +87,49 @@ export function CanvasHome({
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [liveDeptCounts, setLiveDeptCounts] = useState(deptCounts);
   const [liveAuditFeed, setLiveAuditFeed] = useState(initialAuditFeed);
+
+  // Live activity layer from Convex. Empty array when Convex is
+  // unavailable — the server-loaded `liveDeptCounts` then stays as the
+  // source of truth and no ripple plays.
+  const activity = useCanvasActivity(slug);
+
+  // Derive (a) the most recent activity row id per dept (the ripple key)
+  // and (b) overridden running / queued counts when the live layer is on.
+  const { activityKeyByDept, overrideCounts } = useMemo(() => {
+    const keys = {} as Record<DepartmentSlug, string | undefined>;
+    const counts = {} as Record<DepartmentSlug, { running: number; queued: number } | undefined>;
+    if (activity.length === 0) return { activityKeyByDept: keys, overrideCounts: counts };
+
+    // First (top) row is most recent given the Convex query's sort.
+    for (const row of activity) {
+      const dept = row.department as DepartmentSlug;
+      if (!keys[dept]) keys[dept] = row.id;
+      const c = counts[dept] ?? { running: 0, queued: 0 };
+      if (row.kind === 'running') c.running += 1;
+      else if (row.kind === 'queued') c.queued += 1;
+      counts[dept] = c;
+    }
+    return { activityKeyByDept: keys, overrideCounts: counts };
+  }, [activity]);
+
+  function countsFor(deptSlug: DepartmentSlug): {
+    running: number;
+    queued: number;
+    idle: number;
+  } {
+    const server = liveDeptCounts[deptSlug];
+    const override = overrideCounts[deptSlug];
+    if (!override) {
+      return {
+        running: server?.running ?? 0,
+        queued: server?.queued ?? 0,
+        idle: server?.idle ?? 1,
+      };
+    }
+    const running = override.running;
+    const queued = override.queued;
+    return { running, queued, idle: running + queued > 0 ? 0 : 1 };
+  }
   const dragRef = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(
     null,
   );
@@ -308,26 +352,30 @@ export function CanvasHome({
               </div>
 
               {/* Dept nodes */}
-              {placements.map((p) => (
-                <div
-                  key={p.deptSlug}
-                  className="absolute"
-                  style={{
-                    left: p.x - NODE_W / 2,
-                    top: p.y - NODE_H / 2,
-                  }}
-                >
-                  <DeptNode
-                    spaceSlug={slug}
-                    deptSlug={p.deptSlug}
-                    name={DEPARTMENT_NAMES[p.deptSlug]}
-                    autonomyLevel={autonomyBySlug[p.deptSlug]}
-                    runningCount={liveDeptCounts[p.deptSlug]?.running ?? 0}
-                    queuedCount={liveDeptCounts[p.deptSlug]?.queued ?? 0}
-                    idleCount={liveDeptCounts[p.deptSlug]?.idle ?? 1}
-                  />
-                </div>
-              ))}
+              {placements.map((p) => {
+                const c = countsFor(p.deptSlug);
+                return (
+                  <div
+                    key={p.deptSlug}
+                    className="absolute"
+                    style={{
+                      left: p.x - NODE_W / 2,
+                      top: p.y - NODE_H / 2,
+                    }}
+                  >
+                    <DeptNode
+                      spaceSlug={slug}
+                      deptSlug={p.deptSlug}
+                      name={DEPARTMENT_NAMES[p.deptSlug]}
+                      autonomyLevel={autonomyBySlug[p.deptSlug]}
+                      runningCount={c.running}
+                      queuedCount={c.queued}
+                      idleCount={c.idle}
+                      activityKey={activityKeyByDept[p.deptSlug]}
+                    />
+                  </div>
+                );
+              })}
 
               {/* Empty placeholder slots — corners around the canvas */}
               {PLACEHOLDER_OFFSETS.map((p, i) => (
@@ -373,18 +421,22 @@ export function CanvasHome({
 
           {/* 6 dept cards — 2-column grid */}
           <div className="grid grid-cols-2 gap-3" data-testid="canvas-mobile-grid">
-            {ORBIT_ORDER.map((deptSlug) => (
-              <MobileDeptCard
-                key={deptSlug}
-                spaceSlug={slug}
-                deptSlug={deptSlug}
-                name={DEPARTMENT_NAMES[deptSlug]}
-                autonomyLevel={autonomyBySlug[deptSlug]}
-                runningCount={liveDeptCounts[deptSlug]?.running ?? 0}
-                queuedCount={liveDeptCounts[deptSlug]?.queued ?? 0}
-                idleCount={liveDeptCounts[deptSlug]?.idle ?? 1}
-              />
-            ))}
+            {ORBIT_ORDER.map((deptSlug) => {
+              const c = countsFor(deptSlug);
+              return (
+                <MobileDeptCard
+                  key={deptSlug}
+                  spaceSlug={slug}
+                  deptSlug={deptSlug}
+                  name={DEPARTMENT_NAMES[deptSlug]}
+                  autonomyLevel={autonomyBySlug[deptSlug]}
+                  runningCount={c.running}
+                  queuedCount={c.queued}
+                  idleCount={c.idle}
+                  activityKey={activityKeyByDept[deptSlug]}
+                />
+              );
+            })}
           </div>
 
           {githubRepo && (
@@ -477,6 +529,7 @@ function MobileDeptCard({
   runningCount,
   queuedCount,
   idleCount,
+  activityKey,
 }: {
   spaceSlug: string;
   deptSlug: DepartmentSlug;
@@ -485,13 +538,26 @@ function MobileDeptCard({
   runningCount: number;
   queuedCount: number;
   idleCount: number;
+  activityKey?: string;
 }) {
+  const [pulsing, setPulsing] = useState(false);
+  useEffect(() => {
+    if (!activityKey) return;
+    setPulsing(true);
+    const id = window.setTimeout(() => setPulsing(false), 1500);
+    return () => window.clearTimeout(id);
+  }, [activityKey]);
+
   return (
     <Link
       href={`/s/${spaceSlug}/d/${deptSlug}`}
       data-testid={`dept-node-mobile-${deptSlug}`}
       data-autonomy={autonomyLevel}
-      className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 active:border-slate-400"
+      data-pulsing={pulsing ? 'true' : undefined}
+      className={cn(
+        'flex flex-col gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 active:border-slate-400',
+        pulsing && 'dept-pulse',
+      )}
     >
       <div className="flex items-center gap-2">
         <Image

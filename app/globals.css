@@ -897,3 +897,20 @@
 @media (prefers-reduced-motion: reduce) {
   .chippi-cursor { animation: none; opacity: 1; }
 }
+
+/* Dept-node ripple — one soft bloom when a live canvasActivity row appears
+ * for this department. Single shot, eases out, then the card settles back.
+ * Tuned to feel alive, not jumpy: a slow opening, a clean fade. */
+@keyframes dept-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(44, 123, 229, 0); }
+  20%  { box-shadow: 0 0 0 2px rgba(44, 123, 229, 0.28); }
+  60%  { box-shadow: 0 0 0 6px rgba(44, 123, 229, 0.10); }
+  100% { box-shadow: 0 0 0 10px rgba(44, 123, 229, 0); }
+}
+.dept-pulse {
+  animation: dept-pulse 1.5s ease-out 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dept-pulse { animation: none; }
+}

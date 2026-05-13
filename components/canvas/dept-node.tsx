@@ -1,11 +1,18 @@
+'use client';
+
 /**
  * Department node — one of six small cards orbiting the centerpiece.
  *
  * Pixel-art dept icons resolve through `iconForDepartment` (lib/icons/
  * manifest.ts). Click target is the whole card; it routes to the
  * department detail page at `/s/{slug}/d/{deptSlug}`.
+ *
+ * When a live `activityKey` arrives (a new canvasActivity row id from
+ * Convex), the card pulses once and settles. The key is what the parent
+ * passes — same key, no re-pulse; new key, ripple again.
  */
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
@@ -21,8 +28,13 @@ interface Props {
   runningCount?: number;
   queuedCount?: number;
   idleCount?: number;
+  /** Most recent canvasActivity row id seen for this dept. Triggers a
+   *  one-shot ripple when it changes. Undefined = no live layer. */
+  activityKey?: string;
   className?: string;
 }
+
+const PULSE_MS = 1500;
 
 export function DeptNode({
   spaceSlug,
@@ -32,16 +44,28 @@ export function DeptNode({
   runningCount = 0,
   queuedCount = 0,
   idleCount = 0,
+  activityKey,
   className,
 }: Props) {
+  const [pulsing, setPulsing] = useState(false);
+
+  useEffect(() => {
+    if (!activityKey) return;
+    setPulsing(true);
+    const id = window.setTimeout(() => setPulsing(false), PULSE_MS);
+    return () => window.clearTimeout(id);
+  }, [activityKey]);
+
   return (
     <Link
       href={`/s/${spaceSlug}/d/${deptSlug}`}
       data-testid={`dept-node-${deptSlug}`}
       data-autonomy={autonomyLevel}
+      data-pulsing={pulsing ? 'true' : undefined}
       className={cn(
         'group flex w-[120px] flex-col gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-2',
         'hover:border-slate-400 transition-colors duration-150',
+        pulsing && 'dept-pulse',
         className,
       )}
     >

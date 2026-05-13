@@ -27,6 +27,14 @@
     {
       "path": "/api/cron/daily-briefing",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/canvas-activity-bridge",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/audit-backfill",
+      "schedule": "*/10 * * * *"
     }
   ],
   "headers": [
