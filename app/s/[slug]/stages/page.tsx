@@ -90,7 +90,7 @@ export default async function StagesPage({
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] px-6 pt-10 pb-24 space-y-8">
+    <div className="mx-auto w-full max-w-[1500px] px-4 pt-6 pb-20 space-y-6 md:px-6 md:pt-10 md:pb-24 md:space-y-8">
       <header className="space-y-2">
         <p className={cn(BODY_MUTED, 'font-mono text-[11px] uppercase tracking-wide')}>
           Stages

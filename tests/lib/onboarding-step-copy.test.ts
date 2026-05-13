@@ -15,13 +15,18 @@ import {
 } from '@/app/onboarding/step-copy';
 
 describe('STEP_IDS', () => {
-  it('has exactly three steps in fixed order', () => {
-    expect(STEP_IDS).toEqual(['company', 'idea', 'github']);
-    expect(TOTAL_STEPS).toBe(3);
+  it('has exactly four steps in fixed order', () => {
+    expect(STEP_IDS).toEqual(['company', 'idea', 'github', 'template']);
+    expect(TOTAL_STEPS).toBe(4);
   });
 
-  it('ends with the GitHub step (the connector + finish step)', () => {
-    expect(STEP_IDS[STEP_IDS.length - 1]).toBe('github');
+  it('ends with the template step (the optional starting-point picker)', () => {
+    expect(STEP_IDS[STEP_IDS.length - 1]).toBe('template');
+  });
+
+  it('puts the GitHub connector step just before the optional template step', () => {
+    const githubIdx = STEP_IDS.indexOf('github');
+    expect(githubIdx).toBe(STEP_IDS.length - 2);
   });
 });
 
@@ -75,6 +80,10 @@ describe('STEP_COPY', () => {
     expect(STEP_COPY.github.fields).toBeUndefined();
   });
 
+  it('template step has no fields (it is a picker step)', () => {
+    expect(STEP_COPY.template.fields).toBeUndefined();
+  });
+
   it('max-length caps match the existing form contract', () => {
     const company = STEP_COPY.company.fields ?? [];
     expect(company.find((f) => f.key === 'companyName')?.maxLength).toBe(120);
@@ -117,9 +126,10 @@ describe('STEP_COPY', () => {
 
 describe('stepChip', () => {
   it('renders 1-indexed chip strings', () => {
-    expect(stepChip(0)).toBe('step 1 / 3');
-    expect(stepChip(1)).toBe('step 2 / 3');
-    expect(stepChip(2)).toBe('step 3 / 3');
+    expect(stepChip(0)).toBe('step 1 / 4');
+    expect(stepChip(1)).toBe('step 2 / 4');
+    expect(stepChip(2)).toBe('step 3 / 4');
+    expect(stepChip(3)).toBe('step 4 / 4');
   });
 
   it('is lowercase (mono chip convention)', () => {

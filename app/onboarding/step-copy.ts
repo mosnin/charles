@@ -11,7 +11,7 @@
  * Field copy stays minimal — placeholders are nudges, not instructions.
  */
 
-export const STEP_IDS = ['company', 'idea', 'github'] as const;
+export const STEP_IDS = ['company', 'idea', 'github', 'template'] as const;
 export type StepId = (typeof STEP_IDS)[number];
 
 export const TOTAL_STEPS = STEP_IDS.length;
@@ -92,6 +92,12 @@ export const STEP_COPY: Record<StepId, StepCopy> = {
     id: 'github',
     title: 'Connect GitHub.',
     subtitle: 'Charles needs a repo to scaffold, branch, and open PRs against.',
+  },
+  template: {
+    id: 'template',
+    title: 'Pick a starting point.',
+    subtitle:
+      'Each template seeds your mission, gates, and documents. Skip if you want a blank workspace.',
   },
 };
 

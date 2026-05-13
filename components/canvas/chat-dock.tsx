@@ -14,6 +14,13 @@
  *
  * Realtime push lives in Wave 3 — this pass intentionally uses polling so
  * we don't take on a new Supabase subscription contract in the same wave.
+ *
+ * Responsive contract:
+ *   - Default ("desktop") variant: hidden below md, 420px right-docked at md+.
+ *     The CanvasHome renders a separate mobile chat overlay anchored to a FAB.
+ *   - "mobile" variant: full-width, always visible, no collapse rail. Used
+ *     inside the mobile full-screen overlay so the founder gets the same
+ *     content (5 tabs, audit feed, prompt input) on a small screen.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -38,11 +45,17 @@ interface Props {
   slug: string;
   /** Server-rendered initial events. Refreshed in-place by the polling effect. */
   initialAuditFeed: AuditEvent[];
+  /**
+   * "desktop" (default): hidden below md, 420px right-docked at md+.
+   * "mobile": full-width, no collapse rail. Used inside the mobile overlay.
+   */
+  variant?: 'desktop' | 'mobile';
 }
 
-export function ChatDock({ slug, initialAuditFeed }: Props) {
+export function ChatDock({ slug, initialAuditFeed, variant = 'desktop' }: Props) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState<boolean>(false);
+  const isMobile = variant === 'mobile';
   const [tab, setTab] = useState<Tab>('Home');
   const [value, setValue] = useState('');
   const [events, setEvents] = useState<AuditEvent[]>(initialAuditFeed);
@@ -107,12 +120,14 @@ export function ChatDock({ slug, initialAuditFeed }: Props) {
     router.push(`/s/${slug}/chat?prompt=${encodeURIComponent(v)}`);
   }
 
-  if (collapsed) {
+  // Collapsed rail only exists on desktop. Mobile overlay never collapses —
+  // the overlay's X button is how you dismiss it.
+  if (collapsed && !isMobile) {
     return (
       <aside
         data-testid="chat-dock"
         data-collapsed="true"
-        className="flex h-full w-8 flex-col items-center border-l border-slate-200 bg-white py-2"
+        className="hidden h-full w-8 flex-col items-center border-l border-slate-200 bg-white py-2 md:flex"
       >
         <button
           type="button"
@@ -133,7 +148,13 @@ export function ChatDock({ slug, initialAuditFeed }: Props) {
     <aside
       data-testid="chat-dock"
       data-collapsed="false"
-      className="flex h-full w-[420px] flex-col border-l border-slate-200 bg-white"
+      data-variant={variant}
+      className={cn(
+        'h-full flex-col bg-white',
+        isMobile
+          ? 'flex w-full'
+          : 'hidden w-[420px] border-l border-slate-200 md:flex',
+      )}
     >
       {/* Tabs */}
       <div className="flex h-10 items-stretch border-b border-slate-200">
@@ -153,14 +174,16 @@ export function ChatDock({ slug, initialAuditFeed }: Props) {
             {t}
           </button>
         ))}
-        <button
-          type="button"
-          aria-label="Collapse chat dock"
-          onClick={toggleCollapsed}
-          className="flex w-8 items-center justify-center border-l border-slate-200 text-slate-400 hover:text-slate-900"
-        >
-          <ChevronRight size={14} />
-        </button>
+        {!isMobile && (
+          <button
+            type="button"
+            aria-label="Collapse chat dock"
+            onClick={toggleCollapsed}
+            className="flex w-8 items-center justify-center border-l border-slate-200 text-slate-400 hover:text-slate-900"
+          >
+            <ChevronRight size={14} />
+          </button>
+        )}
       </div>
 
       {/* Thread */}

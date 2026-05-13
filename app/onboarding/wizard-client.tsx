@@ -40,6 +40,7 @@ import {
   type StepId,
   type FieldCopy,
 } from './step-copy';
+import { WORKSPACE_TEMPLATES } from '@/lib/workspace-templates/catalog';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -52,6 +53,7 @@ interface FormValues {
   targetCustomer: string;
   githubConnected: boolean;
   githubSkipped: boolean;
+  templateSlug: string; // empty = skipped
 }
 
 interface WizardClientProps {
@@ -90,6 +92,7 @@ export function WizardClient({ defaultFounderName = '' }: WizardClientProps) {
     targetCustomer: '',
     githubConnected: false,
     githubSkipped: false,
+    templateSlug: '',
   });
 
   const set = useCallback(
@@ -127,6 +130,22 @@ export function WizardClient({ defaultFounderName = '' }: WizardClientProps) {
       if (!res.ok) {
         throw new Error(data?.error ?? `Request failed (${res.status})`);
       }
+
+      // Optional template apply — non-fatal. If it fails the founder still
+      // lands in a clean workspace; they can pick a template from
+      // /s/[slug]/templates later.
+      if (values.templateSlug) {
+        try {
+          await fetch('/api/workspace-templates/apply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ templateSlug: values.templateSlug }),
+          });
+        } catch {
+          // Swallow — landing in the workspace beats a broken redirect.
+        }
+      }
+
       router.push(`/s/${data.slug}`);
     } catch (err) {
       const msg =
@@ -226,11 +245,18 @@ export function WizardClient({ defaultFounderName = '' }: WizardClientProps) {
               connecting={connectingGitHub}
             />
           )}
+
+          {stepId === 'template' && (
+            <TemplateBody
+              selected={values.templateSlug}
+              onSelect={(slug) => set('templateSlug', slug)}
+            />
+          )}
         </div>
 
         {/* ── Footer: primary + skip ────────────────────────────── */}
         <div className="mt-10 flex w-full max-w-lg flex-col items-center gap-4">
-          {stepId !== 'github' && (
+          {stepId !== 'github' && stepId !== 'template' && (
             <button
               type="button"
               onClick={goNext}
@@ -244,6 +270,37 @@ export function WizardClient({ defaultFounderName = '' }: WizardClientProps) {
               Next
               <ArrowRight size={14} />
             </button>
+          )}
+
+          {stepId === 'template' && (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  set('templateSlug', '');
+                  void finalize();
+                }}
+                disabled={submitting}
+                className="text-sm italic text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+              >
+                Skip — I&apos;ll set it up myself
+              </button>
+              <button
+                type="button"
+                onClick={goNext}
+                disabled={submitting || !values.templateSlug}
+                className={cn(
+                  PRIMARY_PILL,
+                  'h-11 px-7',
+                  'disabled:cursor-not-allowed disabled:opacity-40',
+                )}
+              >
+                {submitting ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : null}
+                {submitting ? 'Finishing' : 'Apply and finish'}
+              </button>
+            </div>
           )}
 
           {stepId === 'github' && (
@@ -372,6 +429,42 @@ function MultiFieldBody({
 interface GitHubBodyProps {
   connected: boolean;
   connecting: boolean;
+}
+
+interface TemplateBodyProps {
+  selected: string;
+  onSelect: (slug: string) => void;
+}
+
+function TemplateBody({ selected, onSelect }: TemplateBodyProps) {
+  return (
+    <div className="grid gap-2.5">
+      {WORKSPACE_TEMPLATES.map((t) => {
+        const isSelected = selected === t.slug;
+        return (
+          <button
+            key={t.slug}
+            type="button"
+            onClick={() => onSelect(t.slug)}
+            className={cn(
+              'group rounded-xl border bg-background p-4 text-left transition-colors',
+              isSelected
+                ? 'border-foreground/60 ring-2 ring-foreground/20'
+                : 'border-border/70 hover:border-foreground/30',
+            )}
+          >
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="font-serif text-base font-medium">{t.name}</span>
+              <span className={cn(BODY_MUTED, 'shrink-0 text-xs')}>
+                {isSelected ? 'Selected' : ''}
+              </span>
+            </div>
+            <p className={cn(BODY_MUTED, 'mt-1 text-sm')}>{t.blurb}</p>
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 function GitHubBody({ connected, connecting }: GitHubBodyProps) {

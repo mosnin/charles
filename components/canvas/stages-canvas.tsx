@@ -3,10 +3,15 @@
 /**
  * Stages kanban canvas.
  *
- * Six columns flowing left-to-right, dotted grid underneath, dashed
- * connectors between adjacent columns. One column per stage in
+ * Desktop (md+): six columns flowing left-to-right, dotted grid underneath,
+ * dashed connectors between adjacent columns. One column per stage in
  * STAGE_ORDER; each column renders the gates that live in it (DB rows
  * when present, catalog placeholders when not).
+ *
+ * Mobile (< md): the same six stages stacked vertically as full-width
+ * sections. No horizontal scroll, no ConnectorOverlay — the dashed S-curve
+ * only makes visual sense horizontally. Each section keeps its MonoChip
+ * header and completion count above its task cards.
  *
  * Per-column visual contract:
  *   header → MonoChip with "<stage> stage" + completion count
@@ -57,7 +62,8 @@ export function StagesCanvas({ slug, currentStage, columns, placeholderStages }:
       >
         <GridBackground className="bg-grid-strong" />
 
-        <div className="relative flex flex-row gap-6 px-6 py-8 min-w-max">
+        {/* Mobile: stacked column. Desktop: horizontal row with min-width. */}
+        <div className="relative flex flex-col gap-8 px-5 py-6 md:flex-row md:gap-6 md:px-6 md:py-8 md:min-w-max">
           {STAGE_ORDER.map((stage) => {
             const stageIndex = STAGE_ORDER.indexOf(stage);
             const cards = columns[stage];
@@ -73,7 +79,7 @@ export function StagesCanvas({ slug, currentStage, columns, placeholderStages }:
             return (
               <div
                 key={stage}
-                className="flex w-[280px] flex-shrink-0 flex-col gap-3"
+                className="flex w-full flex-col gap-3 md:w-[280px] md:flex-shrink-0"
                 data-stage={stage}
               >
                 <ColumnHeader
@@ -113,7 +119,11 @@ export function StagesCanvas({ slug, currentStage, columns, placeholderStages }:
           })}
         </div>
 
-        <ConnectorOverlay pairs={pairs} containerRef={scrollerRef} />
+        {/* Connector overlay — desktop only. The S-curves only resolve
+            visually when columns sit side-by-side. */}
+        <div className="hidden md:block">
+          <ConnectorOverlay pairs={pairs} containerRef={scrollerRef} />
+        </div>
       </div>
     </div>
   );

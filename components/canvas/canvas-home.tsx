@@ -3,9 +3,21 @@
 /**
  * CanvasHome — the marquee surface of Charles.
  *
- * One screen. The mission at the heart of an orbit; six departments around
- * it; the chat dock on the right. The founder pans and zooms the canvas
- * with the mouse; the chrome stays fixed.
+ * Desktop (md+): the mission at the heart of an orbit; six departments
+ * around it; the chat dock on the right. The founder pans and zooms the
+ * canvas with the mouse; the chrome stays fixed.
+ *
+ * Mobile (< md): the orbit doesn't fit and panning a 375px viewport isn't
+ * navigation. We stack — sapling + workspace name at the top, the six dept
+ * cards in a 2-column grid below, and a floating "Chat with Charles"
+ * button that opens the dock as a full-screen overlay.
+ *
+ * Responsive contract:
+ *   - Tailwind `md:` breakpoint (768px) is the cut.
+ *   - Desktop layout: `hidden md:flex` on the orbital section + dock.
+ *   - Mobile layout:  `flex md:hidden` on the stacked section.
+ *   - The chat dock on mobile is a full-screen overlay anchored to a FAB.
+ *   - No SVG connectors on mobile — they only make sense in the orbit.
  *
  * The pan/zoom is a single transform on the canvas inner layer — no deps,
  * no physics, no spring. `scale` is clamped 0.5–1.5; `translate` is free.
@@ -13,22 +25,26 @@
 
 import {
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from 'react';
-import { FolderOpen, Search } from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { FolderOpen, MessageSquare, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AutonomyLevel, DepartmentSlug } from '@/lib/departments/autonomy';
 import { DEPARTMENT_NAMES } from '@/lib/departments/autonomy';
+import { iconForDepartment } from '@/lib/icons/manifest';
 import { MONO_CHIP } from '@/lib/typography';
 import { GridBackground } from './grid-background';
 import { CenterPiece } from './center-piece';
 import { DeptNode } from './dept-node';
 import { ChatDock } from './chat-dock';
+import { Sapling } from './sapling';
+import { StatusDot } from './status-dot';
 import { ORBIT_ORDER, orbitPoint } from '@/lib/canvas/orbit';
 import type { DeptCounts } from '@/lib/canvas/dept-counts';
 import type { AuditEvent } from '@/lib/observability/audit-feed';
@@ -65,6 +81,7 @@ export function CanvasHome({
 }: CanvasHomeProps) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(
     null,
   );
@@ -121,8 +138,9 @@ export function CanvasHome({
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-white">
+      {/* ─── Desktop (md+): orbital canvas + right-docked chat ─────────── */}
       <section
-        className="relative flex-1 overflow-hidden select-none"
+        className="relative hidden flex-1 overflow-hidden select-none md:block"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -284,7 +302,94 @@ export function CanvasHome({
         </div>
       </section>
 
+      {/* Desktop chat dock — hidden on mobile via its own md: classes. */}
       <ChatDock slug={slug} initialAuditFeed={initialAuditFeed} />
+
+      {/* ─── Mobile (< md): vertical stack ─────────────────────────────── */}
+      <section
+        className="relative flex-1 overflow-y-auto md:hidden"
+        data-testid="canvas-mobile"
+      >
+        <GridBackground />
+
+        <div className="relative z-10 flex flex-col gap-6 px-5 pt-6 pb-28">
+          {/* Workspace name + sapling row */}
+          <div className="flex flex-col items-center gap-2 text-center">
+            <Sapling size={40} />
+            <h1
+              className="max-w-[260px] truncate text-[20px] font-semibold text-slate-900"
+              data-testid="canvas-mobile-title"
+            >
+              {workspaceName}
+            </h1>
+          </div>
+
+          {/* 6 dept cards — 2-column grid */}
+          <div className="grid grid-cols-2 gap-3" data-testid="canvas-mobile-grid">
+            {ORBIT_ORDER.map((deptSlug) => (
+              <MobileDeptCard
+                key={deptSlug}
+                spaceSlug={slug}
+                deptSlug={deptSlug}
+                name={DEPARTMENT_NAMES[deptSlug]}
+                autonomyLevel={autonomyBySlug[deptSlug]}
+                runningCount={deptCounts[deptSlug]?.running ?? 0}
+                queuedCount={deptCounts[deptSlug]?.queued ?? 0}
+                idleCount={deptCounts[deptSlug]?.idle ?? 1}
+              />
+            ))}
+          </div>
+
+          {githubRepo && (
+            <div className="text-center">
+              <span className="font-mono text-[10px] text-slate-400">{githubRepo}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Floating chat FAB (mobile only) */}
+        <button
+          type="button"
+          onClick={() => setMobileChatOpen(true)}
+          className="fixed bottom-5 right-5 z-30 inline-flex h-12 items-center gap-2 rounded-full bg-slate-900 px-4 text-[13px] font-medium text-white shadow-none active:bg-slate-800 md:hidden"
+          data-testid="mobile-chat-fab"
+          aria-label="Chat with Charles"
+        >
+          <MessageSquare size={16} />
+          <span>Chat with Charles</span>
+        </button>
+
+        {/* Full-screen chat overlay */}
+        {mobileChatOpen && (
+          <div
+            className="fixed inset-0 z-40 flex flex-col bg-white md:hidden"
+            data-testid="mobile-chat-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Chat with Charles"
+          >
+            <div className="flex h-12 items-center justify-between border-b border-slate-200 px-3">
+              <span className="text-[13px] font-medium text-slate-900">Charles</span>
+              <button
+                type="button"
+                onClick={() => setMobileChatOpen(false)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md text-slate-500 active:text-slate-900"
+                aria-label="Close chat"
+                data-testid="mobile-chat-close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0">
+              <ChatDock
+                slug={slug}
+                initialAuditFeed={initialAuditFeed}
+                variant="mobile"
+              />
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
@@ -308,6 +413,70 @@ function IconBtn({ label, children }: { label: string; children: React.ReactNode
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * MobileDeptCard — wider, shorter alternative to DeptNode for the 2-col grid.
+ *
+ * Same data, calmer layout — the orbital DeptNode squeezes counts into 120px;
+ * here we have ~160px+ per cell so the icon can breathe and the counts read.
+ */
+function MobileDeptCard({
+  spaceSlug,
+  deptSlug,
+  name,
+  autonomyLevel,
+  runningCount,
+  queuedCount,
+  idleCount,
+}: {
+  spaceSlug: string;
+  deptSlug: DepartmentSlug;
+  name: string;
+  autonomyLevel: AutonomyLevel;
+  runningCount: number;
+  queuedCount: number;
+  idleCount: number;
+}) {
+  return (
+    <Link
+      href={`/s/${spaceSlug}/d/${deptSlug}`}
+      data-testid={`dept-node-mobile-${deptSlug}`}
+      data-autonomy={autonomyLevel}
+      className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 active:border-slate-400"
+    >
+      <div className="flex items-center gap-2">
+        <Image
+          src={iconForDepartment(deptSlug)}
+          alt=""
+          width={24}
+          height={24}
+          className="h-6 w-6 flex-shrink-0"
+          aria-hidden
+        />
+        <span className="truncate text-[13px] font-medium text-slate-900">{name}</span>
+      </div>
+      <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+        {runningCount > 0 ? (
+          <span className="inline-flex items-center gap-1">
+            <StatusDot tone="running" />
+            <span className="font-mono tabular-nums">{runningCount}</span>
+          </span>
+        ) : (
+          <StatusDot tone="idle" />
+        )}
+        {queuedCount > 0 && (
+          <span className="inline-flex items-center gap-1">
+            <StatusDot tone="queued" />
+            <span className="font-mono tabular-nums">{queuedCount}</span>
+          </span>
+        )}
+        <span className="ml-auto font-mono text-[10px] tabular-nums text-slate-400">
+          {idleCount}
+        </span>
+      </div>
+    </Link>
   );
 }
 
