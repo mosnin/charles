@@ -1,41 +1,55 @@
 'use client';
 
 /**
- * Charles onboarding — 3-step wizard.
+ * Charles onboarding — 3-step wizard, cofounder.co aesthetic.
  *
  * Step 1 — Company: name, tagline, founder name
  * Step 2 — Idea: what you're building, one-line pitch, target customer
  * Step 3 — GitHub: connect via Composio OAuth, or skip
  *
- * On complete: POST /api/onboarding/complete → redirect to /s/{slug}
+ * Visuals:
+ *  - Sapling mascot top-center (small, ~32px).
+ *  - Serif H1 (SERIF_DISPLAY) per step.
+ *  - Mono "step n / 3" chip under the sapling.
+ *  - Dotted-grid background (.bg-grid).
+ *  - Black pill primary, italic muted skip.
+ *
+ * Form fields + API contract are unchanged. Only visuals + copy moved.
+ * On complete: POST /api/onboarding/complete → redirect to /s/{slug}.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Github, Loader2 } from 'lucide-react';
-import { OnboardingShell } from '@/components/onboarding/onboarding-shell';
+import { ArrowRight, Github, Loader2 } from 'lucide-react';
+import { Sapling } from '@/components/canvas/sapling';
+import { GridBackground } from '@/components/canvas/grid-background';
 import {
-  MultiFieldStep,
-  StepScaffold,
-} from '@/components/onboarding/onboarding-steps';
+  BODY_MUTED,
+  MONO_CHIP,
+  PRIMARY_PILL,
+  SECTION_LABEL,
+  SERIF_DISPLAY,
+} from '@/lib/typography';
+import { cn } from '@/lib/utils';
+import {
+  STEP_IDS,
+  STEP_COPY,
+  TOTAL_STEPS,
+  stepChip,
+  type StepId,
+  type FieldCopy,
+} from './step-copy';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type StepId = 'company' | 'idea' | 'github';
-
-const STEPS: StepId[] = ['company', 'idea', 'github'];
-
 interface FormValues {
-  // Step 1
   companyName: string;
   tagline: string;
   founderName: string;
-  // Step 2
   whatBuilding: string;
   oneLinePitch: string;
   targetCustomer: string;
-  // Step 3
   githubConnected: boolean;
   githubSkipped: boolean;
 }
@@ -43,6 +57,20 @@ interface FormValues {
 interface WizardClientProps {
   defaultFounderName?: string;
 }
+
+// ── Shared input styling ───────────────────────────────────────────────────
+
+const INPUT_CLASS =
+  'w-full h-11 rounded-md border border-border/70 bg-background px-3 text-base text-foreground ' +
+  'placeholder:text-muted-foreground/60 outline-none transition-colors ' +
+  'focus:border-foreground/40';
+
+const TEXTAREA_CLASS =
+  'w-full rounded-md border border-border/70 bg-background px-3 py-2.5 text-base text-foreground ' +
+  'placeholder:text-muted-foreground/60 outline-none transition-colors resize-none ' +
+  'focus:border-foreground/40';
+
+const LABEL_CLASS = cn(SECTION_LABEL, 'mb-2 block');
 
 // ── Component ──────────────────────────────────────────────────────────────
 
@@ -71,52 +99,14 @@ export function WizardClient({ defaultFounderName = '' }: WizardClientProps) {
     [],
   );
 
-  const stepId = STEPS[stepIndex];
-  const isLastStep = stepIndex === STEPS.length - 1;
+  const stepId: StepId = STEP_IDS[stepIndex];
+  const isLastStep = stepIndex === TOTAL_STEPS - 1;
 
   const goBack = useCallback(() => {
     setStepIndex((i) => Math.max(0, i - 1));
   }, []);
 
-  const goNext = useCallback(async () => {
-    if (!isLastStep) {
-      setStepIndex((i) => i + 1);
-      return;
-    }
-    await finalize();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLastStep]);
-
-  async function connectGitHub() {
-    if (connectingGitHub) return;
-    setConnectingGitHub(true);
-    try {
-      const res = await fetch('/api/integrations/connect/github', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        toast.error(data?.error ?? 'Could not start GitHub connection.');
-        return;
-      }
-      if (data?.url) {
-        // OAuth redirect — the user returns post-auth; we set githubConnected
-        // as a best-effort flag before redirect.
-        set('githubConnected', true);
-        window.location.href = data.url;
-      } else {
-        toast.error('No auth URL returned. Try again.');
-      }
-    } catch {
-      toast.error('Network error. Try again.');
-    } finally {
-      setConnectingGitHub(false);
-    }
-  }
-
-  async function finalize() {
+  const finalize = useCallback(async () => {
     setSubmitting(true);
     try {
       const res = await fetch('/api/onboarding/complete', {
@@ -139,178 +129,289 @@ export function WizardClient({ defaultFounderName = '' }: WizardClientProps) {
       }
       router.push(`/s/${data.slug}`);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Something went wrong. Try again.';
+      const msg =
+        err instanceof Error ? err.message : 'Something went wrong. Try again.';
       toast.error(msg);
       setSubmitting(false);
     }
+  }, [router, values]);
+
+  const goNext = useCallback(async () => {
+    if (!isLastStep) {
+      setStepIndex((i) => i + 1);
+      return;
+    }
+    await finalize();
+  }, [isLastStep, finalize]);
+
+  async function connectGitHub() {
+    if (connectingGitHub) return;
+    setConnectingGitHub(true);
+    try {
+      const res = await fetch('/api/integrations/connect/github', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data?.error ?? 'Could not start GitHub connection.');
+        return;
+      }
+      if (data?.url) {
+        set('githubConnected', true);
+        window.location.href = data.url;
+      } else {
+        toast.error('No auth URL returned. Try again.');
+      }
+    } catch {
+      toast.error('Network error. Try again.');
+    } finally {
+      setConnectingGitHub(false);
+    }
   }
 
+  const step = STEP_COPY[stepId];
+
+  // Field value resolver — keeps render below stateless.
+  const fieldValue = (key: string): string => {
+    return (values[key as keyof FormValues] as string) ?? '';
+  };
+
+  // For the first two steps, "require any" — at least one non-empty field.
+  const multiFieldDisabled =
+    step.fields !== undefined &&
+    !step.fields.some((f) => fieldValue(f.key).trim().length > 0);
+
   return (
-    <OnboardingShell
-      stepIndex={stepIndex}
-      totalSteps={STEPS.length}
-      stepKey={stepId}
-      onBack={stepIndex > 0 && !submitting ? goBack : undefined}
-    >
-      {/* ── Step 1: Company ──────────────────────────────────────────── */}
-      {stepId === 'company' && (
-        <MultiFieldStep
-          title="What are you building?"
-          subtitle="Start with a name. Everything else can be refined later."
-          fields={[
-            {
-              key: 'companyName',
-              label: 'Company name',
-              placeholder: 'Acme',
-              value: values.companyName,
-              onChange: (v) => set('companyName', v),
-              maxLength: 120,
-            },
-            {
-              key: 'tagline',
-              label: 'Tagline',
-              placeholder: 'One sentence that says what you build',
-              value: values.tagline,
-              onChange: (v) => set('tagline', v),
-              maxLength: 200,
-            },
-            {
-              key: 'founderName',
-              label: 'Your name',
-              placeholder: 'Alex Kim',
-              value: values.founderName,
-              onChange: (v) => set('founderName', v),
-              maxLength: 120,
-            },
-          ]}
-          onNext={goNext}
-          requireAny
-        />
-      )}
+    <main className="relative min-h-screen w-full overflow-hidden bg-background text-foreground">
+      <GridBackground />
 
-      {/* ── Step 2: Idea ─────────────────────────────────────────────── */}
-      {stepId === 'idea' && (
-        <MultiFieldStep
-          title="Tell Charles about the idea"
-          subtitle="Be specific. Charles uses this to scope work for you."
-          fields={[
-            {
-              key: 'whatBuilding',
-              label: 'What are you building?',
-              placeholder: '2–3 sentences. What does it do and why does it matter?',
-              value: values.whatBuilding,
-              onChange: (v) => set('whatBuilding', v),
-              maxLength: 800,
-              multiline: true,
-              rows: 3,
-            },
-            {
-              key: 'oneLinePitch',
-              label: 'One-line pitch',
-              placeholder: 'What does it do, for whom?',
-              value: values.oneLinePitch,
-              onChange: (v) => set('oneLinePitch', v),
-              maxLength: 200,
-            },
-            {
-              key: 'targetCustomer',
-              label: 'Target customer',
-              placeholder: 'Who has the problem you are solving?',
-              value: values.targetCustomer,
-              onChange: (v) => set('targetCustomer', v),
-              maxLength: 200,
-            },
-          ]}
-          onNext={goNext}
-          requireAny
-        />
-      )}
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-2xl flex-col items-center px-6 py-16 md:py-24">
+        {/* ── Top: sapling + step chip ────────────────────────────── */}
+        <div className="flex flex-col items-center gap-3">
+          <Sapling size={32} />
+          <span className={cn(MONO_CHIP, 'text-muted-foreground')}>
+            {stepChip(stepIndex)}
+          </span>
+        </div>
 
-      {/* ── Step 3: GitHub ───────────────────────────────────────────── */}
-      {stepId === 'github' && (
-        <GitHubStep
-          connected={values.githubConnected}
-          onConnect={connectGitHub}
-          connectingGitHub={connectingGitHub}
-          onSkip={() => {
-            set('githubSkipped', true);
-            goNext();
-          }}
-          onFinish={goNext}
-          submitting={submitting}
-        />
-      )}
-    </OnboardingShell>
-  );
-}
+        {/* ── Headline ──────────────────────────────────────────── */}
+        <div className="mt-8 w-full text-center">
+          <h1 className={cn(SERIF_DISPLAY, 'text-3xl md:text-4xl')}>
+            {step.title}
+          </h1>
+          <p className={cn(BODY_MUTED, 'mt-3 text-base italic')}>
+            {step.subtitle}
+          </p>
+        </div>
 
-// ── GitHub step ────────────────────────────────────────────────────────────
+        {/* ── Body ──────────────────────────────────────────────── */}
+        <div className="mt-10 w-full max-w-lg">
+          {step.fields && (
+            <MultiFieldBody
+              fields={step.fields}
+              fieldValue={fieldValue}
+              onChange={(key, value) =>
+                set(key as keyof FormValues, value as never)
+              }
+              onEnter={goNext}
+              canSubmit={!multiFieldDisabled}
+            />
+          )}
 
-interface GitHubStepProps {
-  connected: boolean;
-  onConnect: () => void;
-  connectingGitHub: boolean;
-  onSkip: () => void;
-  onFinish: () => void;
-  submitting: boolean;
-}
-
-function GitHubStep({
-  connected,
-  onConnect,
-  connectingGitHub,
-  onSkip,
-  onFinish,
-  submitting,
-}: GitHubStepProps) {
-  return (
-    <StepScaffold
-      title="Connect GitHub"
-      subtitle="Charles needs GitHub to scaffold repos, open PRs, and ship code on your behalf."
-      onPrimary={connected ? onFinish : onConnect}
-      primaryLabel={
-        connected ? 'Continue' : connectingGitHub ? 'Connecting…' : 'Connect GitHub'
-      }
-      primaryBusy={connectingGitHub || (connected && submitting)}
-      onSkip={!connected ? onSkip : undefined}
-    >
-      <div className="mx-auto flex max-w-sm flex-col items-center gap-6">
-        {/* GitHub icon */}
-        <div
-          className={
-            connected
-              ? 'flex h-16 w-16 items-center justify-center rounded-2xl bg-foreground text-background'
-              : 'flex h-16 w-16 items-center justify-center rounded-2xl border border-border/70 bg-background text-muted-foreground'
-          }
-        >
-          {connected ? (
-            <Github size={28} />
-          ) : (
-            <Github size={28} />
+          {stepId === 'github' && (
+            <GitHubBody
+              connected={values.githubConnected}
+              connecting={connectingGitHub}
+            />
           )}
         </div>
 
-        {connected ? (
-          <p className="text-sm text-muted-foreground">
-            GitHub connected. Charles can now open PRs and push code.
-          </p>
+        {/* ── Footer: primary + skip ────────────────────────────── */}
+        <div className="mt-10 flex w-full max-w-lg flex-col items-center gap-4">
+          {stepId !== 'github' && (
+            <button
+              type="button"
+              onClick={goNext}
+              disabled={multiFieldDisabled || submitting}
+              className={cn(
+                PRIMARY_PILL,
+                'h-11 px-7',
+                'disabled:cursor-not-allowed disabled:opacity-40',
+              )}
+            >
+              Next
+              <ArrowRight size={14} />
+            </button>
+          )}
+
+          {stepId === 'github' && (
+            <div className="flex items-center gap-3">
+              {!values.githubConnected && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    set('githubSkipped', true);
+                    goNext();
+                  }}
+                  disabled={submitting || connectingGitHub}
+                  className="text-sm italic text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+                >
+                  Skip for now
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={values.githubConnected ? goNext : connectGitHub}
+                disabled={connectingGitHub || submitting}
+                className={cn(
+                  PRIMARY_PILL,
+                  'h-11 px-7',
+                  'disabled:cursor-not-allowed disabled:opacity-40',
+                )}
+              >
+                {connectingGitHub || submitting ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : values.githubConnected ? (
+                  <ArrowRight size={14} />
+                ) : (
+                  <Github size={14} />
+                )}
+                {values.githubConnected
+                  ? 'Finish setup'
+                  : connectingGitHub
+                    ? 'Connecting'
+                    : 'Connect GitHub'}
+              </button>
+            </div>
+          )}
+
+          {stepIndex > 0 && !submitting && (
+            <button
+              type="button"
+              onClick={goBack}
+              className="text-sm italic text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Back
+            </button>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}
+
+// ── Bodies ─────────────────────────────────────────────────────────────────
+
+interface MultiFieldBodyProps {
+  fields: FieldCopy[];
+  fieldValue: (key: string) => string;
+  onChange: (key: string, value: string) => void;
+  onEnter: () => void;
+  canSubmit: boolean;
+}
+
+function MultiFieldBody({
+  fields,
+  fieldValue,
+  onChange,
+  onEnter,
+  canSubmit,
+}: MultiFieldBodyProps) {
+  // Focus the first input/textarea when the step mounts. Querying the DOM
+  // avoids juggling multiple refs across a union of element types.
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = containerRef.current?.querySelector<
+      HTMLInputElement | HTMLTextAreaElement
+    >('input, textarea');
+    el?.focus();
+  }, [fields]);
+
+  return (
+    <div ref={containerRef} className="space-y-4 text-left">
+      {fields.map((f, i) => (
+        <div key={f.key}>
+          <label className={LABEL_CLASS}>{f.label}</label>
+          {f.multiline ? (
+            <textarea
+              value={fieldValue(f.key)}
+              onChange={(e) => onChange(f.key, e.target.value)}
+              placeholder={f.placeholder}
+              maxLength={f.maxLength}
+              rows={f.rows ?? 3}
+              className={TEXTAREA_CLASS}
+            />
+          ) : (
+            <input
+              type="text"
+              value={fieldValue(f.key)}
+              onChange={(e) => onChange(f.key, e.target.value)}
+              onKeyDown={(e) => {
+                if (
+                  e.key === 'Enter' &&
+                  i === fields.length - 1 &&
+                  canSubmit
+                ) {
+                  e.preventDefault();
+                  onEnter();
+                }
+              }}
+              placeholder={f.placeholder}
+              maxLength={f.maxLength}
+              className={INPUT_CLASS}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+interface GitHubBodyProps {
+  connected: boolean;
+  connecting: boolean;
+}
+
+function GitHubBody({ connected, connecting }: GitHubBodyProps) {
+  return (
+    <div className="mx-auto flex max-w-sm flex-col items-center gap-6">
+      <div
+        className={cn(
+          'flex h-16 w-16 items-center justify-center rounded-2xl border',
+          connected
+            ? 'border-foreground/30 bg-foreground text-background'
+            : 'border-border/70 bg-background text-muted-foreground',
+        )}
+      >
+        {connecting ? (
+          <Loader2 size={28} className="animate-spin" />
         ) : (
-          <ul className="w-full space-y-2 text-left text-sm text-muted-foreground">
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 text-foreground/40">—</span>
-              Scaffold new repos from a brief
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 text-foreground/40">—</span>
-              Open pull requests and review diffs
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 text-foreground/40">—</span>
-              Ship code without context-switching
-            </li>
-          </ul>
+          <Github size={28} />
         )}
       </div>
-    </StepScaffold>
+
+      {connected ? (
+        <p className={cn(BODY_MUTED, 'text-center text-sm')}>
+          GitHub connected. Charles can now open PRs and push code.
+        </p>
+      ) : (
+        <ul className="w-full space-y-2 text-left text-sm text-muted-foreground">
+          <li className="flex items-start gap-2">
+            <span className="mt-0.5 text-foreground/40">—</span>
+            Scaffold new repos from a brief.
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="mt-0.5 text-foreground/40">—</span>
+            Open pull requests and review diffs.
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="mt-0.5 text-foreground/40">—</span>
+            Ship code without context-switching.
+          </li>
+        </ul>
+      )}
+    </div>
   );
 }

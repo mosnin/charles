@@ -11,10 +11,10 @@ export const metadata = { title: 'Set up Charles' };
  */
 export default async function OnboardingPage() {
   const { userId } = await auth();
-  if (!userId) redirect('/login/realtor');
+  if (!userId) redirect('/sign-in');
 
   const clerkUser = await currentUser();
-  if (!clerkUser) redirect('/login/realtor');
+  if (!clerkUser) redirect('/sign-in');
 
   // Resolve DB user and space
   try {

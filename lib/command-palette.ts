@@ -28,6 +28,7 @@ import {
   Palette,
   Plug,
   Plus,
+  Sparkles,
   Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -62,6 +63,7 @@ export const COMMAND_ITEMS: readonly CommandItem[] = [
   { id: 'brand',     kind: 'nav', label: 'Brand',                            icon: Palette,       group: 'Workspace', href: '/brand',     keywords: ['identity', 'voice', 'logo'] },
   { id: 'analytics', kind: 'nav', label: 'Analytics',                        icon: LineChart,     group: 'Workspace', href: '/analytics', keywords: ['metrics', 'stats', 'numbers'] },
   { id: 'campaigns', kind: 'nav', label: 'Campaigns',                        icon: Mail,          group: 'Workspace', href: '/campaigns', keywords: ['email', 'outreach', 'marketing'] },
+  { id: 'agent-templates', kind: 'nav', label: 'Agent templates',             icon: Sparkles,      group: 'Workspace', href: '/agents/templates', keywords: ['workflows', 'subagents', 'builder', 'custom agents'] },
 
   // Create (action)
   { id: 'new-task',     kind: 'action', label: 'New task',           icon: Plus,     group: 'Create', action: 'new-task',     keywords: ['todo', 'add', 'create'] },

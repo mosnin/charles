@@ -7,31 +7,45 @@
  * single-line prompt input. The dock collapses to a 32px rail; the state
  * persists in localStorage so the founder's preference survives reloads.
  *
- * Today: messages and subagent chips are static examples. Real chat lives
- * at /s/{slug}/chat; submitting the prompt hands off there with the text
- * as a query param.
+ * The Home tab renders the latest audit-feed events — sub-agent activity
+ * as SubagentChips, everything else as a one-line text row. The initial
+ * payload is rendered server-side (no flash); the dock then polls
+ * `/api/space/[slug]/audit-feed?limit=8` every 30s and refreshes on focus.
+ *
+ * Realtime push lives in Wave 3 — this pass intentionally uses polling so
+ * we don't take on a new Supabase subscription contract in the same wave.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, ChevronRight, ChevronLeft, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MONO_META } from '@/lib/typography';
+import { timeAgo } from '@/lib/formatting';
+import { iconForDepartment } from '@/lib/icons/manifest';
+import type { AuditEvent } from '@/lib/observability/audit-feed';
+import { eventsToDockRows, type DockRow } from '@/lib/canvas/dock-feed';
 import { SubagentChip } from './subagent-chip';
 
 const TABS = ['Home', 'Company', 'Charles', 'Tasks', 'Library'] as const;
 type Tab = (typeof TABS)[number];
 
 const STORAGE_KEY = 'charles:chat-dock:collapsed';
+const POLL_INTERVAL_MS = 30_000;
 
 interface Props {
   slug: string;
+  /** Server-rendered initial events. Refreshed in-place by the polling effect. */
+  initialAuditFeed: AuditEvent[];
 }
 
-export function ChatDock({ slug }: Props) {
+export function ChatDock({ slug, initialAuditFeed }: Props) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState<boolean>(false);
   const [tab, setTab] = useState<Tab>('Home');
   const [value, setValue] = useState('');
+  const [events, setEvents] = useState<AuditEvent[]>(initialAuditFeed);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Hydrate collapsed state from localStorage on mount.
@@ -43,6 +57,34 @@ export function ChatDock({ slug }: Props) {
       // localStorage unavailable — keep default.
     }
   }, []);
+
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/space/${slug}/audit-feed?limit=8`, {
+        cache: 'no-store',
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as AuditEvent[];
+      if (Array.isArray(data)) setEvents(data);
+    } catch {
+      // Network blips don't matter — we'll try again on the next tick.
+    }
+  }, [slug]);
+
+  // Poll every 30s + on window focus. Cleared on unmount.
+  useEffect(() => {
+    const onFocus = () => {
+      void refresh();
+    };
+    window.addEventListener('focus', onFocus);
+    const id = window.setInterval(refresh, POLL_INTERVAL_MS);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.clearInterval(id);
+    };
+  }, [refresh]);
+
+  const rows = useMemo(() => eventsToDockRows(events), [events]);
 
   function toggleCollapsed() {
     setCollapsed((prev) => {
@@ -124,7 +166,7 @@ export function ChatDock({ slug }: Props) {
       {/* Thread */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {tab === 'Home' || tab === 'Charles' ? (
-          <HomeThread />
+          <HomeFeed rows={rows} />
         ) : (
           <ComingSoon label={tab} />
         )}
@@ -160,58 +202,63 @@ export function ChatDock({ slug }: Props) {
   );
 }
 
-function HomeThread() {
-  return (
-    <div className="space-y-4">
-      <Message author="Charles" body="I'm tracking three things today. Two need a decision." />
-      <Message
-        author="Charles"
-        body="The growth agent has a prospect list ready. The sales agent is drafting outreach now."
-      />
-
-      <div className="space-y-2">
-        <SubagentChip
-          department="marketing"
-          agentName="Growth Agent"
-          task="Building prospect list"
-          status="running"
-          duration="00:42"
-        />
-        <SubagentChip
-          department="sales"
-          agentName="Sales Agent"
-          task="Writing personalised 3-step outreach"
-          status="queued"
-          duration="—"
-        />
-      </div>
-
-      <Message author="You" body="Show me the prospect list when it's done." />
-      <Message author="Charles" body="Will do. I'll surface it the moment it lands." />
-    </div>
-  );
-}
-
-function Message({ author, body }: { author: 'Charles' | 'You'; body: string }) {
-  const isFounder = author === 'You';
-  return (
-    <div className="space-y-1">
+function HomeFeed({ rows }: { rows: DockRow[] }) {
+  if (rows.length === 0) {
+    return (
       <div
-        className={cn(
-          'text-[11px]',
-          isFounder ? 'text-slate-400' : 'text-slate-500',
-        )}
+        className="flex h-full flex-col items-center justify-center text-center"
+        data-testid="chat-dock-empty"
       >
-        {author}
+        <div className="text-[13px] text-slate-500">
+          Nothing's happening right now. Press ⌘K to spin something up.
+        </div>
       </div>
-      <div
-        className={cn(
-          'text-[13px] leading-[1.5]',
-          isFounder ? 'text-slate-600' : 'text-slate-900',
-        )}
-      >
-        {body}
-      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2" data-testid="chat-dock-feed">
+      {rows.map((row) =>
+        row.kind === 'subagent' ? (
+          <div key={row.id} className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <SubagentChip
+                department={row.department}
+                agentName={row.agentName}
+                task={row.task}
+                status={row.status}
+                duration={row.duration}
+              />
+            </div>
+            <span className={cn(MONO_META, 'flex-shrink-0 text-slate-400')}>
+              {timeAgo(row.occurredAt)}
+            </span>
+          </div>
+        ) : (
+          <div
+            key={row.id}
+            className="flex items-center gap-2 rounded-lg px-2 py-1.5"
+            data-testid="chat-dock-text-row"
+          >
+            {row.department && (
+              <Image
+                src={iconForDepartment(row.department)}
+                alt=""
+                width={20}
+                height={20}
+                className="h-5 w-5 flex-shrink-0"
+                aria-hidden
+              />
+            )}
+            <div className="min-w-0 flex-1 truncate text-[12px] text-slate-700">
+              {row.summary}
+            </div>
+            <span className={cn(MONO_META, 'flex-shrink-0 text-slate-400')}>
+              {timeAgo(row.occurredAt)}
+            </span>
+          </div>
+        ),
+      )}
     </div>
   );
 }

@@ -30,6 +30,8 @@ import { CenterPiece } from './center-piece';
 import { DeptNode } from './dept-node';
 import { ChatDock } from './chat-dock';
 import { ORBIT_ORDER, orbitPoint } from '@/lib/canvas/orbit';
+import type { DeptCounts } from '@/lib/canvas/dept-counts';
+import type { AuditEvent } from '@/lib/observability/audit-feed';
 
 export interface CanvasHomeProps {
   slug: string;
@@ -37,6 +39,10 @@ export interface CanvasHomeProps {
   missionTitle: string;
   autonomyBySlug: Record<DepartmentSlug, AutonomyLevel>;
   githubRepo: string | null;
+  /** Per-dept running/queued/idle counts. All six depts present. */
+  deptCounts: Record<DepartmentSlug, DeptCounts>;
+  /** Initial audit feed for the chat dock home tab. */
+  initialAuditFeed: AuditEvent[];
 }
 
 const ORBIT_RADIUS = 220;
@@ -54,6 +60,8 @@ export function CanvasHome({
   missionTitle,
   autonomyBySlug,
   githubRepo,
+  deptCounts,
+  initialAuditFeed,
 }: CanvasHomeProps) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -249,6 +257,9 @@ export function CanvasHome({
                     deptSlug={p.deptSlug}
                     name={DEPARTMENT_NAMES[p.deptSlug]}
                     autonomyLevel={autonomyBySlug[p.deptSlug]}
+                    runningCount={deptCounts[p.deptSlug]?.running ?? 0}
+                    queuedCount={deptCounts[p.deptSlug]?.queued ?? 0}
+                    idleCount={deptCounts[p.deptSlug]?.idle ?? 1}
                   />
                 </div>
               ))}
@@ -273,7 +284,7 @@ export function CanvasHome({
         </div>
       </section>
 
-      <ChatDock slug={slug} />
+      <ChatDock slug={slug} initialAuditFeed={initialAuditFeed} />
     </div>
   );
 }
