@@ -13,6 +13,18 @@ from tools.engineering.github import (
     github_open_pr,
     github_read_file,
 )
+from tools.engineering.supabase import (
+    supabase_describe_table,
+    supabase_list_tables,
+    supabase_run_select,
+    supabase_stage_migration,
+)
+from tools.engineering.vercel import (
+    vercel_get_env_vars,
+    vercel_list_projects,
+    vercel_set_env_var,
+    vercel_trigger_deployment,
+)
 
 
 class EngineeringAgent(BaseDepartmentAgent):
@@ -25,4 +37,12 @@ class EngineeringAgent(BaseDepartmentAgent):
             github_create_file,
             github_open_pr,
             github_read_file,
+            vercel_list_projects,
+            vercel_get_env_vars,
+            vercel_set_env_var,
+            vercel_trigger_deployment,
+            supabase_list_tables,
+            supabase_describe_table,
+            supabase_run_select,
+            supabase_stage_migration,
         ]

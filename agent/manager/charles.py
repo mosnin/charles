@@ -12,23 +12,20 @@ Usage:
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
-from agents import Agent, function_tool
+from agents import Agent, Runner, function_tool
 
 from config import settings
 from db import supabase
+from departments import DEPARTMENT_REGISTRY
 from memory.layers import format_core_for_prompt, load_layers, set_core_slot
 from memory.store import save_memory, search_similar
 
-DEPARTMENTS = [
-    "engineering",
-    "sales",
-    "marketing",
-    "design",
-    "support",
-    "ops_finance",
-]
+DEPARTMENTS = list(DEPARTMENT_REGISTRY.keys())
+
+_MAX_DEPT_OUTPUT_CHARS = 2000
 
 _CHARLES_INSTRUCTIONS_BASE = """You are Charles — the AI cofounder and manager for this company.
 
@@ -150,16 +147,17 @@ class CharlesManager:
             task: str,
             context: str = "",
         ) -> str:
-            """Delegate a task to a department agent.
+            """Delegate a task to a department agent and run it inline.
 
             department: one of engineering, sales, marketing, design, support, ops_finance
             task: clear description of what needs to be done
             context: optional extra context the department agent needs
             """
-            if department not in DEPARTMENTS:
+            cls = DEPARTMENT_REGISTRY.get(department)
+            if cls is None:
                 return (
                     f"Unknown department '{department}'. "
-                    f"Choose from: {', '.join(DEPARTMENTS)}"
+                    f"Choose from: {', '.join(DEPARTMENT_REGISTRY)}"
                 )
 
             db = await supabase()
@@ -169,21 +167,55 @@ class CharlesManager:
                 "role": department,
                 "task": task,
                 "wave": 1,
-                "status": "queued",
+                "status": "running",
+                "startedAt": datetime.now(timezone.utc).isoformat(),
             }
             if context:
                 member_row["systemPrompt"] = context
 
-            result = await (
+            insert_res = await (
                 db.table("SwarmMember")
                 .insert(member_row)
                 .execute()
             )
-            member_id = (result.data[0]["id"] if result.data else None)
-            return (
-                f"Task delegated to {department} (SwarmMember id={member_id}). "
-                "Awaiting completion."
-            )
+            member_id = insert_res.data[0]["id"] if insert_res.data else None
+
+            try:
+                dept_agent = await cls(space_id=space_id).build_agent()
+                message = task if not context else f"{task}\n\nContext:\n{context}"
+                result = await Runner.run(dept_agent, message, max_turns=12)
+                output = result.final_output or "No output produced."
+
+                if member_id:
+                    await (
+                        db.table("SwarmMember")
+                        .update({
+                            "status": "completed",
+                            "output": output,
+                            "completedAt": datetime.now(timezone.utc).isoformat(),
+                        })
+                        .eq("id", member_id)
+                        .execute()
+                    )
+
+                if len(output) > _MAX_DEPT_OUTPUT_CHARS:
+                    output = output[:_MAX_DEPT_OUTPUT_CHARS] + "...[truncated]"
+                return f"[{department}] {output}"
+
+            except Exception as exc:
+                err = f"Error: {exc}"
+                if member_id:
+                    await (
+                        db.table("SwarmMember")
+                        .update({
+                            "status": "failed",
+                            "output": err,
+                            "completedAt": datetime.now(timezone.utc).isoformat(),
+                        })
+                        .eq("id", member_id)
+                        .execute()
+                    )
+                return f"Department '{department}' failed: {exc}"
 
         @function_tool
         async def advance_stage(new_stage: str, reason: str = "") -> str:
