@@ -16,7 +16,21 @@
  */
 import { createHash } from 'crypto';
 import OpenAI from 'openai';
-import type { MorningSummary } from '@/app/api/agent/morning/route';
+// TODO: lib type cleanup — /api/agent/morning route was deleted with Chippi cleanup.
+// This whole file is realtor-era; remove it in the lib-deletion phase.
+type MorningSummary = {
+  newPeopleCount: number;
+  hotPeopleCount: number;
+  overdueFollowUpsCount: number;
+  stuckDealsCount: number;
+  closingThisWeekCount: number;
+  draftsCount: number;
+  questionsCount: number;
+  topStuckDeal: { id: string; title: string; daysStuck: number } | null;
+  topOverdueFollowUp: { id: string; name: string; daysOverdue: number } | null;
+  topNewPerson: { id: string; name: string } | null;
+  topHotPerson: { id: string; name: string } | null;
+};
 
 const TIMEOUT_MS = 5_000;
 const CACHE_TTL_MS = 5 * 60 * 1000;

@@ -15,7 +15,21 @@
  * Two actions for people, three for deals. No config; the realtor doesn't
  * pick the menu — the menu picks itself from the sentence.
  */
-import type { MorningSummary } from '@/app/api/agent/morning/route';
+// TODO: lib type cleanup — /api/agent/morning route was deleted with Chippi cleanup.
+// This whole module is realtor-era; remove it in the component-deletion phase.
+type MorningSummary = {
+  newPeopleCount: number;
+  hotPeopleCount: number;
+  overdueFollowUpsCount: number;
+  stuckDealsCount: number;
+  closingThisWeekCount: number;
+  draftsCount: number;
+  questionsCount: number;
+  topStuckDeal: { id: string; title: string; daysStuck: number } | null;
+  topOverdueFollowUp: { id: string; name: string; daysOverdue: number } | null;
+  topNewPerson: { id: string; name: string } | null;
+  topHotPerson: { id: string; name: string } | null;
+};
 import type { MorningDoorway } from '@/lib/morning-story';
 
 export type MorningActionKind = 'compose' | 'navigate';

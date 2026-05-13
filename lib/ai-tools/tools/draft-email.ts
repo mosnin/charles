@@ -10,7 +10,18 @@
 
 import { z } from 'zod';
 import { defineTool } from '../types';
-import { composeQuickDraft } from '@/app/api/agent/quick-draft/route';
+
+// TODO: lib type cleanup — composeQuickDraft route was deleted with Chippi cleanup.
+// This whole tool is realtor-era and should be removed in the lib-deletion phase.
+async function composeQuickDraft(_args: {
+  kind: 'person';
+  id: string;
+  intent: string;
+  channel: 'email' | 'sms' | 'note';
+  spaceId: string;
+}): Promise<{ subject?: string; subjectLabel?: string; body: string } | null> {
+  return null;
+}
 
 const INTENTS = ['check-in', 'log-call', 'welcome', 'reach-out'] as const;
 

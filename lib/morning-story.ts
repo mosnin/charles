@@ -11,7 +11,21 @@
  * overdue-follow-up sentence opens to that person. The doorway always
  * matches the subject of the sentence — no more single-target naive logic.
  */
-import type { MorningSummary } from '@/app/api/agent/morning/route';
+// TODO: lib type cleanup — /api/agent/morning route was deleted with Chippi cleanup.
+// This whole file is realtor-era; remove it in the lib-deletion phase.
+type MorningSummary = {
+  newPeopleCount: number;
+  hotPeopleCount: number;
+  overdueFollowUpsCount: number;
+  stuckDealsCount: number;
+  closingThisWeekCount: number;
+  draftsCount: number;
+  questionsCount: number;
+  topStuckDeal: { id: string; title: string; daysStuck: number } | null;
+  topOverdueFollowUp: { id: string; name: string; daysOverdue: number } | null;
+  topNewPerson: { id: string; name: string } | null;
+  topHotPerson: { id: string; name: string } | null;
+};
 
 export type MorningDoorway =
   | { kind: 'person'; id: string }

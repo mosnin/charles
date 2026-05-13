@@ -5,7 +5,22 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { DURATION_BASE, EASE_OUT } from '@/lib/motion';
-import type { MorningResponse, MorningSummary } from '@/app/api/agent/morning/route';
+// TODO: lib type cleanup — /api/agent/morning route was deleted with Chippi cleanup.
+// This whole component is realtor-era; remove it in the component-deletion phase.
+type MorningSummary = {
+  newPeopleCount: number;
+  hotPeopleCount: number;
+  overdueFollowUpsCount: number;
+  stuckDealsCount: number;
+  closingThisWeekCount: number;
+  draftsCount: number;
+  questionsCount: number;
+  topStuckDeal: { id: string; title: string; daysStuck: number } | null;
+  topOverdueFollowUp: { id: string; name: string; daysOverdue: number } | null;
+  topNewPerson: { id: string; name: string } | null;
+  topHotPerson: { id: string; name: string } | null;
+};
+type MorningResponse = MorningSummary & { composedSentence: string | null };
 import { composeMorningStory, countMorningCandidates } from '@/lib/morning-story';
 import { buildMorningActions, type MorningAction } from './morning-actions';
 import { MorningActionSheet } from './morning-action-sheet';
