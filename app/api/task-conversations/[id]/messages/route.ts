@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { ConvexHttpClient } from 'convex/browser';
 import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/api-auth';
 import { getSpaceForUser } from '@/lib/space';
@@ -26,6 +27,7 @@ import {
 import { emitCostEvent } from '@/lib/observability/cost-events';
 import { logger } from '@/lib/logger';
 import { DEPARTMENT_LABELS } from '@/lib/tasks/catalog';
+import { api as convexApi } from '@/convex/_generated/api';
 
 const CONTENT_MAX = 4000;
 const DEFAULT_MODEL = 'gpt-5-mini';
@@ -158,7 +160,63 @@ export async function POST(
     .update({ updatedAt: new Date().toISOString() })
     .eq('id', id);
 
+  // Dual-write to Convex so other connected tabs see the turn live.
+  // Supabase is the audit-of-record (already written above), so Convex
+  // rows are marked persisted on insert. Best effort — Convex outages
+  // never break the API contract.
+  await mirrorToConvex({
+    conversationId: id,
+    spaceId: space.id,
+    user: { content, metadata },
+    assistant: assistantPayload,
+  });
+
   return NextResponse.json({ user: userMsg, assistant: assistantMsg });
+}
+
+interface MirrorArgs {
+  conversationId: string;
+  spaceId: string;
+  user: { content: string; metadata: Record<string, unknown> | null };
+  assistant: { content: string; metadata: Record<string, unknown> };
+}
+
+/**
+ * Fan the two new messages into Convex liveMessages. Marks each as
+ * already persisted to Supabase since the durable write above already
+ * succeeded. No-op (graceful degrade) when NEXT_PUBLIC_CONVEX_URL is
+ * unset — the chat still works, just without the live stream.
+ */
+async function mirrorToConvex(args: MirrorArgs): Promise<void> {
+  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+  const secret = process.env.CONVEX_SERVICE_SECRET;
+  if (!url || !secret) return;
+  try {
+    const client = new ConvexHttpClient(url);
+    await Promise.all([
+      client.mutation(convexApi.liveMessagesServer.mirrorMessage, {
+        serviceSecret: secret,
+        conversationId: args.conversationId,
+        spaceId: args.spaceId,
+        role: 'user' as const,
+        content: args.user.content,
+        metadata: args.user.metadata ?? undefined,
+      }),
+      client.mutation(convexApi.liveMessagesServer.mirrorMessage, {
+        serviceSecret: secret,
+        conversationId: args.conversationId,
+        spaceId: args.spaceId,
+        role: 'assistant' as const,
+        content: args.assistant.content,
+        metadata: args.assistant.metadata,
+      }),
+    ]);
+  } catch (err) {
+    logger.warn('[task-messages] convex mirror failed', {
+      err: err instanceof Error ? err.message : String(err),
+      conversationId: args.conversationId,
+    });
+  }
 }
 
 /**

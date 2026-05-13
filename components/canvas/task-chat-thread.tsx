@@ -4,15 +4,18 @@
  * Task-scoped chat thread — the right pane of /tasks/[id] and
  * /stages/gates/[id]. Visually mirrors the chat dock: 5 tabs at top,
  * thread in the middle, single-line input at the bottom. Only the
- * "Charles" tab carries live state; the other four read "Coming soon"
- * so the founder sees the system shape but isn't asked to pick yet.
+ * "Charles" tab carries live state; the other four read "Coming soon".
  *
- * The thread itself is the per-task TaskConversation. The first user
- * message kicks off conversation creation (POST /api/task-conversations)
- * if the row doesn't yet exist, then posts the message.
+ * Wave 2: the message list is fed by Convex's reactive query
+ * (useTaskChat). The first user message still kicks off conversation
+ * creation via POST /api/task-conversations if the row doesn't exist;
+ * after that, sends are dual-written — Convex for instant fan-out
+ * across tabs, Supabase via the existing POST as the audit-of-record.
+ * When Convex is unconfigured the hook silently falls back to the
+ * fetched initialMessages, so the chat still works.
  */
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SubagentChip } from './subagent-chip';
@@ -21,6 +24,7 @@ import {
   DEPARTMENT_LABELS,
   type DepartmentSlug,
 } from '@/lib/tasks/catalog';
+import { useTaskChat, type ChatMessage } from '@/lib/convex/use-task-chat';
 
 const TABS = ['Home', 'Company', 'Charles', 'Tasks', 'Library'] as const;
 type Tab = (typeof TABS)[number];
@@ -38,6 +42,8 @@ interface Props {
   breadcrumb: string;
   /** Subject stamped on a fresh conversation row on first send. */
   subject: string;
+  /** Space the conversation belongs to (drives Convex room scoping). */
+  spaceId: string;
   /** Either taskId or gateId — whichever this conversation belongs to. */
   target: { kind: 'task'; taskId: string } | { kind: 'gate'; gateId: string };
   /** The existing conversation id, or null if the row hasn't been created yet. */
@@ -46,30 +52,79 @@ interface Props {
   initialMessages: TaskMessage[];
 }
 
+function toChatMessages(rows: TaskMessage[]): ChatMessage[] {
+  return rows.map((m) => ({
+    id: m.id,
+    role: m.role,
+    content: m.content,
+    metadata: m.metadata,
+    createdAt: new Date(m.createdAt).getTime(),
+  }));
+}
+
 export function TaskChatThread({
   breadcrumb,
   subject,
+  spaceId,
   target,
   initialConversationId,
   initialMessages,
 }: Props) {
   const [tab, setTab] = useState<Tab>('Charles');
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId);
-  const [messages, setMessages] = useState<TaskMessage[]>(initialMessages);
   const [value, setValue] = useState('');
-  const [pending, setPending] = useState(false);
-  const [pendingAssistant, setPendingAssistant] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastAttempt, setLastAttempt] = useState<string | null>(null);
+  const [optimistic, setOptimistic] = useState<ChatMessage[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to the bottom on new messages.
+  const seed = useMemo(() => toChatMessages(initialMessages), [initialMessages]);
+
+  const chat = useTaskChat({
+    spaceId,
+    conversationId,
+    initialMessages: seed,
+  });
+
+  // Compose: canonical (Convex or fetched seed) + any optimistic rows
+  // that haven't yet appeared in the canonical list (matched by content
+  // + role + a sub-second window).
+  const messages = useMemo(() => {
+    const canonical = chat.messages;
+    if (optimistic.length === 0) return canonical;
+    const filtered = optimistic.filter((o) => {
+      return !canonical.some(
+        (c) =>
+          c.role === o.role &&
+          c.content === o.content &&
+          Math.abs(c.createdAt - o.createdAt) < 60_000,
+      );
+    });
+    return [...canonical, ...filtered];
+  }, [chat.messages, optimistic]);
+
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [messages.length, pendingAssistant]);
+  }, [messages.length, chat.isSending]);
+
+  // GC optimistic rows once the canonical stream has them.
+  useEffect(() => {
+    if (optimistic.length === 0) return;
+    setOptimistic((prev) =>
+      prev.filter((o) => {
+        return !chat.messages.some(
+          (c) =>
+            c.role === o.role &&
+            c.content === o.content &&
+            Math.abs(c.createdAt - o.createdAt) < 60_000,
+        );
+      }),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chat.messages.length]);
 
   async function ensureConversation(): Promise<string | null> {
     if (conversationId) return conversationId;
@@ -90,53 +145,31 @@ export function TaskChatThread({
   }
 
   async function sendMessage(text: string) {
-    if (!text || pending) return;
-
-    setPending(true);
+    if (!text || chat.isSending) return;
     setError(null);
     setLastAttempt(text);
 
-    // Optimistic user message.
-    const tempId = `temp_${Date.now()}`;
-    const optimisticUser: TaskMessage = {
-      id: tempId,
+    const id = await ensureConversation();
+    if (!id) {
+      setError('Could not start the conversation. Try again.');
+      return;
+    }
+
+    const optimisticRow: ChatMessage = {
+      id: `temp_${Date.now()}`,
       role: 'user',
       content: text,
       metadata: null,
-      createdAt: new Date().toISOString(),
+      createdAt: Date.now(),
     };
-    setMessages((prev) => [...prev, optimisticUser]);
-    setPendingAssistant(true);
+    setOptimistic((prev) => [...prev, optimisticRow]);
 
     try {
-      const id = await ensureConversation();
-      if (!id) {
-        setMessages((prev) => prev.filter((m) => m.id !== tempId));
-        setError('Could not start the conversation. Try again.');
-        return;
-      }
-
-      const res = await fetch(`/api/task-conversations/${id}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: text }),
-      });
-      if (!res.ok) {
-        setMessages((prev) => prev.filter((m) => m.id !== tempId));
-        setError('That message failed to send.');
-        return;
-      }
-      const body = (await res.json()) as { user: TaskMessage; assistant: TaskMessage };
-      setMessages((prev) => {
-        const withoutTemp = prev.filter((m) => m.id !== tempId);
-        return [...withoutTemp, body.user, body.assistant];
-      });
+      await chat.send(text);
     } catch {
-      setMessages((prev) => prev.filter((m) => m.id !== tempId));
-      setError('Network error. Try again.');
+      setOptimistic((prev) => prev.filter((m) => m.id !== optimisticRow.id));
+      setError('That message failed to send.');
     } finally {
-      setPending(false);
-      setPendingAssistant(false);
       inputRef.current?.focus();
     }
   }
@@ -144,13 +177,13 @@ export function TaskChatThread({
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const text = value.trim();
-    if (!text || pending) return;
+    if (!text || chat.isSending) return;
     setValue('');
     await sendMessage(text);
   }
 
   async function retry() {
-    if (!lastAttempt || pending) return;
+    if (!lastAttempt || chat.isSending) return;
     await sendMessage(lastAttempt);
   }
 
@@ -191,7 +224,7 @@ export function TaskChatThread({
         {tab === 'Charles' ? (
           <ThreadBody
             messages={messages}
-            pendingAssistant={pendingAssistant}
+            pendingAssistant={chat.isSending}
             greeting={EMPTY_TASK_GREETING}
           />
         ) : (
@@ -209,7 +242,7 @@ export function TaskChatThread({
           <button
             type="button"
             onClick={retry}
-            disabled={pending}
+            disabled={chat.isSending}
             className="ml-3 rounded-md border border-rose-300 bg-white px-2 py-0.5 text-[11px] font-medium text-rose-900 disabled:opacity-50"
           >
             Retry
@@ -224,14 +257,14 @@ export function TaskChatThread({
             ref={inputRef}
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            disabled={pending || tab !== 'Charles'}
+            disabled={chat.isSending || tab !== 'Charles'}
             placeholder="Ask Charles to spin up new task agents…"
             className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-3 pr-10 text-[13px] text-slate-900 placeholder:text-slate-400 outline-none focus:border-slate-400 disabled:opacity-50"
           />
           <button
             type="submit"
             aria-label="Send to Charles"
-            disabled={value.trim().length === 0 || pending || tab !== 'Charles'}
+            disabled={value.trim().length === 0 || chat.isSending || tab !== 'Charles'}
             className="absolute right-1 top-1 inline-flex h-7 w-7 items-center justify-center rounded-md bg-slate-900 text-white disabled:opacity-30"
           >
             <ArrowRight size={14} />
@@ -247,7 +280,7 @@ function ThreadBody({
   pendingAssistant,
   greeting,
 }: {
-  messages: TaskMessage[];
+  messages: ChatMessage[];
   pendingAssistant: boolean;
   greeting: string;
 }) {
@@ -273,7 +306,7 @@ function ThreadBody({
   );
 }
 
-function MessageRow({ message }: { message: TaskMessage }) {
+function MessageRow({ message }: { message: ChatMessage }) {
   const delegated =
     message.role === 'assistant' && message.metadata && typeof message.metadata === 'object'
       ? ((message.metadata as { delegatedTo?: DepartmentSlug | null }).delegatedTo ?? null)

@@ -121,6 +121,7 @@ export default async function TaskDetailPage({
       }}
       chat={{
         subject,
+        spaceId: space.id,
         target: { kind: 'task', taskId: task.id },
         initialConversationId: conversation?.id ?? null,
         initialMessages: messages,

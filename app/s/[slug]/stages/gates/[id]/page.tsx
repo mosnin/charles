@@ -162,6 +162,7 @@ export default async function GateDetailPage({
       }}
       chat={{
         subject,
+        spaceId: space.id,
         target: { kind: 'gate', gateId: gate.id },
         initialConversationId: conversation?.id ?? null,
         initialMessages: messages,

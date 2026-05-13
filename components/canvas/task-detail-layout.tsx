@@ -27,6 +27,7 @@ interface Props {
   preview: PreviewProps;
   chat: {
     subject: string;
+    spaceId: string;
     target: { kind: 'task'; taskId: string } | { kind: 'gate'; gateId: string };
     initialConversationId: string | null;
     initialMessages: TaskMessage[];
@@ -128,6 +129,7 @@ export function TaskDetailLayout({ breadcrumb, preview, chat }: Props) {
           <TaskChatThread
             breadcrumb={breadcrumb}
             subject={chat.subject}
+            spaceId={chat.spaceId}
             target={chat.target}
             initialConversationId={chat.initialConversationId}
             initialMessages={chat.initialMessages}
