@@ -89,7 +89,7 @@ image = (
 
 app = modal.App("chippi-agent", image=image)
 
-secrets = [modal.Secret.from_name("chippi-secrets")]
+secrets = [modal.Secret.from_name("charles-secrets")]
 
 
 # ---------------------------------------------------------------------------
@@ -193,7 +193,7 @@ async def run_now_webhook(item: dict) -> dict:
 
 @app.function(
     image=image,
-    secrets=[modal.Secret.from_name("chippi-secrets")],
+    secrets=[modal.Secret.from_name("charles-secrets")],
     timeout=600,  # 10 min max for swarm runs
     max_containers=10,
 )
