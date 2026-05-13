@@ -33,8 +33,8 @@ export type Brokerage = {
   brokerageFormConfig: IntakeFormConfig | null;
   brokerageRentalFormConfig: IntakeFormConfig | null;
   brokerageBuyerFormConfig: IntakeFormConfig | null;
-  brokerageRentalScoringModel: import('@/lib/scoring/scoring-model-types').ScoringModel | null;
-  brokerageBuyerScoringModel: import('@/lib/scoring/scoring-model-types').ScoringModel | null;
+  brokerageRentalScoringModel: unknown | null;
+  brokerageBuyerScoringModel: unknown | null;
   /**
    * Plan tier — controls seatLimit (BP3). 'starter' → 5, 'team' → 15,
    * 'enterprise' → unlimited (seatLimit = null).
@@ -135,8 +135,8 @@ export type SpaceSetting = {
   rentalFormConfig: IntakeFormConfig | null;
   buyerFormConfig: IntakeFormConfig | null;
   // AI-generated scoring models (stored separately from form config)
-  rentalScoringModel: import('@/lib/scoring/scoring-model-types').ScoringModel | null;
-  buyerScoringModel: import('@/lib/scoring/scoring-model-types').ScoringModel | null;
+  rentalScoringModel: unknown | null;
+  buyerScoringModel: unknown | null;
   // Tracking pixels
   trackingPixels: TrackingPixels | null;
 };

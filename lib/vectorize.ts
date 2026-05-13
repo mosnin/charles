@@ -1,7 +1,6 @@
 import { embedText } from '@/lib/embeddings';
 import { upsertVector, deleteVector } from '@/lib/zilliz';
 import type { Deal, IntakeFormConfig, FormQuestion } from '@/lib/types';
-import { formatAnswerValue } from '@/lib/form-versioning';
 
 type VectorContact = {
   id: string;
@@ -57,41 +56,6 @@ function buildContactEmbeddingText(contact: VectorContact): string {
     contact.tags.join(' '),
   ];
 
-  // ── Dynamic form mode ──────────────────────────────────────────────────
-  if (
-    contact.formConfigSnapshot?.sections &&
-    contact.applicationData &&
-    typeof contact.applicationData === 'object'
-  ) {
-    const qaParts: string[] = [];
-
-    const sortedSections = [...contact.formConfigSnapshot.sections].sort(
-      (a, b) => a.position - b.position,
-    );
-
-    for (const section of sortedSections) {
-      const sortedQuestions = [...section.questions].sort(
-        (a, b) => a.position - b.position,
-      );
-
-      for (const question of sortedQuestions) {
-        // Skip system fields (name/email/phone) — already in base parts
-        if (question.system) continue;
-
-        const rawValue = contact.applicationData[question.id];
-        if (rawValue == null || rawValue === '') continue;
-
-        const displayValue = formatAnswerValue(rawValue, question);
-        if (displayValue) {
-          qaParts.push(`Q: ${question.label} A: ${displayValue}`);
-        }
-      }
-    }
-
-    return [...baseParts.filter(Boolean), ...qaParts].join(' ');
-  }
-
-  // ── Legacy mode ────────────────────────────────────────────────────────
   return baseParts.filter(Boolean).join(' ');
 }
 

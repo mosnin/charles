@@ -38,10 +38,7 @@ import { addChecklistItemTool } from './add-checklist-item';
 import { findPropertyTool } from './find-property';
 
 // Communication
-import { draftEmailTool } from './draft-email';
-import { draftSmsTool } from './draft-sms';
 import { sendEmailTool } from './send-email';
-import { sendSmsTool } from './send-sms';
 
 // Memory
 import { recallHistoryTool } from './recall-history';
@@ -74,10 +71,7 @@ export const ALL_TOOLS: ToolDefinition[] = [
   findPropertyTool as ToolDefinition,
 
   // ── Communication ──────────────────────────────────────────────────────
-  draftEmailTool as ToolDefinition,
-  draftSmsTool as ToolDefinition,
   sendEmailTool as ToolDefinition,
-  sendSmsTool as ToolDefinition,
 
   // ── Memory ─────────────────────────────────────────────────────────────
   recallHistoryTool as ToolDefinition,

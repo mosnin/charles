@@ -2,7 +2,6 @@ import OpenAI from 'openai';
 import { embedText } from '@/lib/embeddings';
 import { searchVectors } from '@/lib/zilliz';
 import { supabase } from '@/lib/supabase';
-import { getSubmissionDisplay } from '@/lib/form-versioning';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -154,27 +153,7 @@ export async function chatWithRAG(
             (c) => {
               const lt = (c.leadType === 'buyer' ? 'BUYER' : 'RENTAL');
               const stageLabel = c.leadType === 'buyer' ? (c.type ?? '') : (c.type ?? '');
-              let base = `- [ID:${c.id}] ${sanitizeCrmText(c.name)} (${lt} · ${stageLabel})${priorityContactIds.has(c.id) ? ' ★' : ''} | Score: ${c.leadScore ?? 'N/A'} (${c.scoreLabel ?? 'unscored'}) | ${c.email ?? ''} | ${c.phone ?? ''} | Budget: ${c.budget != null ? `$${c.budget}` : 'N/A'} | ${c.address ?? ''} | Tags: ${(c.tags ?? []).join(', ')} | Notes: ${sanitizeCrmText(c.notes)}`;
-
-              // Append dynamic form answers if available
-              if (c.formConfigSnapshot?.sections && c.applicationData) {
-                try {
-                  const fields = getSubmissionDisplay({
-                    applicationData: c.applicationData,
-                    formConfigSnapshot: c.formConfigSnapshot,
-                  });
-                  if (fields.length > 0) {
-                    const fieldStr = fields
-                      .slice(0, 15) // cap to avoid blowing up context
-                      .map((f) => `${f.label}: ${f.value}`)
-                      .join(', ');
-                    base += ` | Form: ${fieldStr}`;
-                  }
-                } catch {
-                  // Non-critical — skip if formatting fails
-                }
-              }
-
+              const base = `- [ID:${c.id}] ${sanitizeCrmText(c.name)} (${lt} · ${stageLabel})${priorityContactIds.has(c.id) ? ' ★' : ''} | Score: ${c.leadScore ?? 'N/A'} (${c.scoreLabel ?? 'unscored'}) | ${c.email ?? ''} | ${c.phone ?? ''} | Budget: ${c.budget != null ? `$${c.budget}` : 'N/A'} | ${c.address ?? ''} | Tags: ${(c.tags ?? []).join(', ')} | Notes: ${sanitizeCrmText(c.notes)}`;
               return base;
             }
           )
