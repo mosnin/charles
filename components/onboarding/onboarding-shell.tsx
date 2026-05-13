@@ -1,93 +1,63 @@
 'use client';
 
-import { AnimatePresence, motion } from 'motion/react';
+/**
+ * OnboardingShell — the two-column canvas every onboarding question lives in.
+ *
+ * Left column carries the ASCII identity artwork; right column carries one
+ * question at a time. Top-left holds an optional log-out pill. The shell is
+ * calm and sparse on purpose — heavy whitespace, no progress bar, no chrome.
+ */
+
+import { ArrowLeft } from 'lucide-react';
+import { AsciiPanel } from './ascii-panel';
 import { cn } from '@/lib/utils';
-import { OnboardingBrandMark } from './onboarding-brand-mark';
-import { GHOST_PILL } from '@/lib/typography';
 
 interface OnboardingShellProps {
-  /** Zero-based index of the active step. */
-  stepIndex: number;
-  /** Total step count across the current path. */
-  totalSteps: number;
-  /** Must change per step to trigger AnimatePresence exit/enter. */
-  stepKey: string;
-  /** The rendered step content. */
+  artwork: 'sunflower' | 'wordmark';
   children: React.ReactNode;
-  /** Optional back handler — rendered as a subtle top-left affordance. */
-  onBack?: () => void;
+  onLogout?: () => void;
 }
 
-/**
- * The shared onboarding surface.
- *
- * Theme-aware canvas with a soft brand-warm wash so the moment feels staged
- * but never saturated. The wash is barely-there in dark mode. Step content
- * fades in via AnimatePresence; progress dots track placement.
- */
-export function OnboardingShell({ stepIndex, totalSteps, stepKey, children, onBack }: OnboardingShellProps) {
+export function OnboardingShell({
+  artwork,
+  children,
+  onLogout,
+}: OnboardingShellProps) {
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-background text-foreground">
-      {/* Brand-warm wash — premium without saturation. Subtle in dark mode. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-br from-orange-50/40 via-background to-orange-50/30 dark:from-orange-500/[0.04] dark:via-background dark:to-orange-500/[0.03]"
-      />
-
-      {/* Back button — top-left, ghost pill */}
-      {onBack && (
+    <div className="relative min-h-screen w-full bg-background text-foreground">
+      {onLogout && (
         <button
           type="button"
-          onClick={onBack}
-          className={cn(GHOST_PILL, 'absolute left-5 top-5 z-20')}
+          onClick={onLogout}
+          className={cn(
+            'absolute top-6 left-6 z-20',
+            'inline-flex items-center gap-1.5',
+            'rounded-full border border-border/70 bg-background/60 backdrop-blur',
+            'px-3 py-1.5 text-xs text-muted-foreground',
+            'hover:text-foreground hover:bg-muted/40 transition-colors',
+          )}
         >
-          ← Back
+          <ArrowLeft className="size-3.5" />
+          Log out
         </button>
       )}
 
-      {/* Content */}
-      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6 py-20">
-        <OnboardingBrandMark />
-
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={stepKey}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-7 w-full max-w-3xl"
-          >
-            {children}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
-      {/* Progress dots */}
-      {totalSteps > 1 && (
-        <div className="absolute bottom-8 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5">
-          {Array.from({ length: totalSteps }).map((_, i) => {
-            const complete = i < stepIndex;
-            const active = i === stepIndex;
-            return (
-              <motion.span
-                key={i}
-                aria-hidden
-                className={cn(
-                  'inline-block h-1.5 rounded-full',
-                  active
-                    ? 'bg-foreground'
-                    : complete
-                      ? 'bg-foreground/40'
-                      : 'bg-foreground/15',
-                )}
-                animate={{ width: active ? 28 : 6 }}
-                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              />
-            );
-          })}
+      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
+        {/* Left — ASCII identity */}
+        <div className="hidden lg:flex items-center justify-center px-8">
+          <AsciiPanel artwork={artwork} />
         </div>
-      )}
+
+        {/* Mobile ASCII (shrunk) */}
+        <div className="flex lg:hidden items-center justify-center pt-16 pb-4">
+          <AsciiPanel artwork={artwork} className="text-[8px]" />
+        </div>
+
+        {/* Right — question */}
+        <div className="flex items-center justify-center px-12 lg:px-16 py-16">
+          <div className="w-full max-w-md">{children}</div>
+        </div>
+      </div>
     </div>
   );
 }

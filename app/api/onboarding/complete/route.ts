@@ -6,36 +6,93 @@
  *   2. Resolves the user's Space.
  *   3. Calls seed_charles_workspace(spaceId) via Supabase RPC.
  *   4. Upserts CoreMemory slots with the collected wizard data.
- *   5. Updates the Mission title and oneLinePitch.
- *   6. Marks the user as onboarded (onboard = true).
- *   7. Returns { success: true, slug }.
+ *   5. Updates the Mission title, oneLinePitch, and the three new founder-
+ *      profile columns (ideaStage, founderRole, technicalExperience).
+ *   6. Resolves the effective workspace template slug: explicit > auto-pick
+ *      from stage > default. Returned in the response for the client to
+ *      apply against /api/workspace-templates/apply.
+ *   7. Marks the user as onboarded.
+ *
+ * Backwards compatible: every new field is optional. Old callers that send
+ * only { companyName, tagline, founderName, whatBuilding, oneLinePitch,
+ * targetCustomer, githubConnected, templateSlug } still work.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { requireAuth } from '@/lib/api-auth';
 import { supabase } from '@/lib/supabase';
+import {
+  autoPickTemplateForStage,
+  FOUNDER_IDEA_STAGES,
+  type FounderIdeaStage,
+} from '@/lib/workspace-templates/auto-pick';
+import { isWorkspaceTemplateSlug } from '@/lib/workspace-templates/catalog';
 
-interface CompleteBody {
-  companyName?: string;
-  tagline?: string;
-  founderName?: string;
-  whatBuilding?: string;
-  oneLinePitch?: string;
-  targetCustomer?: string;
-  githubConnected?: boolean;
-  githubSkipped?: boolean;
-}
+const FOUNDER_ROLES = [
+  'product',
+  'engineering',
+  'design',
+  'marketing',
+  'sales',
+  'operations',
+  'founder',
+  'other',
+] as const;
+
+const TECHNICAL_EXPERIENCE = [
+  'writes-code',
+  'manages-engineers',
+  'non-technical',
+] as const;
+
+const BodySchema = z.object({
+  // Existing fields (back-compat).
+  companyName: z.string().optional(),
+  tagline: z.string().optional(),
+  founderName: z.string().optional(),
+  whatBuilding: z.string().optional(),
+  oneLinePitch: z.string().optional(),
+  targetCustomer: z.string().optional(),
+  githubConnected: z.boolean().optional(),
+  githubSkipped: z.boolean().optional(),
+  templateSlug: z.string().optional(),
+
+  // New founder-profile signals.
+  stage: z.enum(FOUNDER_IDEA_STAGES as readonly [string, ...string[]]).optional(),
+  role: z.enum(FOUNDER_ROLES).optional(),
+  technicalExperience: z.enum(TECHNICAL_EXPERIENCE).optional(),
+});
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
   const { userId } = auth;
 
-  let body: CompleteBody;
+  let raw: unknown;
   try {
-    body = (await req.json()) as CompleteBody;
+    raw = await req.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  const parsed = BodySchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid body', details: parsed.error.issues },
+      { status: 400 },
+    );
+  }
+  const body = parsed.data;
+
+  // Explicit templateSlug, if provided, must be a known catalog slug.
+  if (body.templateSlug !== undefined && body.templateSlug !== '') {
+    if (!isWorkspaceTemplateSlug(body.templateSlug)) {
+      return NextResponse.json(
+        { error: 'Unknown templateSlug' },
+        { status: 400 },
+      );
+    }
   }
 
   // ── 1. Resolve DB user ────────────────────────────────────────────────────
@@ -76,13 +133,10 @@ export async function POST(req: NextRequest) {
     space_id: space.id,
   });
   if (rpcErr) {
-    // Non-fatal: tables may already be seeded. Log and continue.
     console.warn('[onboarding/complete] seed_charles_workspace warning', rpcErr);
   }
 
   // ── 3b. Seed the nine workspace documents (idempotent, non-fatal) ─────────
-  // A failure here must not break onboarding — empty document shells can be
-  // lazily created when the founder first opens /s/[slug]/documents.
   try {
     const { error: docSeedErr } = await supabase.rpc('seed_workspace_documents', {
       p_space_id: space.id,
@@ -102,6 +156,9 @@ export async function POST(req: NextRequest) {
     { spaceId: space.id, slot: 'product_description', value: body.whatBuilding?.trim() || null },
     { spaceId: space.id, slot: 'one_line_pitch',      value: body.oneLinePitch?.trim() || null },
     { spaceId: space.id, slot: 'target_customer',     value: body.targetCustomer?.trim() || null },
+    { spaceId: space.id, slot: 'idea_stage',          value: body.stage ?? null },
+    { spaceId: space.id, slot: 'founder_role',        value: body.role ?? null },
+    { spaceId: space.id, slot: 'technical_experience',value: body.technicalExperience ?? null },
   ].filter((s) => s.value !== null);
 
   if (memorySlots.length > 0) {
@@ -110,16 +167,21 @@ export async function POST(req: NextRequest) {
       .upsert(memorySlots, { onConflict: 'spaceId,slot' });
     if (memErr) {
       console.error('[onboarding/complete] CoreMemory upsert failed', memErr);
-      // Non-fatal — continue
     }
   }
 
   // ── 5. Update Mission ─────────────────────────────────────────────────────
+  // Note: the existing "stage" column carries the company stage gate; the
+  // founder's idea stage lands in "ideaStage" instead. See migration
+  // 20260606000014_charles_mission_founder_profile.sql.
   const missionUpdates: Record<string, string> = {};
   if (body.companyName?.trim()) missionUpdates.title = body.companyName.trim();
   if (body.oneLinePitch?.trim()) missionUpdates.oneLinePitch = body.oneLinePitch.trim();
   if (body.targetCustomer?.trim()) missionUpdates.targetCustomer = body.targetCustomer.trim();
   if (body.whatBuilding?.trim()) missionUpdates.description = body.whatBuilding.trim();
+  if (body.stage) missionUpdates.ideaStage = body.stage;
+  if (body.role) missionUpdates.founderRole = body.role;
+  if (body.technicalExperience) missionUpdates.technicalExperience = body.technicalExperience;
 
   if (Object.keys(missionUpdates).length > 0) {
     const { error: missionErr } = await supabase
@@ -128,7 +190,6 @@ export async function POST(req: NextRequest) {
       .eq('spaceId', space.id);
     if (missionErr) {
       console.error('[onboarding/complete] Mission update failed', missionErr);
-      // Non-fatal
     }
   }
 
@@ -140,13 +201,23 @@ export async function POST(req: NextRequest) {
       .eq('id', dbUser.id);
   }
 
-  // ── 7. Mark onboarding complete ───────────────────────────────────────────
+  // ── 7. Resolve effective template slug (explicit > auto-pick > default) ───
+  let appliedTemplateSlug: string;
+  if (body.templateSlug) {
+    appliedTemplateSlug = body.templateSlug;
+  } else {
+    appliedTemplateSlug = autoPickTemplateForStage(
+      body.stage as FounderIdeaStage | undefined,
+    );
+  }
+
+  // ── 8. Mark onboarding complete ───────────────────────────────────────────
   const { error: completeErr } = await supabase
     .from('User')
     .update({
       onboard: true,
       onboardingCompletedAt: new Date().toISOString(),
-      onboardingCurrentStep: 7,
+      onboardingCurrentStep: 10,
     })
     .eq('id', dbUser.id);
 
@@ -155,5 +226,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to complete onboarding' }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true, slug: space.slug });
+  return NextResponse.json({
+    success: true,
+    slug: space.slug,
+    appliedTemplateSlug,
+  });
 }
