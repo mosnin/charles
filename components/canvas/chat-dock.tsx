@@ -210,7 +210,7 @@ function HomeFeed({ rows }: { rows: DockRow[] }) {
         data-testid="chat-dock-empty"
       >
         <div className="text-[13px] text-slate-500">
-          Nothing's happening right now. Press ⌘K to spin something up.
+          Nothing&rsquo;s happening right now. Press ⌘K to spin something up.
         </div>
       </div>
     );
