@@ -20,16 +20,18 @@ import { Command } from 'lucide-react';
 import { CommandPalette, useCommandPaletteHotkey } from '@/components/command-palette';
 import { WorkspaceThemeToggle } from '@/components/workspace-theme-toggle';
 import { WorkspaceSwitcher } from '@/components/workspace-switcher';
+import { PresencePills } from '@/components/canvas/presence-pills';
 import type { UserSpace } from '@/lib/space/list-for-user';
 
 interface Props {
   slug: string;
+  spaceId: string;
   workspaceName: string;
   spaces: UserSpace[];
   children: React.ReactNode;
 }
 
-export function WorkspaceShell({ slug, workspaceName, spaces, children }: Props) {
+export function WorkspaceShell({ slug, spaceId, workspaceName, spaces, children }: Props) {
   const [open, setOpen] = useState(false);
   const onOpen = useCallback(() => setOpen(true), []);
   useCommandPaletteHotkey(onOpen);
@@ -41,6 +43,8 @@ export function WorkspaceShell({ slug, workspaceName, spaces, children }: Props)
           current={{ slug, name: workspaceName }}
           spaces={spaces}
         />
+
+        <PresencePills slug={slug} spaceId={spaceId} />
 
         <div className="flex-1 flex items-center justify-center">
           <button

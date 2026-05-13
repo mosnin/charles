@@ -124,7 +124,7 @@ export default async function DocumentPage({
 
       {/* ── Surface ────────────────────────────────────────────────── */}
       {mode === 'edit' && (
-        <EditMode slug={def.slug} initialContent={content} />
+        <EditMode slug={def.slug} spaceId={space.id} initialContent={content} />
       )}
       {mode === 'markdown' && <MarkdownMode content={content} />}
       {mode === 'pdf' && <PdfMode title={def.title} content={content} />}

@@ -20,12 +20,15 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import { Markdown } from 'tiptap-markdown';
 import { cn } from '@/lib/utils';
 import { BODY_MUTED, CAPTION } from '@/lib/typography';
+import { usePresence } from '@/lib/convex/use-presence';
+import { LiveCursorsOverlay } from '@/components/canvas/live-cursors-overlay';
 
 type SaveState =
   | { kind: 'idle' }
@@ -35,15 +38,22 @@ type SaveState =
 
 interface EditModeProps {
   slug: string;
+  spaceId: string;
   initialContent: string;
 }
 
 const DEBOUNCE_MS = 800;
 
-export function EditMode({ slug, initialContent }: EditModeProps) {
+export function EditMode({ slug, spaceId, initialContent }: EditModeProps) {
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inflightRef = useRef<AbortController | null>(null);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname() ?? '';
+  // Presence overlay only — NOT TipTap collaborative editing. The cursor
+  // dot tracks viewport position from Convex; document content stays
+  // single-author at this layer.
+  const present = usePresence({ spaceId, withCursor: true });
 
   const save = useCallback(
     async (markdown: string) => {
@@ -158,9 +168,17 @@ export function EditMode({ slug, initialContent }: EditModeProps) {
 
   return (
     <section className="space-y-3">
-      <div className="rounded-xl border border-border/70 bg-background px-6 py-8">
+      <div
+        ref={editorContainerRef}
+        className="rounded-xl border border-border/70 bg-background px-6 py-8"
+      >
         <EditorContent editor={editor} />
       </div>
+      <LiveCursorsOverlay
+        otherUsers={present}
+        containerRef={editorContainerRef}
+        surfaceKey={pathname}
+      />
       <div className="mx-auto flex max-w-[70ch] items-center justify-between gap-3">
         <p className={cn(CAPTION)}>
           ⌘B bold · ⌘I italic · ⌘K link · ⌘1/2/3 heading · ⌘⇧8 bullets

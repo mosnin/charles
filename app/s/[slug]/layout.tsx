@@ -178,7 +178,7 @@ export default async function WorkspaceLayout({
       {!paywall.allowed && paywall.reason && (
         <PaywallBanner slug={slug} reason={paywall.reason} />
       )}
-      <WorkspaceShell slug={slug} workspaceName={workspaceName} spaces={userSpaces}>
+      <WorkspaceShell slug={slug} spaceId={space.id} workspaceName={workspaceName} spaces={userSpaces}>
         {children}
       </WorkspaceShell>
     </div>
