@@ -10,9 +10,12 @@
  */
 
 import { useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { usePresence, type PresentUser } from '@/lib/convex/use-presence';
 import { friendlySurface } from '@/lib/convex/surface-labels';
 import { cn } from '@/lib/utils';
+
+const PRESS_FEEDBACK_MS = 100;
 
 interface Props {
   slug: string;
@@ -60,8 +63,26 @@ function AvatarPill({
   zIndex: number;
 }) {
   const [hover, setHover] = useState(false);
+  const [pressed, setPressed] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname() ?? '';
   const label = friendlySurface(user.surface, slug);
   const initials = initialsOf(user.userName);
+
+  // Already there → click is a no-op. Visually subtle: half-opacity to
+  // signal the action is grayed out, no ring change so the row doesn't
+  // jitter when a peer's surface flickers.
+  const isHere = user.surface === pathname;
+
+  function onClick() {
+    const target = followTargetFor(pathname, user.surface);
+    if (!target) return;
+    setPressed(true);
+    window.setTimeout(() => setPressed(false), PRESS_FEEDBACK_MS);
+    // Navigation only. No audit event, no toast, no side effect.
+    // router.push (not replace) so the founder can hit Back to return.
+    router.push(target);
+  }
 
   return (
     <div
@@ -75,9 +96,20 @@ function AvatarPill({
       <button
         type="button"
         tabIndex={0}
-        aria-label={`${user.userName} on ${label}`}
-        className="block h-6 w-6 overflow-hidden rounded-full border-2 border-background bg-muted text-[10px] font-medium text-muted-foreground"
-        onClick={(e) => e.preventDefault()}
+        aria-label={
+          isHere
+            ? `${user.userName} is here on ${label}`
+            : `Follow ${user.userName} to ${label}`
+        }
+        data-testid={`presence-pill-${user.userId}`}
+        data-here={isHere ? 'true' : undefined}
+        onClick={onClick}
+        className={cn(
+          'block h-6 w-6 overflow-hidden rounded-full border-2 border-background bg-muted text-[10px] font-medium text-muted-foreground transition-transform duration-100 ease-out',
+          isHere && 'opacity-60 cursor-default',
+          !isHere && 'cursor-pointer hover:opacity-90',
+          pressed && 'scale-90',
+        )}
       >
         {user.userImage ? (
           // Plain <img> — Clerk URLs are external CDN; next/image isn't worth the cost here.
@@ -102,6 +134,20 @@ function AvatarPill({
       )}
     </div>
   );
+}
+
+/**
+ * Pure logic for follow-mode click. Extracted so the navigation decision
+ * is unit-testable without rendering React. Returns the target the click
+ * should route to, or null when the click is a no-op (user already there).
+ */
+export function followTargetFor(
+  currentPathname: string,
+  userSurface: string,
+): string | null {
+  if (!userSurface) return null;
+  if (currentPathname === userSurface) return null;
+  return userSurface;
 }
 
 function initialsOf(name: string): string {

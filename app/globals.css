@@ -914,3 +914,15 @@
 @media (prefers-reduced-motion: reduce) {
   .dept-pulse { animation: none; }
 }
+
+/* Typing-indicator dots — three little circles that breathe one at a time,
+ * 200ms apart, looping forever. Subtraction over ornament: just opacity
+ * and a hairline of vertical lift, no scale, no color shift. */
+@keyframes typing-dot {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40%           { opacity: 0.9;  transform: translateY(-1px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [style*="typing-dot"] { animation: none !important; opacity: 0.5; }
+}

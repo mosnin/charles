@@ -20,6 +20,10 @@ export default defineSchema({
     surface: v.string(),
     cursorX: v.optional(v.number()),
     cursorY: v.optional(v.number()),
+    // Set when the user is actively typing into a specific task chat
+    // conversation. Cleared the instant they stop. Powers the typing
+    // indicator without a separate table. Additive + backwards compatible.
+    typingConversationId: v.optional(v.string()),
     lastActiveAt: v.number(),
   })
     .index('by_space', ['spaceId'])

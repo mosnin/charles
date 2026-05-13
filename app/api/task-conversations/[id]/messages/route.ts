@@ -162,13 +162,24 @@ export async function POST(
 
   // Dual-write to Convex so other connected tabs see the turn live.
   // Supabase is the audit-of-record (already written above), so Convex
-  // rows are marked persisted on insert. Best effort — Convex outages
-  // never break the API contract.
+  // rows are marked persisted on insert. The Convex insert returns its
+  // _id; we roll that back onto the Supabase rows so the audit-backfill
+  // cron can dedupe deterministically via TaskMessage.convexMessageId.
+  // Best effort — Convex outages never break the API contract; rows
+  // simply land in Supabase without a convexMessageId.
   await mirrorToConvex({
     conversationId: id,
     spaceId: space.id,
-    user: { content, metadata },
-    assistant: assistantPayload,
+    user: {
+      supabaseId: (userMsg as { id: string }).id,
+      content,
+      metadata,
+    },
+    assistant: {
+      supabaseId: (assistantMsg as { id: string }).id,
+      content: assistantPayload.content,
+      metadata: assistantPayload.metadata,
+    },
   });
 
   return NextResponse.json({ user: userMsg, assistant: assistantMsg });
@@ -177,46 +188,81 @@ export async function POST(
 interface MirrorArgs {
   conversationId: string;
   spaceId: string;
-  user: { content: string; metadata: Record<string, unknown> | null };
-  assistant: { content: string; metadata: Record<string, unknown> };
+  user: {
+    supabaseId: string;
+    content: string;
+    metadata: Record<string, unknown> | null;
+  };
+  assistant: {
+    supabaseId: string;
+    content: string;
+    metadata: Record<string, unknown>;
+  };
 }
 
 /**
- * Fan the two new messages into Convex liveMessages. Marks each as
- * already persisted to Supabase since the durable write above already
- * succeeded. No-op (graceful degrade) when NEXT_PUBLIC_CONVEX_URL is
- * unset — the chat still works, just without the live stream.
+ * Fan the two new messages into Convex liveMessages, then write the
+ * returned Convex _id back onto each Supabase row's convexMessageId
+ * column. Marks each Convex row as already persisted to Supabase since
+ * the durable write above already succeeded. No-op (graceful degrade)
+ * when NEXT_PUBLIC_CONVEX_URL is unset, and per-side try/catch so a
+ * single failure can't take down the contract.
  */
 async function mirrorToConvex(args: MirrorArgs): Promise<void> {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
   const secret = process.env.CONVEX_SERVICE_SECRET;
   if (!url || !secret) return;
-  try {
-    const client = new ConvexHttpClient(url);
-    await Promise.all([
-      client.mutation(convexApi.liveMessagesServer.mirrorMessage, {
-        serviceSecret: secret,
+
+  const client = new ConvexHttpClient(url);
+
+  const mirrorOne = async (side: 'user' | 'assistant') => {
+    const payload =
+      side === 'user'
+        ? {
+            role: 'user' as const,
+            content: args.user.content,
+            metadata: args.user.metadata ?? undefined,
+            supabaseId: args.user.supabaseId,
+          }
+        : {
+            role: 'assistant' as const,
+            content: args.assistant.content,
+            metadata: args.assistant.metadata,
+            supabaseId: args.assistant.supabaseId,
+          };
+    try {
+      const convexId = (await client.mutation(
+        convexApi.liveMessagesServer.mirrorMessage,
+        {
+          serviceSecret: secret,
+          conversationId: args.conversationId,
+          spaceId: args.spaceId,
+          role: payload.role,
+          content: payload.content,
+          metadata: payload.metadata,
+        },
+      )) as string | undefined;
+      if (!convexId) return;
+      const { error } = await supabase
+        .from('TaskMessage')
+        .update({ convexMessageId: convexId })
+        .eq('id', payload.supabaseId);
+      if (error) {
+        logger.warn('[task-messages] convexMessageId writeback failed', {
+          err: error.message,
+          supabaseId: payload.supabaseId,
+        });
+      }
+    } catch (err) {
+      logger.warn('[task-messages] convex mirror failed', {
+        err: err instanceof Error ? err.message : String(err),
         conversationId: args.conversationId,
-        spaceId: args.spaceId,
-        role: 'user' as const,
-        content: args.user.content,
-        metadata: args.user.metadata ?? undefined,
-      }),
-      client.mutation(convexApi.liveMessagesServer.mirrorMessage, {
-        serviceSecret: secret,
-        conversationId: args.conversationId,
-        spaceId: args.spaceId,
-        role: 'assistant' as const,
-        content: args.assistant.content,
-        metadata: args.assistant.metadata,
-      }),
-    ]);
-  } catch (err) {
-    logger.warn('[task-messages] convex mirror failed', {
-      err: err instanceof Error ? err.message : String(err),
-      conversationId: args.conversationId,
-    });
-  }
+        side,
+      });
+    }
+  };
+
+  await Promise.all([mirrorOne('user'), mirrorOne('assistant')]);
 }
 
 /**

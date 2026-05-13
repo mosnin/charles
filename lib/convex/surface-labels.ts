@@ -9,6 +9,11 @@
 const TOP_LEVEL: Readonly<Record<string, string>> = {
   '': 'Canvas',
   stages: 'Stages',
+  tasks: 'Tasks',
+  pulse: 'Pulse',
+  memory: 'Memory',
+  connections: 'Connections',
+  billing: 'Billing',
   documents: 'Documents',
   agents: 'Agents',
   library: 'Library',
@@ -46,6 +51,13 @@ export function friendlySurface(pathname: string, slug: string): string {
   // /s/{slug}/documents/{doc} → friendly doc name
   if (head === 'documents' && parts[1]) {
     return titleCase(parts[1]);
+  }
+
+  // /s/{slug}/tasks/{id} → just "Task". We deliberately don't look up the
+  // title; presence is decoration, not a router. Keeps the label
+  // synchronous and zero-fetch.
+  if (head === 'tasks' && parts[1]) {
+    return 'Task';
   }
 
   // /s/{slug}/stages/{stage} → "Stages · {stage}"? Keep terse — just "Stages".

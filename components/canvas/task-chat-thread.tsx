@@ -25,6 +25,13 @@ import {
   type DepartmentSlug,
 } from '@/lib/tasks/catalog';
 import { useTaskChat, type ChatMessage } from '@/lib/convex/use-task-chat';
+import {
+  usePresence,
+  useTypingPeers,
+  typingIndicatorText,
+} from '@/lib/convex/use-presence';
+
+const TYPING_IDLE_MS = 1000;
 
 const TABS = ['Home', 'Company', 'Charles', 'Tasks', 'Library'] as const;
 type Tab = (typeof TABS)[number];
@@ -76,8 +83,48 @@ export function TaskChatThread({
   const [error, setError] = useState<string | null>(null);
   const [lastAttempt, setLastAttempt] = useState<string | null>(null);
   const [optimistic, setOptimistic] = useState<ChatMessage[]>([]);
+  const [isFocused, setIsFocused] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const typingTimerRef = useRef<number | null>(null);
+
+  // Typing rules: focused + non-empty → typing. On blur or empty → clear.
+  // A 1s idle debounce on the clear keeps brief pauses from flickering
+  // the indicator off and back on.
+  useEffect(() => {
+    const hasText = value.trim().length > 0;
+    if (isFocused && hasText) {
+      if (typingTimerRef.current) {
+        window.clearTimeout(typingTimerRef.current);
+        typingTimerRef.current = null;
+      }
+      if (!isTyping) setIsTyping(true);
+    } else {
+      if (typingTimerRef.current) window.clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = window.setTimeout(() => {
+        setIsTyping(false);
+        typingTimerRef.current = null;
+      }, TYPING_IDLE_MS);
+    }
+    return () => {
+      if (typingTimerRef.current) {
+        window.clearTimeout(typingTimerRef.current);
+        typingTimerRef.current = null;
+      }
+    };
+  }, [isFocused, value, isTyping]);
+
+  // Heartbeat for the task-detail surface lives HERE — there's no other
+  // PresenceHeartbeat on this page. Promotes to typing channel when the
+  // user is actively composing.
+  usePresence({
+    spaceId,
+    typingConversationId: isTyping && conversationId ? conversationId : undefined,
+  });
+
+  const typingPeers = useTypingPeers(spaceId, conversationId);
+  const typingLine = typingIndicatorText(typingPeers.map((p) => p.userName));
 
   const seed = useMemo(() => toChatMessages(initialMessages), [initialMessages]);
 
@@ -179,6 +226,9 @@ export function TaskChatThread({
     const text = value.trim();
     if (!text || chat.isSending) return;
     setValue('');
+    // Sending = the typing turn is over. Drop the flag immediately so
+    // peers see the indicator vanish the moment the message lands.
+    setIsTyping(false);
     await sendMessage(text);
   }
 
@@ -222,11 +272,27 @@ export function TaskChatThread({
       {/* Thread */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
         {tab === 'Charles' ? (
-          <ThreadBody
-            messages={messages}
-            pendingAssistant={chat.isSending}
-            greeting={EMPTY_TASK_GREETING}
-          />
+          <>
+            <ThreadBody
+              messages={messages}
+              pendingAssistant={chat.isSending}
+              greeting={EMPTY_TASK_GREETING}
+            />
+            {typingLine && (
+              <p
+                data-testid="task-chat-typing-indicator"
+                className="mt-3 flex items-baseline gap-1.5 text-[11px] italic leading-[1.5] text-slate-500"
+                aria-live="polite"
+              >
+                <span>{typingLine.replace(/…$/, '')}</span>
+                <span className="inline-flex translate-y-[-1px] gap-[2px]" aria-hidden>
+                  <Dot delay={0} />
+                  <Dot delay={200} />
+                  <Dot delay={400} />
+                </span>
+              </p>
+            )}
+          </>
         ) : (
           <ComingSoon label={tab} />
         )}
@@ -257,6 +323,8 @@ export function TaskChatThread({
             ref={inputRef}
             value={value}
             onChange={(e) => setValue(e.target.value)}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
             disabled={chat.isSending || tab !== 'Charles'}
             placeholder="Ask Charles to spin up new task agents…"
             className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-3 pr-10 text-[13px] text-slate-900 placeholder:text-slate-400 outline-none focus:border-slate-400 disabled:opacity-50"
@@ -356,5 +424,17 @@ function ComingSoon({ label }: { label: string }) {
       <div className="text-[12px] uppercase tracking-wide text-slate-400">{label}</div>
       <div className="mt-1 text-[13px] text-slate-500">Coming soon.</div>
     </div>
+  );
+}
+
+function Dot({ delay }: { delay: number }) {
+  return (
+    <span
+      className="inline-block h-[3px] w-[3px] rounded-full bg-slate-400"
+      style={{
+        animation: 'typing-dot 1200ms ease-in-out infinite',
+        animationDelay: `${delay}ms`,
+      }}
+    />
   );
 }

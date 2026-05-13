@@ -1,8 +1,8 @@
 /**
- * Server-side bridge: drain Convex liveMessages with
- * persistedToSupabase=false into Supabase TaskMessage rows, then flip
- * the flag. Idempotent — re-running can't double-write because each
- * Convex row carries the flag and we patch it inside the same loop.
+ * Drains Convex liveMessages with persistedToSupabase=false into the
+ * Supabase TaskMessage table. Dedupe is deterministic: each Convex row
+ * carries an _id, and TaskMessage.convexMessageId is UNIQUE, so we just
+ * look up by id, INSERT if absent, and flag persisted. No heuristics.
  * Called from the every-10-minutes cron at /api/cron/audit-backfill.
  */
 
@@ -22,6 +22,7 @@ interface UnpersistedRow {
 
 export interface BackfillResult {
   persisted: number;
+  skipped: number;
   failed: number;
 }
 
@@ -32,7 +33,7 @@ export async function backfillUnpersistedMessages(): Promise<BackfillResult> {
   const secret = process.env.CONVEX_SERVICE_SECRET;
   if (!url || !secret) {
     logger.info('[audit-backfill] convex not configured; skipping');
-    return { persisted: 0, failed: 0 };
+    return { persisted: 0, skipped: 0, failed: 0 };
   }
 
   const client = new ConvexHttpClient(url);
@@ -47,26 +48,31 @@ export async function backfillUnpersistedMessages(): Promise<BackfillResult> {
     logger.error('[audit-backfill] convex query failed', {
       err: err instanceof Error ? err.message : String(err),
     });
-    return { persisted: 0, failed: 0 };
+    return { persisted: 0, skipped: 0, failed: 0 };
   }
 
   let persisted = 0;
+  let skipped = 0;
   let failed = 0;
 
   for (const row of rows) {
+    let didInsert = false;
+    let didSkip = false;
     try {
-      // Look up whether Supabase already has a matching durable row for
-      // this conversation + role + content + createdAt window. If so we
-      // skip the insert (the route's dual-write path already covered
-      // it) but still flip the flag so future runs ignore the row.
-      const dupe = await findExistingTaskMessage(row);
-      if (!dupe) {
+      const alreadyInSupabase = await hasTaskMessageByConvexId(row._id);
+
+      if (alreadyInSupabase) {
+        // Server dual-write (or a prior backfill) already inserted the
+        // row. Skip the insert; just flip the flag so we stop seeing it.
+        didSkip = true;
+      } else {
         const { error } = await supabase.from('TaskMessage').insert({
           conversationId: row.conversationId,
           role: row.role,
           content: row.content,
           metadata: row.metadata ?? null,
           createdAt: new Date(row.createdAt).toISOString(),
+          convexMessageId: row._id,
         });
         if (error) {
           logger.warn('[audit-backfill] supabase insert failed', {
@@ -76,13 +82,15 @@ export async function backfillUnpersistedMessages(): Promise<BackfillResult> {
           failed += 1;
           continue;
         }
+        didInsert = true;
       }
 
       await client.mutation(convexApi.liveMessagesServer.flagPersisted, {
         serviceSecret: secret,
-        messageId: row._id as any,
+        messageId: row._id as never,
       });
-      persisted += 1;
+      if (didInsert) persisted += 1;
+      else if (didSkip) skipped += 1;
     } catch (err) {
       logger.warn('[audit-backfill] row failed', {
         err: err instanceof Error ? err.message : String(err),
@@ -92,26 +100,20 @@ export async function backfillUnpersistedMessages(): Promise<BackfillResult> {
     }
   }
 
-  return { persisted, failed };
+  return { persisted, skipped, failed };
 }
 
 /**
- * Crude dedupe: same conversation, same role, same content, createdAt
- * within a five-second window. Cheap and correct enough — a real
- * collision would require the founder to send identical content twice
- * inside five seconds, which the route layer's optimistic UX prevents.
+ * Deterministic dedupe: does a TaskMessage row already carry this Convex
+ * _id? Backed by the UNIQUE index on TaskMessage.convexMessageId. Returns
+ * false on any error so the caller falls through to the insert path and
+ * lets the DB's UNIQUE constraint do the final check.
  */
-async function findExistingTaskMessage(row: UnpersistedRow): Promise<boolean> {
-  const lower = new Date(row.createdAt - 5_000).toISOString();
-  const upper = new Date(row.createdAt + 5_000).toISOString();
+async function hasTaskMessageByConvexId(convexId: string): Promise<boolean> {
   const { data, error } = await supabase
     .from('TaskMessage')
     .select('id')
-    .eq('conversationId', row.conversationId)
-    .eq('role', row.role)
-    .eq('content', row.content)
-    .gte('createdAt', lower)
-    .lte('createdAt', upper)
+    .eq('convexMessageId', convexId)
     .limit(1);
   if (error) return false;
   return Array.isArray(data) && data.length > 0;

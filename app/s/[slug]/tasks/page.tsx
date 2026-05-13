@@ -26,6 +26,7 @@ import {
 import type { Task, TaskStatus } from '@/lib/tasks/catalog';
 import { NewTaskForm } from './new-task-form';
 import { TaskRow } from './task-row';
+import { PresenceHeartbeat } from '@/components/canvas/presence-heartbeat';
 
 const PRIORITY_RANK: Record<Task['priority'], number> = {
   high: 0,
@@ -86,6 +87,7 @@ export default async function TasksPage({
 
   return (
     <div className={cn(PAGE_RHYTHM, READING_MAX)}>
+      <PresenceHeartbeat spaceId={space.id} />
       {/* Header */}
       <header className="flex items-start justify-between gap-6">
         <div className="space-y-1.5">

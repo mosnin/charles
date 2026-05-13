@@ -60,6 +60,7 @@ describe('Convex schema shape', () => {
       'lastActiveAt',
       'spaceId',
       'surface',
+      'typingConversationId',
       'userId',
       'userImage',
       'userName',

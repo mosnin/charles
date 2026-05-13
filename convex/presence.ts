@@ -7,9 +7,11 @@
  * row goes stale and gets filtered out by listActive's freshness window.
  */
 import { v } from 'convex/values';
-import { mutation, query } from './_generated/server';
+import { internalMutation, mutation, query } from './_generated/server';
 
 const FRESHNESS_MS = 30_000;
+const STALE_MS = 5 * 60_000;
+const REAP_BATCH = 500;
 
 export const heartbeat = mutation({
   args: {
@@ -17,6 +19,7 @@ export const heartbeat = mutation({
     surface: v.string(),
     cursorX: v.optional(v.number()),
     cursorY: v.optional(v.number()),
+    typingConversationId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -38,6 +41,7 @@ export const heartbeat = mutation({
         surface: args.surface,
         cursorX: args.cursorX,
         cursorY: args.cursorY,
+        typingConversationId: args.typingConversationId,
         userName,
         userImage,
         lastActiveAt: now,
@@ -53,6 +57,7 @@ export const heartbeat = mutation({
       surface: args.surface,
       cursorX: args.cursorX,
       cursorY: args.cursorY,
+      typingConversationId: args.typingConversationId,
       lastActiveAt: now,
     });
   },
@@ -88,5 +93,20 @@ export const clear = mutation({
       .filter((q: any) => q.eq(q.field('userId'), userId))
       .first();
     if (row) await ctx.db.delete(row._id);
+  },
+});
+
+export const reapInactive = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const cutoff = Date.now() - STALE_MS;
+    const rows = await ctx.db
+      .query('presence')
+      .filter((q: any) => q.lt(q.field('lastActiveAt'), cutoff))
+      .take(REAP_BATCH);
+    for (const row of rows) {
+      await ctx.db.delete(row._id);
+    }
+    return { deleted: rows.length };
   },
 });

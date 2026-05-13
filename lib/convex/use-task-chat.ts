@@ -99,12 +99,20 @@ export function useTaskChat(opts: UseTaskChatOpts): UseTaskChatResult {
         // Convex isn't configured, useMutation still exists but the
         // call rejects; we swallow that and rely on the POST's
         // dual-write to catch up the stream once available.
+        //
+        // We resolve the returned _id but deliberately do NOT call
+        // Supabase from the client to write convexMessageId — the
+        // every-10-minutes audit-backfill cron handles that durably
+        // via the UNIQUE index on TaskMessage.convexMessageId. This
+        // preserves the "client-fast, audit-eventually" pattern.
         const convexPromise = sendToConvex({
           conversationId,
           spaceId,
           role: 'user',
           content: text,
-        }).catch(() => undefined);
+        })
+          .then((convexId) => convexId as string | undefined)
+          .catch(() => undefined);
 
         const fetchPromise = fetch(
           `/api/task-conversations/${conversationId}/messages`,

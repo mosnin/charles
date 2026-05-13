@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
     const result = await backfillUnpersistedMessages();
     logger.info('[cron.audit-backfill] complete', {
       persisted: result.persisted,
+      skipped: result.skipped,
       failed: result.failed,
     });
     return NextResponse.json(result);

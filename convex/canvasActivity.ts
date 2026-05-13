@@ -67,18 +67,19 @@ export const forSpace = query({
   },
 });
 
+const CLEANUP_BATCH = 500;
+
 export const cleanup = internalMutation({
-  args: { spaceId: v.string() },
-  handler: async (ctx, args) => {
-    const cutoff = Date.now() - TTL_MS;
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
     const rows = await ctx.db
       .query('canvasActivity')
-      .withIndex('by_space', (q: any) => q.eq('spaceId', args.spaceId))
-      .collect();
+      .filter((q: any) => q.lt(q.field('expiresAt'), now))
+      .take(CLEANUP_BATCH);
     for (const row of rows) {
-      if (row.createdAt <= cutoff) {
-        await ctx.db.delete(row._id);
-      }
+      await ctx.db.delete(row._id);
     }
+    return { deleted: rows.length };
   },
 });

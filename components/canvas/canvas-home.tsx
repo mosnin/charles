@@ -51,9 +51,13 @@ import type { DeptCounts } from '@/lib/canvas/dept-counts';
 import type { AuditEvent } from '@/lib/observability/audit-feed';
 import { subscribeToDeptActivity, subscribeToAuditFeed } from '@/lib/canvas/realtime';
 import { useCanvasActivity } from '@/lib/convex/use-canvas-activity';
+import { usePresence } from '@/lib/convex/use-presence';
+import { LiveCursorsOverlay } from './live-cursors-overlay';
 
 export interface CanvasHomeProps {
   slug: string;
+  /** Space id — required for presence subscriptions on this surface. */
+  spaceId: string;
   workspaceName: string;
   missionTitle: string;
   autonomyBySlug: Record<DepartmentSlug, AutonomyLevel>;
@@ -75,6 +79,7 @@ const MAX_ZOOM = 1.5;
 
 export function CanvasHome({
   slug,
+  spaceId,
   workspaceName,
   missionTitle,
   autonomyBySlug,
@@ -87,6 +92,12 @@ export function CanvasHome({
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [liveDeptCounts, setLiveDeptCounts] = useState(deptCounts);
   const [liveAuditFeed, setLiveAuditFeed] = useState(initialAuditFeed);
+  const canvasRootRef = useRef<HTMLDivElement | null>(null);
+
+  // Live cursors on canvas-home. Deferred in Wave 2A — now wired. Cursor
+  // coordinates from the heartbeat hook feed into LiveCursorsOverlay, which
+  // sits absolutely above the orbit and beneath the top-left/right chrome.
+  const presentOnCanvas = usePresence({ spaceId, withCursor: true });
 
   // Live activity layer from Convex. Empty array when Convex is
   // unavailable — the server-loaded `liveDeptCounts` then stays as the
@@ -231,6 +242,7 @@ export function CanvasHome({
     <div className="flex h-full w-full overflow-hidden bg-white">
       {/* ─── Desktop (md+): orbital canvas + right-docked chat ─────────── */}
       <section
+        ref={canvasRootRef}
         className="relative hidden flex-1 overflow-hidden select-none md:block"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -241,6 +253,15 @@ export function CanvasHome({
         data-testid="canvas-surface"
       >
         <GridBackground />
+
+        {/* Live cursors — z-10 sits above grid + orbit (default z-0) but
+            below the top-left/right chrome (z-20) and modals (z-30+).
+            Cursors filter to users currently on this surface only. */}
+        <LiveCursorsOverlay
+          otherUsers={presentOnCanvas}
+          containerRef={canvasRootRef}
+          surfaceKey={`/s/${slug}`}
+        />
 
         {/* Top-left badge (fixed, not transformed) */}
         <div className="pointer-events-auto absolute left-4 top-4 z-20 flex flex-col items-start gap-1.5" data-no-pan>

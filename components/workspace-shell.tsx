@@ -21,6 +21,7 @@ import { CommandPalette, useCommandPaletteHotkey } from '@/components/command-pa
 import { WorkspaceThemeToggle } from '@/components/workspace-theme-toggle';
 import { WorkspaceSwitcher } from '@/components/workspace-switcher';
 import { PresencePills } from '@/components/canvas/presence-pills';
+import { ConvexHealthBadge } from '@/components/canvas/convex-health-badge';
 import type { UserSpace } from '@/lib/space/list-for-user';
 
 interface Props {
@@ -45,6 +46,7 @@ export function WorkspaceShell({ slug, spaceId, workspaceName, spaces, children 
         />
 
         <PresencePills slug={slug} spaceId={spaceId} />
+        <ConvexHealthBadge />
 
         <div className="flex-1 flex items-center justify-center">
           <button

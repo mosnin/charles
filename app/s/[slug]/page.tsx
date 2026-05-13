@@ -99,6 +99,7 @@ export default async function SpacePage({
     <div className="h-full w-full">
       <CanvasHome
         slug={slug}
+        spaceId={space.id}
         workspaceName={workspaceName}
         missionTitle={missionTitle}
         autonomyBySlug={autonomyBySlug}

@@ -1,8 +1,8 @@
 /**
  * friendlySurface — pathname-to-label mapping.
  *
- * Covers known top-level routes, document subroutes, slug-strip behavior,
- * and unknown-segment fallback to title-case.
+ * Covers known top-level routes, document subroutes, task subroutes,
+ * slug-strip behavior, and unknown-segment fallback to title-case.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -42,5 +42,34 @@ describe('friendlySurface', () => {
 
   it('returns Canvas for empty pathname', () => {
     expect(friendlySurface('', SLUG)).toBe('Canvas');
+  });
+
+  it('maps /s/{slug}/tasks to Tasks', () => {
+    expect(friendlySurface(`/s/${SLUG}/tasks`, SLUG)).toBe('Tasks');
+  });
+
+  it('maps /s/{slug}/tasks/{id} to just "Task" — no DB lookup', () => {
+    expect(friendlySurface(`/s/${SLUG}/tasks/task_123`, SLUG)).toBe('Task');
+    expect(friendlySurface(`/s/${SLUG}/tasks/abc-def`, SLUG)).toBe('Task');
+  });
+
+  it('maps /s/{slug}/pulse to Pulse', () => {
+    expect(friendlySurface(`/s/${SLUG}/pulse`, SLUG)).toBe('Pulse');
+  });
+
+  it('maps /s/{slug}/memory to Memory', () => {
+    expect(friendlySurface(`/s/${SLUG}/memory`, SLUG)).toBe('Memory');
+  });
+
+  it('maps /s/{slug}/connections to Connections', () => {
+    expect(friendlySurface(`/s/${SLUG}/connections`, SLUG)).toBe('Connections');
+  });
+
+  it('maps /s/{slug}/billing to Billing', () => {
+    expect(friendlySurface(`/s/${SLUG}/billing`, SLUG)).toBe('Billing');
+  });
+
+  it('handles task subroute with trailing slash + query', () => {
+    expect(friendlySurface(`/s/${SLUG}/tasks/abc/?x=1`, SLUG)).toBe('Task');
   });
 });

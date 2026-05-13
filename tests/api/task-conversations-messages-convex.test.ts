@@ -11,7 +11,11 @@ import { NextRequest, NextResponse } from 'next/server';
 vi.mock('@/lib/api-auth', () => ({ requireAuth: vi.fn() }));
 vi.mock('@/lib/space', () => ({ getSpaceForUser: vi.fn() }));
 
-const mutationMock = vi.fn(async (_name?: unknown, _args?: unknown) => 'live_1' as unknown);
+let convexIdCounter = 0;
+const mutationMock = vi.fn(async (_name?: unknown, _args?: unknown) => {
+  convexIdCounter += 1;
+  return `live_${convexIdCounter}` as unknown;
+});
 const queryMock = vi.fn(async (_name?: unknown, _args?: unknown) => [] as unknown);
 
 vi.mock('convex/browser', () => ({
@@ -29,6 +33,7 @@ const { tableQueue, calls } = vi.hoisted(() => ({
   },
   calls: {
     inserts: [] as Array<{ table: string; payload: Record<string, unknown> }>,
+    updates: [] as Array<{ table: string; payload: Record<string, unknown>; whereId?: string }>,
   },
 }));
 
@@ -64,9 +69,16 @@ vi.mock('@/lib/supabase', () => {
       return ins;
     });
 
-    obj.update = vi.fn(() => {
+    obj.update = vi.fn((payload: Record<string, unknown>) => {
       const upd: Record<string, unknown> = {};
-      upd.eq = vi.fn(() => Promise.resolve({ data: null, error: null }));
+      upd.eq = vi.fn((_col: string, val: unknown) => {
+        calls.updates.push({
+          table,
+          payload,
+          whereId: typeof val === 'string' ? val : undefined,
+        });
+        return Promise.resolve({ data: null, error: null });
+      });
       return upd;
     });
 
@@ -112,6 +124,8 @@ beforeEach(() => {
   tableQueue.TaskConversation.length = 0;
   tableQueue.TaskMessage.length = 0;
   calls.inserts.length = 0;
+  calls.updates.length = 0;
+  convexIdCounter = 0;
   mutationMock.mockClear();
   queryMock.mockClear();
   // Use the canned-reply path so this suite doesn't hit OpenAI.
@@ -213,6 +227,80 @@ describe('POST /api/task-conversations/[id]/messages — Convex mirror', () => {
     expect(assistantCall).toBeDefined();
     const args = assistantCall![1] as { metadata: Record<string, unknown> };
     expect(args.metadata.delegatedTo).toBe('engineering');
+  });
+
+  it('writes the Convex _id back onto each Supabase row via convexMessageId', async () => {
+    process.env.NEXT_PUBLIC_CONVEX_URL = 'https://example.convex.cloud';
+    process.env.CONVEX_SERVICE_SECRET = 'shh';
+    queueConvOwnedBySpace('space_1');
+
+    const res = await POST(
+      postReq('conv_1', { content: 'hi' }),
+      idParams('conv_1'),
+    );
+    expect(res.status).toBe(200);
+
+    // Two updates on TaskMessage — one per side — each carrying a
+    // convexMessageId from the mirror response, keyed on the inserted
+    // Supabase row id.
+    const writebacks = calls.updates.filter(
+      (u) =>
+        u.table === 'TaskMessage' &&
+        typeof (u.payload as { convexMessageId?: unknown }).convexMessageId === 'string',
+    );
+    expect(writebacks).toHaveLength(2);
+    const ids = writebacks
+      .map((u) => (u.payload as { convexMessageId: string }).convexMessageId)
+      .sort();
+    expect(ids).toEqual(['live_1', 'live_2']);
+    // The .eq() target should be the Supabase row id we just inserted.
+    for (const w of writebacks) {
+      expect(typeof w.whereId).toBe('string');
+      expect(w.whereId).toMatch(/^TaskMessage_/);
+    }
+  });
+
+  it('does not write back convexMessageId when the Convex mirror fails', async () => {
+    process.env.NEXT_PUBLIC_CONVEX_URL = 'https://example.convex.cloud';
+    process.env.CONVEX_SERVICE_SECRET = 'shh';
+    queueConvOwnedBySpace('space_1');
+    mutationMock.mockRejectedValue(new Error('convex offline'));
+
+    const res = await POST(
+      postReq('conv_1', { content: 'hi' }),
+      idParams('conv_1'),
+    );
+    expect(res.status).toBe(200);
+    const writebacks = calls.updates.filter(
+      (u) =>
+        u.table === 'TaskMessage' &&
+        (u.payload as { convexMessageId?: unknown }).convexMessageId !== undefined,
+    );
+    expect(writebacks).toHaveLength(0);
+  });
+
+  it('one side of the mirror failing still writes back the other side', async () => {
+    process.env.NEXT_PUBLIC_CONVEX_URL = 'https://example.convex.cloud';
+    process.env.CONVEX_SERVICE_SECRET = 'shh';
+    queueConvOwnedBySpace('space_1');
+    // First call resolves (user), second call rejects (assistant).
+    mutationMock.mockImplementationOnce(async () => 'live_1' as unknown);
+    mutationMock.mockImplementationOnce(async () => {
+      throw new Error('half offline');
+    });
+
+    const res = await POST(
+      postReq('conv_1', { content: 'hi' }),
+      idParams('conv_1'),
+    );
+    expect(res.status).toBe(200);
+    const writebacks = calls.updates.filter(
+      (u) =>
+        u.table === 'TaskMessage' &&
+        (u.payload as { convexMessageId?: unknown }).convexMessageId !== undefined,
+    );
+    expect(writebacks).toHaveLength(1);
+    expect((writebacks[0].payload as { convexMessageId: string }).convexMessageId).toBe('live_1');
   });
 
   it('does not mirror when the route returns early (forbidden)', async () => {

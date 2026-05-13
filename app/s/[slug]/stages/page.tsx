@@ -21,6 +21,7 @@ import {
   type CanvasGate,
 } from '@/lib/stages/canvas-helpers';
 import { StagesCanvas } from '@/components/canvas/stages-canvas';
+import { PresenceHeartbeat } from '@/components/canvas/presence-heartbeat';
 
 interface MissionRow {
   stage: Stage;
@@ -109,6 +110,7 @@ export default async function StagesPage({
         columns={columns}
         placeholderStages={placeholderStages}
       />
+      <PresenceHeartbeat spaceId={space.id} />
     </div>
   );
 }
