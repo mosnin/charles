@@ -1,11 +1,14 @@
 /**
  * /s/[slug] — Charles workspace home.
  *
- * Shows:
+ * Shows (top to bottom):
  *   1. Mission block: company, one-line pitch, current stage.
- *   2. Stage progress stepper + StageGate checklist for the current stage.
- *   3. Recent SwarmRun activity feed (last 5).
- *   4. "Ask Charles" quick-action.
+ *   2. Stage progress: stepper, purpose line, interactive StageGate
+ *      checklist, and the advance-to-next-stage affordance.
+ *   3. Open work — pending drafts + paused runs link.
+ *   4. Recent approvals — last 3 decided drafts.
+ *   5. Ask Charles quick-action.
+ *   6. Recent SwarmRun activity feed (last 5).
  *
  * If mission is not set (onboarding incomplete), shows a "Complete your
  * setup" card instead. Auth and space ownership are verified in the layout.
@@ -14,15 +17,16 @@
 import Link from 'next/link';
 import { redirect, notFound } from 'next/navigation';
 import { auth } from '@clerk/nextjs/server';
-import { ArrowRight, CheckCircle2, Circle } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { getSpaceFromSlug } from '@/lib/space';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { H1, H2, BODY_MUTED, TITLE_FONT, PAGE_RHYTHM } from '@/lib/typography';
+import { STAGES, STAGE_ORDER, nextStage, type Stage } from '@/lib/stages/catalog';
+import { GateToggle } from './gate-toggle';
+import { AdvanceStageButton } from './advance-stage-button';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-type Stage = 'idea' | 'initial' | 'identity' | 'building' | 'selling' | 'scaling';
 
 interface Mission {
   title: string;
@@ -45,18 +49,13 @@ interface SwarmRun {
   createdAt: string;
 }
 
-// ── Stage labels ──────────────────────────────────────────────────────────────
-
-const STAGE_ORDER: Stage[] = ['idea', 'initial', 'identity', 'building', 'selling', 'scaling'];
-
-const STAGE_LABELS: Record<Stage, string> = {
-  idea:     'Idea',
-  initial:  'Initial',
-  identity: 'Identity',
-  building: 'Building',
-  selling:  'Selling',
-  scaling:  'Scaling',
-};
+interface DraftDecision {
+  id: string;
+  channel: string;
+  subject: string | null;
+  status: 'accepted' | 'declined';
+  updatedAt: string;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -80,6 +79,13 @@ function statusLabel(status: string): string {
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
+function draftLabel(channel: string): string {
+  if (channel === 'email') return 'Email draft';
+  if (channel === 'sms') return 'SMS draft';
+  if (channel === 'note') return 'Note';
+  return 'Draft';
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function SpacePage({
@@ -94,8 +100,15 @@ export default async function SpacePage({
   const space = await getSpaceFromSlug(slug);
   if (!space) notFound();
 
-  // Fetch mission, stage gates, and recent swarm runs in parallel.
-  const [missionResult, gatesResult, runsResult] = await Promise.allSettled([
+  // Fetch everything we need in parallel.
+  const [
+    missionResult,
+    gatesResult,
+    runsResult,
+    draftPendingResult,
+    pausedPendingResult,
+    draftDecidedResult,
+  ] = await Promise.allSettled([
     supabase
       .from('Mission')
       .select('title, oneLinePitch, stage')
@@ -112,6 +125,23 @@ export default async function SpacePage({
       .eq('spaceId', space.id)
       .order('createdAt', { ascending: false })
       .limit(5),
+    supabase
+      .from('AgentDraft')
+      .select('id', { count: 'exact', head: true })
+      .eq('spaceId', space.id)
+      .eq('status', 'pending'),
+    supabase
+      .from('AgentPausedRun')
+      .select('id', { count: 'exact', head: true })
+      .eq('spaceId', space.id)
+      .eq('status', 'pending'),
+    supabase
+      .from('AgentDraft')
+      .select('id, channel, subject, status, updatedAt')
+      .eq('spaceId', space.id)
+      .in('status', ['accepted', 'declined'])
+      .order('updatedAt', { ascending: false })
+      .limit(3),
   ]);
 
   const mission: Mission | null =
@@ -129,10 +159,25 @@ export default async function SpacePage({
       ? (runsResult.value.data as SwarmRun[])
       : [];
 
+  const pendingDraftCount: number =
+    draftPendingResult.status === 'fulfilled' ? (draftPendingResult.value.count ?? 0) : 0;
+  const pendingPausedCount: number =
+    pausedPendingResult.status === 'fulfilled' ? (pausedPendingResult.value.count ?? 0) : 0;
+  const pendingTotal = pendingDraftCount + pendingPausedCount;
+
+  const recentDecisions: DraftDecision[] =
+    draftDecidedResult.status === 'fulfilled' && draftDecidedResult.value.data
+      ? (draftDecidedResult.value.data as DraftDecision[])
+      : [];
+
   const currentStage: Stage = mission?.stage ?? 'idea';
   const stageGates = allGates.filter((g) => g.stage === currentStage);
   const stageIndex = STAGE_ORDER.indexOf(currentStage);
   const missionReady = mission?.title && mission.title.length > 0;
+  const stageDef = STAGES[currentStage];
+  const next = nextStage(currentStage);
+  const incompleteCount = stageGates.filter((g) => !g.isComplete).length;
+  const allComplete = stageGates.length > 0 && incompleteCount === 0;
 
   return (
     <div className={PAGE_RHYTHM}>
@@ -169,7 +214,10 @@ export default async function SpacePage({
 
       {/* ── 2. Stage progress ────────────────────────────────────────── */}
       <section className="space-y-6">
-        <h2 className={H2}>Stage</h2>
+        <div className="space-y-1.5">
+          <h2 className={H2}>Stage</h2>
+          <p className={cn(BODY_MUTED, 'max-w-xl')}>{stageDef.purpose}</p>
+        </div>
 
         {/* Horizontal stepper */}
         <div className="flex items-center gap-0">
@@ -195,7 +243,7 @@ export default async function SpacePage({
                       : 'text-muted-foreground/50',
                     )}
                   >
-                    {STAGE_LABELS[stage]}
+                    {STAGES[stage].label}
                   </span>
                 </div>
                 {i < STAGE_ORDER.length - 1 && (
@@ -215,33 +263,87 @@ export default async function SpacePage({
         {stageGates.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Exit criteria for {STAGE_LABELS[currentStage]}
+              Exit criteria for {stageDef.label}
             </p>
             <ul className="space-y-2">
               {stageGates.map((gate) => (
-                <li key={gate.id} className="flex items-start gap-2.5 text-sm">
-                  {gate.isComplete ? (
-                    <CheckCircle2 size={15} className="mt-0.5 flex-shrink-0 text-foreground" />
-                  ) : (
-                    <Circle size={15} className="mt-0.5 flex-shrink-0 text-muted-foreground/40" />
-                  )}
-                  <span
-                    className={cn(
-                      gate.isComplete
-                        ? 'line-through text-muted-foreground'
-                        : 'text-foreground',
-                    )}
-                  >
-                    {gate.title}
-                  </span>
-                </li>
+                <GateToggle
+                  key={gate.id}
+                  gateId={gate.id}
+                  title={gate.title}
+                  initialComplete={gate.isComplete}
+                />
               ))}
             </ul>
           </div>
         )}
+
+        {/* Advance affordance — only show when there's a next stage */}
+        {next && (
+          <div className="pt-2 flex items-center gap-4">
+            <AdvanceStageButton
+              nextStageLabel={STAGES[next].label}
+              ready={allComplete}
+              incompleteCount={incompleteCount}
+            />
+          </div>
+        )}
       </section>
 
-      {/* ── 3. Quick action ─────────────────────────────────────────── */}
+      {/* ── 3. Open work ─────────────────────────────────────────────── */}
+      {pendingTotal > 0 && (
+        <section>
+          <Link
+            href={`/s/${slug}/inbox`}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
+          >
+            <span>
+              {openWorkLine(pendingDraftCount, pendingPausedCount)}
+            </span>
+            <ArrowRight size={13} className="flex-shrink-0 opacity-60" />
+          </Link>
+        </section>
+      )}
+
+      {/* ── 4. Recent approvals ──────────────────────────────────────── */}
+      {recentDecisions.length > 0 && (
+        <section className="space-y-3">
+          <h2 className={H2}>Recent approvals</h2>
+          <ul className="divide-y divide-border/60">
+            {recentDecisions.map((d) => {
+              const accepted = d.status === 'accepted';
+              return (
+                <li key={d.id} className="py-2.5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm text-foreground truncate">
+                      {d.subject ?? draftLabel(d.channel)}
+                    </span>
+                    <span
+                      className={cn(
+                        'text-xs',
+                        accepted ? 'text-foreground/70' : 'text-muted-foreground',
+                      )}
+                    >
+                      {accepted ? 'approved' : 'declined'}
+                    </span>
+                  </div>
+                  <span className="text-[11px] tabular-nums text-muted-foreground flex-shrink-0">
+                    {relativeTime(d.updatedAt)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <Link
+            href={`/s/${slug}/inbox`}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors duration-150"
+          >
+            Open inbox
+          </Link>
+        </section>
+      )}
+
+      {/* ── 5. Quick action ─────────────────────────────────────────── */}
       <section className="space-y-3">
         <h2 className={H2}>Ask Charles</h2>
         <Link
@@ -253,7 +355,7 @@ export default async function SpacePage({
         </Link>
       </section>
 
-      {/* ── 4. Recent activity ──────────────────────────────────────── */}
+      {/* ── 6. Recent activity ──────────────────────────────────────── */}
       {recentRuns.length > 0 && (
         <section className="space-y-4">
           <h2 className={H2}>Recent activity</h2>
@@ -285,4 +387,16 @@ export default async function SpacePage({
       )}
     </div>
   );
+}
+
+// ── Open-work copy ────────────────────────────────────────────────────────────
+
+function openWorkLine(drafts: number, paused: number): string {
+  const parts: string[] = [];
+  if (drafts > 0) parts.push(drafts === 1 ? '1 draft' : `${drafts} drafts`);
+  if (paused > 0) parts.push(paused === 1 ? '1 paused run' : `${paused} paused runs`);
+  if (parts.length === 0) return '';
+  const subject = parts.join(' and ');
+  const verb = drafts + paused === 1 ? 'is' : 'are';
+  return `${subject} ${verb} waiting on you.`;
 }

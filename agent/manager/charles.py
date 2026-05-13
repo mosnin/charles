@@ -22,6 +22,7 @@ from db import supabase
 from departments import DEPARTMENT_REGISTRY
 from memory.layers import format_core_for_prompt, load_layers, set_core_slot
 from memory.store import save_memory, search_similar
+from stages import gates_for_stage
 
 DEPARTMENTS = list(DEPARTMENT_REGISTRY.keys())
 
@@ -268,6 +269,33 @@ class CharlesManager:
                 .execute()
             )
             await set_core_slot(space_id, "current_stage", new_stage)
+
+            # Lazy-seed the new stage's exit gates if none exist yet.
+            # Idempotent — re-advancing into the same stage is a no-op.
+            existing_res = await (
+                db.table("StageGate")
+                .select("id", count="exact")
+                .eq("spaceId", space_id)
+                .eq("stage", new_stage)
+                .limit(1)
+                .execute()
+            )
+            existing_count = getattr(existing_res, "count", None)
+            if existing_count is None:
+                existing_count = len(existing_res.data or [])
+            if existing_count == 0:
+                titles = gates_for_stage(new_stage)
+                if titles:
+                    rows = [
+                        {
+                            "spaceId": space_id,
+                            "stage": new_stage,
+                            "title": title,
+                            "order": i,
+                        }
+                        for i, title in enumerate(titles)
+                    ]
+                    await db.table("StageGate").insert(rows).execute()
 
             return f"Stage advanced to: {new_stage}"
 

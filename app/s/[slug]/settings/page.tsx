@@ -136,6 +136,28 @@ export default async function SettingsPage({
         <GeneralSettingsForm space={space} settings={settings} />
       </section>
 
+      {/* DEPARTMENTS — per-department autonomy levels */}
+      <section
+        id="departments"
+        className="space-y-5 pt-10 border-t border-border/60 scroll-mt-24"
+      >
+        <p className={SECTION_LABEL}>Departments</p>
+        <div className="flex items-center justify-between gap-6">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">Autonomy levels</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Decide how much each part of Charles is allowed to do without you.
+            </p>
+          </div>
+          <a
+            href={`/s/${slug}/settings/departments`}
+            className={PRIMARY_PILL}
+          >
+            Open
+          </a>
+        </div>
+      </section>
+
       {/* PROFILE — identity, photo, bio, social */}
       <section
         id="profile"
