@@ -70,7 +70,6 @@ export const COMING_SOON_TOOLKITS = new Set<string>([
   'discord',
   // Marketing / Social
   'beehiiv',
-  'posthog',
   'plausible',
   // AI / Generative
   'anthropic',
@@ -199,7 +198,6 @@ export const INTEGRATIONS: IntegrationApp[] = [
     blurb: 'Query product analytics and funnels.',
     category: 'marketing-social',
     promoted: true,
-    comingSoon: true,
   },
   {
     toolkit: 'linkedin',

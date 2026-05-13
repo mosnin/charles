@@ -7,11 +7,15 @@ import {
   FileText,
   ClipboardList,
   BarChart2,
+  LineChart,
   Wallet,
   Plug,
   Building2,
   Bot,
   BookOpen,
+  Mail,
+  Palette,
+  CheckSquare,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -85,6 +89,16 @@ export const realtorNavItems: NavItem[] = [
     icon: BookOpen,
   },
   {
+    href: '/tasks',
+    label: 'Tasks',
+    icon: CheckSquare,
+  },
+  {
+    href: '/brand',
+    label: 'Brand',
+    icon: Palette,
+  },
+  {
     href: '/settings',
     label: 'Settings',
     icon: Settings,
@@ -111,7 +125,8 @@ export const realtorMoreNavItems: NavItem[] = [
   { href: '/agents', label: 'Agents', icon: Bot },
   { href: '/integrations', label: 'Integrations', icon: Plug },
   { href: '/intake', label: 'Intake form', icon: ClipboardList },
-  { href: '/analytics', label: 'Analytics', icon: BarChart2 },
+  { href: '/analytics', label: 'Analytics', icon: LineChart },
+  { href: '/campaigns', label: 'Campaigns', icon: Mail },
 ];
 
 // ── Header right-side menu ───────────────────────────────────────────────────

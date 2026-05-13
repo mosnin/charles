@@ -366,6 +366,52 @@ class CharlesManager:
             return "\n".join(lines)
 
         @function_tool
+        async def create_task(
+            title: str,
+            description: str = "",
+            priority: str = "normal",
+            assignee_dept: str = "",
+        ) -> str:
+            """Create a task for the founder or a department to work on.
+
+            Use when the conversation surfaces a discrete next step the
+            founder needs to remember, OR when delegating something to a
+            department that will run later.
+
+            priority: one of 'low', 'normal', 'high' (defaults to 'normal').
+            assignee_dept: one of the six department slugs to assign to a
+              department; pass '' to leave unassigned.
+            """
+            if priority not in ("low", "normal", "high"):
+                priority = "normal"
+            valid_depts = (
+                "engineering",
+                "sales",
+                "marketing",
+                "design",
+                "support",
+                "ops_finance",
+            )
+            assignee_kind = "agent" if assignee_dept in valid_depts else "unassigned"
+            db = await supabase()
+            row = {
+                "spaceId": space_id,
+                "title": title.strip()[:200],
+                "description": description.strip()[:2000],
+                "priority": priority,
+                "assigneeKind": assignee_kind,
+                "assigneeDept": assignee_dept if assignee_kind == "agent" else None,
+                "createdBy": "agent",
+                "createdByDept": "manager",
+            }
+            if not row["title"]:
+                return "Task title is required."
+            res = await db.table("Task").insert(row).execute()
+            if res.data and len(res.data) > 0:
+                return f"Task created: {row['title']}"
+            return "Could not create task."
+
+        @function_tool
         async def recall_memory(query: str) -> str:
             """Recall relevant long-term memories for this space."""
             results = await search_similar(space_id=space_id, query=query, limit=8)
@@ -394,6 +440,7 @@ class CharlesManager:
             advance_stage,
             complete_stage_gate,
             list_stage_gates,
+            create_task,
             recall_memory,
             store_memory,
         ]
