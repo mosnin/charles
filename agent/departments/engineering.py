@@ -7,6 +7,15 @@ the GitHub tools; all external actions surface an approval gate.
 from __future__ import annotations
 
 from departments._base import BaseDepartmentAgent
+from tools.engineering.cloudflare_dns import (
+    cloudflare_check_domain_availability,
+    cloudflare_create_record,
+    cloudflare_delete_record,
+    cloudflare_list_records,
+    cloudflare_list_zones,
+    cloudflare_register_domain,
+    cloudflare_update_record,
+)
 from tools.engineering.github import (
     github_create_file,
     github_create_repo,
@@ -45,4 +54,11 @@ class EngineeringAgent(BaseDepartmentAgent):
             supabase_describe_table,
             supabase_run_select,
             supabase_stage_migration,
+            cloudflare_list_zones,
+            cloudflare_list_records,
+            cloudflare_create_record,
+            cloudflare_update_record,
+            cloudflare_delete_record,
+            cloudflare_check_domain_availability,
+            cloudflare_register_domain,
         ]

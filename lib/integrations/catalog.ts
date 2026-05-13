@@ -62,24 +62,18 @@ export const COMING_SOON_TOOLKITS = new Set<string>([
   'supabase',
   'sentry',
   // Domains
-  'cloudflare_dns',
   'vercel_domains',
   // Payments
   'lemonsqueezy',
   'paddle',
   // Email / Messaging
-  'loops',
   'discord',
   // Marketing / Social
-  'twitter',
-  'linkedin',
   'beehiiv',
   'posthog',
   'plausible',
   // AI / Generative
-  'openai',
   'anthropic',
-  'replicate',
   'elevenlabs',
   'figma',
   // Docs / Files
@@ -182,7 +176,6 @@ export const INTEGRATIONS: IntegrationApp[] = [
     name: 'Loops',
     blurb: 'Lifecycle email for SaaS — events, sequences, broadcasts.',
     category: 'email-messaging',
-    comingSoon: true,
   },
   {
     toolkit: 'discord',
@@ -199,7 +192,6 @@ export const INTEGRATIONS: IntegrationApp[] = [
     blurb: 'Draft and post from your company account.',
     category: 'marketing-social',
     promoted: true,
-    comingSoon: true,
   },
   {
     toolkit: 'posthog',
@@ -214,7 +206,6 @@ export const INTEGRATIONS: IntegrationApp[] = [
     name: 'LinkedIn',
     blurb: 'Post updates to your company page.',
     category: 'marketing-social',
-    comingSoon: true,
   },
   {
     toolkit: 'beehiiv',
@@ -237,7 +228,6 @@ export const INTEGRATIONS: IntegrationApp[] = [
     name: 'OpenAI',
     blurb: 'Call GPT models and manage fine-tunes.',
     category: 'ai-generative',
-    comingSoon: true,
   },
   {
     toolkit: 'anthropic',
@@ -251,7 +241,6 @@ export const INTEGRATIONS: IntegrationApp[] = [
     name: 'Replicate',
     blurb: 'Run image, video, and audio models.',
     category: 'ai-generative',
-    comingSoon: true,
   },
   {
     toolkit: 'elevenlabs',
@@ -274,7 +263,6 @@ export const INTEGRATIONS: IntegrationApp[] = [
     name: 'Cloudflare DNS',
     blurb: 'Manage DNS records and protect your domains.',
     category: 'domains',
-    comingSoon: true,
   },
   {
     toolkit: 'vercel_domains',
