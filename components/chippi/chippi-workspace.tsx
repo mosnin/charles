@@ -228,7 +228,7 @@ export function ChippiWorkspace({
       // Reflect the new conversation in the URL so a refresh (or share)
       // lands on the same transcript. `replace` so the history doesn't
       // grow a step for every new chat.
-      router.replace(`/s/${slug}/chippi?conversationId=${id}`, { scroll: false });
+      router.replace(`/s/${slug}/chat?conversationId=${id}`, { scroll: false });
     },
   });
 
@@ -391,7 +391,7 @@ export function ChippiWorkspace({
     setDrawerOpen(false);
     if (conv.id === activeConversationId) return;
     startConversationTransition(() => {
-      router.push(`/s/${slug}/chippi?conversationId=${conv.id}`, { scroll: false });
+      router.push(`/s/${slug}/chat?conversationId=${conv.id}`, { scroll: false });
     });
   }
 
@@ -406,7 +406,7 @@ export function ChippiWorkspace({
       setConversations((prev) => [conv, ...prev]);
       setDrawerOpen(false);
       startConversationTransition(() => {
-        router.push(`/s/${slug}/chippi?conversationId=${conv.id}`, { scroll: false });
+        router.push(`/s/${slug}/chat?conversationId=${conv.id}`, { scroll: false });
       });
     }
   }
@@ -421,7 +421,7 @@ export function ChippiWorkspace({
       setConversations((prev) => prev.filter((c) => c.id !== id));
       if (activeConversationId === id) {
         startConversationTransition(() => {
-          router.push(`/s/${slug}/chippi`, { scroll: false });
+          router.push(`/s/${slug}/chat`, { scroll: false });
         });
       }
     } catch (err) {
@@ -869,7 +869,7 @@ export function ChippiWorkspace({
           <div className="flex items-center justify-between">
             <div className="space-y-1.5">
               <Link
-                href={`/s/${slug}/chippi`}
+                href={`/s/${slug}/chat`}
                 className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ArrowLeft size={12} />
@@ -937,7 +937,7 @@ export function ChippiWorkspace({
           <Mic size={15} />
         </button>
         <Link
-          href={`/s/${slug}/chippi/memory`}
+          href={`/s/${slug}/chat/memory`}
           className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-muted/60 transition-colors"
           title="What I remember"
           aria-label="What Chippi remembers"
@@ -945,7 +945,7 @@ export function ChippiWorkspace({
           <NotebookText size={15} />
         </Link>
         <Link
-          href={`/s/${slug}/chippi?tab=settings`}
+          href={`/s/${slug}/chat?tab=settings`}
           className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-muted/60 transition-colors"
           title="Settings"
           aria-label="Chippi settings"
@@ -1024,7 +1024,7 @@ export function ChippiWorkspace({
                 <MorningStory slug={slug} />
                 <div className="mt-3 text-center">
                   <Link
-                    href={`/s/${slug}/chippi/log`}
+                    href={`/s/${slug}/chat/log`}
                     className="inline-flex items-center text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Just toured? Log it &rarr;

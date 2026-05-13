@@ -5,9 +5,9 @@ import { usePathname } from 'next/navigation';
 
 export function DashboardFooter() {
   const pathname = usePathname() || '';
-  // Hide on /chippi — that surface owns its own viewport (sticky composer +
+  // Hide on /chat — that surface owns its own viewport (sticky composer +
   // transcript). A footer below the input adds visual noise to the chat.
-  if (pathname.includes('/chippi')) return null;
+  if (pathname.includes('/chat')) return null;
   return (
     <footer className="pt-8 pb-1">
       <div className="border-t border-border/50 pt-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground/70">

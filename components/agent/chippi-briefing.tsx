@@ -71,7 +71,7 @@ export function ChippiBriefing({ slug }: { slug: string }) {
     return () => controller.abort();
   }, []);
 
-  const agentHref = `/s/${slug}/chippi`;
+  const agentHref = `/s/${slug}/chat`;
   const hasAnything = data.pendingDrafts > 0 || data.pendingQuestions > 0 || data.priorityItems.length > 0;
 
   if (!data.isLoaded) {

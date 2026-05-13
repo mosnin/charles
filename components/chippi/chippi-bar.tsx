@@ -24,14 +24,14 @@ const MAX_PANEL_MESSAGES = 6;
  * one keystroke (⌘/) or one tap from anywhere. Click into it (or send a
  * message) and a floating thread slides up above the bar showing the live
  * exchange. Esc collapses back to slim. The conversation persists across
- * pages via sessionStorage; navigating to /chippi opens the same thread
+ * pages via sessionStorage; navigating to /chat opens the same thread
  * in the long-form surface.
  *
- * Hidden on /chippi (that page already IS the chat).
+ * Hidden on /chat (that page already IS the chat).
  */
 export function ChippiBar({ slug }: Props) {
   const pathname = usePathname() ?? '';
-  const onChippiPage = pathname.endsWith(`/s/${slug}/chippi`) || pathname.startsWith(`/s/${slug}/chippi/`);
+  const onChippiPage = pathname.endsWith(`/s/${slug}/chat`) || pathname.startsWith(`/s/${slug}/chat/`);
 
   const contextPlaceholder = useMemo(() => {
     if (pathname.includes('/contacts') || pathname.includes('/people')) {
@@ -176,14 +176,14 @@ export function ChippiBar({ slug }: Props) {
   const showThinking =
     isStreaming && tailMessage?.role === 'assistant' && tailMessage.blocks.length === 0;
 
-  // Only render the bar inside a workspace, and not on /chippi itself.
+  // Only render the bar inside a workspace, and not on /chat itself.
   if (onChippiPage) return null;
 
   // The most recent few messages — keep the panel light. Full thread lives
-  // in /chippi.
+  // in /chat.
   const visibleMessages = messages.slice(-MAX_PANEL_MESSAGES);
   const hiddenCount = Math.max(0, messages.length - visibleMessages.length);
-  const chippiHref = `/s/${slug}/chippi`;
+  const chippiHref = `/s/${slug}/chat`;
 
   return (
     <div

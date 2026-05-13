@@ -17,7 +17,7 @@ export const BREADCRUMB_ROUTES: Array<{ path: string; label: string; exact?: boo
   { path: '/activity', label: 'Activity' },
   { path: '/settings/brokerage', label: 'Brokerage' },
   { path: '/settings', label: 'Settings' },
-  { path: '/chippi', label: 'Chippi' },
+  { path: '/chat', label: 'Charles' },
   { path: '/team', label: 'Team' },
   { path: '/profile', label: 'Profile' },
   // Broker routes

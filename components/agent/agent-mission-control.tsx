@@ -194,7 +194,7 @@ export function AgentMissionControl({ slug }: { slug: string }) {
           )}
         </div>
         <Link
-          href={`/s/${slug}/chippi`}
+          href={`/s/${slug}/chat`}
           className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 ml-3"
         >
           Agent hub <ArrowRight size={10} />
@@ -225,7 +225,7 @@ export function AgentMissionControl({ slug }: { slug: string }) {
       {/* Pending drafts CTA */}
       {pendingDrafts > 0 && (
         <Link
-          href={`/s/${slug}/chippi`}
+          href={`/s/${slug}/chat`}
           className="flex items-center justify-between gap-3 px-5 py-3 bg-orange-500/5 border-b border-border hover:bg-orange-500/10 transition-colors"
         >
           <div className="flex items-center gap-2.5">
@@ -306,7 +306,7 @@ export function AgentMissionControl({ slug }: { slug: string }) {
           {/* "N more" overflow link */}
           {hiddenCount > 0 && (
             <Link
-              href={`/s/${slug}/chippi`}
+              href={`/s/${slug}/chat`}
               className="flex items-center gap-1 px-5 py-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors border-b border-border"
             >
               +{hiddenCount} more action{hiddenCount !== 1 ? 's' : ''}
@@ -342,7 +342,7 @@ export function AgentMissionControl({ slug }: { slug: string }) {
                   ? `/s/${slug}/contacts/${insight.entityId}?tab=intelligence`
                   : insight.entityType === 'deal'
                     ? `/s/${slug}/deals/${insight.entityId}?tab=overview`
-                    : `/s/${slug}/chippi`;
+                    : `/s/${slug}/chat`;
               return (
                 <Link
                   key={insight.id}

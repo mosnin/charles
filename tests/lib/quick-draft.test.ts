@@ -1,6 +1,6 @@
 /**
  * Phase 7 — tests for the inline draft-and-send endpoint that backs the
- * /chippi home action sheet.
+ * /chat home action sheet.
  *
  * Two modes share the route: 'preview' (call OpenAI, return composed
  * subject+body) and 'send' (insert AgentDraft, call sendDraft, flip

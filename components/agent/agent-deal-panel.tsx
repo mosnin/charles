@@ -108,7 +108,7 @@ export function AgentDealPanel({ dealId, slug, dealTitle }: { dealId: string; sl
         </div>
         <div className="flex items-center gap-1.5">
           <Link
-            href={`/s/${slug}/chippi?q=${encodeURIComponent(`Tell me about my deal "${dealTitle ?? 'this deal'}" and suggest next steps`)}`}
+            href={`/s/${slug}/chat?q=${encodeURIComponent(`Tell me about my deal "${dealTitle ?? 'this deal'}" and suggest next steps`)}`}
             className="flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] text-xs font-medium rounded-md border border-border hover:bg-muted/60 transition-colors"
           >
             <Sparkles size={11} />

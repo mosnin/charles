@@ -1,3 +1,4 @@
+// TODO: dead after realtor delete — remove on next sweep
 /** Lightweight email sender reused by the waitlist notify endpoint. */
 export async function sendEmail(to: string, subject: string, html: string) {
   if (!process.env.RESEND_API_KEY) {

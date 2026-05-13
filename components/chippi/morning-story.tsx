@@ -34,7 +34,7 @@ function getFallback(state: LoadState, isFresh: boolean): string {
 }
 
 /**
- * The /chippi home's one sentence. Phase 5 made it expand into an action
+ * The /chat home's one sentence. Phase 5 made it expand into an action
  * panel; Phase 7 made the panel actually do work — compose actions now
  * draft, preview, and send inline. The realtor never leaves the home.
  */

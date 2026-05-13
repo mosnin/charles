@@ -98,7 +98,7 @@ export function WhatIDid({ slug }: { slug: string }) {
         )}
         {!loading && entries.length > 0 && (
           <Link
-            href={`/s/${slug}/chippi/activity`}
+            href={`/s/${slug}/chat/activity`}
             className="ml-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
           >
             See all

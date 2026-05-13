@@ -1,3 +1,4 @@
+// TODO: dead after realtor delete — remove on next sweep
 import { supabase } from '@/lib/supabase';
 
 export interface BrokerageMember {

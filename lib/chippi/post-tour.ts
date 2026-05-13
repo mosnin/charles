@@ -1,3 +1,4 @@
+// TODO: dead after realtor delete — remove on next sweep
 /**
  * Post-tour orchestration helpers.
  *

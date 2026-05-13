@@ -1,3 +1,4 @@
+// TODO: dead after realtor delete — remove on next sweep
 /**
  * Brokerage lead-routing engine (BP7b + BP7d rules layer).
  *

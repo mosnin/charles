@@ -1,3 +1,4 @@
+// TODO: dead after realtor delete — remove on next sweep
 /**
  * Commission-split helpers: canonical party list + math for turning a deal
  * value + commission rate + splits into "net to me".

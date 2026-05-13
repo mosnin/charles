@@ -140,7 +140,7 @@ export function OnboardingQuick({ defaultName }: Props) {
         if (!completeRes.ok) throw new Error('complete');
 
         toast.success("You're in. Here's your workspace.");
-        router.push(`/s/${slug}/chippi`);
+        router.push(`/s/${slug}/chat`);
       } catch {
         setSubmitError("Couldn't finish setup. Please try again.");
         setSubmitting(false);

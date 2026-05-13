@@ -132,7 +132,7 @@ export function MorningActionSheet({ slug, intent, context, onSent, onCancel }: 
     const prefill = draft.subject
       ? `Subject: ${draft.subject}\n\n${draft.body}`
       : draft.body;
-    router.push(`/s/${slug}/chippi?prefill=${encodeURIComponent(prefill)}`);
+    router.push(`/s/${slug}/chat?prefill=${encodeURIComponent(prefill)}`);
   }
 
   return (
@@ -191,7 +191,7 @@ export function MorningActionSheet({ slug, intent, context, onSent, onCancel }: 
             </button>
             <button
               type="button"
-              onClick={() => router.push(`/s/${slug}/chippi`)}
+              onClick={() => router.push(`/s/${slug}/chat`)}
               className="inline-flex h-9 items-center rounded-full border border-border/70 bg-background px-4 text-sm hover:bg-muted/40"
             >
               Open chat

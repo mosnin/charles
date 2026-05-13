@@ -20,7 +20,8 @@ vi.mock('@/lib/integrations/adapters/openai-images', () => ({
   openaiGenerateImage: vi.fn(),
 }));
 
-import { POST, __resetBuckets } from '@/app/api/brand/generate-logo/route';
+import { POST } from '@/app/api/brand/generate-logo/route';
+import { __resetBuckets } from '@/app/api/brand/generate-logo/_buckets';
 import { requireAuth } from '@/lib/api-auth';
 import { getSpaceForUser } from '@/lib/space';
 import { openaiGenerateImage } from '@/lib/integrations/adapters/openai-images';

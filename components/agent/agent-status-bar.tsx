@@ -55,7 +55,7 @@ export function AgentStatusBar({ slug }: { slug: string }) {
   if (!visible) return null;
 
   const hasActivity = status.pendingDrafts > 0 || status.pendingQuestions > 0;
-  const agentHref = `/s/${slug}/chippi`;
+  const agentHref = `/s/${slug}/chat`;
 
   return (
     <div className={cn(

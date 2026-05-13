@@ -1,5 +1,5 @@
 /**
- * Pure composition logic for the /chippi home story.
+ * Pure composition logic for the /chat home story.
  *
  * Lives separately from <MorningStory /> so the brand voice can be
  * snapshot-tested without spinning up React. The home is the deepest

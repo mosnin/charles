@@ -19,31 +19,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/api-auth';
 import { getSpaceForUser } from '@/lib/space';
 import { openaiGenerateImage } from '@/lib/integrations/adapters/openai-images';
-
-const WINDOW_MS = 60 * 60 * 1000;
-const MAX_PER_HOUR = 3;
-
-// Module-level so the counter survives between requests within a single
-// Node process. Vercel's serverless model means this cap is best-effort
-// across instances — that's fine. It's a spend brake, not a paywall.
-const buckets = new Map<string, number[]>();
-
-function checkAndRecord(spaceId: string, now: number): { ok: true } | { ok: false; remainingMs: number } {
-  const stamps = buckets.get(spaceId) ?? [];
-  const fresh = stamps.filter((t) => now - t < WINDOW_MS);
-  if (fresh.length >= MAX_PER_HOUR) {
-    const oldest = fresh[0]!;
-    return { ok: false, remainingMs: WINDOW_MS - (now - oldest) };
-  }
-  fresh.push(now);
-  buckets.set(spaceId, fresh);
-  return { ok: true };
-}
-
-/** Test-only reset. Not exported in any client code path. */
-export function __resetBuckets(): void {
-  buckets.clear();
-}
+import { checkAndRecord } from './_buckets';
 
 export async function POST(req: NextRequest) {
   const authResult = await requireAuth();

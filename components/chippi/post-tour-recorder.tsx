@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * PostTourRecorder — the one client component on /chippi/log.
+ * PostTourRecorder — the one client component on /chat/log.
  *
  * State machine:
  *   idle → recording → transcribing → processing → awaiting_approval
@@ -277,11 +277,11 @@ export function PostTourRecorder({ slug, personId, dealId }: Props) {
       {/* Back link — single muted breadcrumb. Doesn't compete with the focal element. */}
       <div className="mb-10">
         <Link
-          href={`/s/${slug}/chippi`}
+          href={`/s/${slug}/chat`}
           className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft size={12} />
-          Back to Chippi
+          Back to Charles
         </Link>
       </div>
 
@@ -390,7 +390,7 @@ export function PostTourRecorder({ slug, personId, dealId }: Props) {
                 Log another
               </button>
               <Link
-                href={`/s/${slug}/chippi`}
+                href={`/s/${slug}/chat`}
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-full px-4 h-9 text-sm font-medium',
                   'text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]',

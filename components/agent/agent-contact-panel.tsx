@@ -284,7 +284,7 @@ export function AgentContactPanel({ contactId, slug, contactName }: { contactId:
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href={`/s/${slug}/chippi?q=${encodeURIComponent(`Tell me about ${contactName ?? 'this contact'} and suggest what I should do next`)}`}
+            href={`/s/${slug}/chat?q=${encodeURIComponent(`Tell me about ${contactName ?? 'this contact'} and suggest what I should do next`)}`}
             className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border border-border hover:bg-muted/60 transition-colors"
           >
             <Sparkles size={11} />

@@ -1,7 +1,7 @@
 /**
  * POST /api/agent/quick-draft
  *
- * The /chippi home's inline draft engine. Phase 7 — no more chat teleport.
+ * The /chat home's inline draft engine. Phase 7 — no more chat teleport.
  * The realtor taps "Send a check-in" on the home, this composes a draft
  * inline and returns it; the UI shows it; the realtor taps Send and the
  * existing AgentDraft → PATCH approve → sendDraft pipeline fires the email
@@ -339,7 +339,7 @@ export async function POST(req: NextRequest) {
         channel: sendBody.channel,
         subject: sendBody.channel === 'email' ? sendBody.subject!.trim() : null,
         content: sendBody.body.trim(),
-        reasoning: `Quick draft from /chippi home (${sendBody.intent}).`,
+        reasoning: `Quick draft from /chat home (${sendBody.intent}).`,
         priority: 0,
         status: 'pending',
       })

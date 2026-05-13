@@ -98,7 +98,7 @@ describe('editorial voice — forbidden phrases', () => {
 });
 
 // ── Home story sentence length ──────────────────────────────────────────────
-// The /chippi home renders one sentence as an h1 in a serif title face. Past
+// The /chat home renders one sentence as an h1 in a serif title face. Past
 // ~80 characters it wraps to two lines and the silhouette stops feeling like
 // a thought; it feels like a paragraph. The deterministic ladder must stay
 // under that bar even on the longest legitimate inputs (long person names,
@@ -201,15 +201,11 @@ describe('editorial voice — canonical CTA verbs', () => {
 
   // Each entry is a verb-led CTA we ship. Listed as it appears in source.
   const CANONICAL_CTAS = [
-    'Tell Chippi →',
     'Send',
     'Edit',
     'Cancel',
     'Try again',
     'Open chat',
-    'Schedule tour',
-    'Save event',
-    'Save note',
   ];
 
   for (const cta of CANONICAL_CTAS) {

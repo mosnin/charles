@@ -1,3 +1,4 @@
+// TODO: dead after realtor delete — remove on next sweep
 import type { PropertyType, PropertyListingStatus } from '@/lib/types';
 
 export const PROPERTY_TYPE_OPTIONS: { value: PropertyType; label: string }[] = [

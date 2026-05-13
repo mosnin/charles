@@ -1,5 +1,5 @@
 /**
- * Generates the /chippi home sentence with OpenAI.
+ * Generates the /chat home sentence with OpenAI.
  *
  * The deterministic ladder in `lib/morning-story.ts` still ships as fallback
  * — it runs on the client with the API response. This module's job is to
