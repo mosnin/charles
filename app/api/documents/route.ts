@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { requireContactAccess } from '@/lib/api-auth';
+import { requireAuth, requireContactAccess } from '@/lib/api-auth';
+import { getSpaceForUser } from '@/lib/space';
+import { DOCUMENTS } from '@/lib/documents/catalog';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = [
@@ -113,20 +115,70 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * GET — List documents for a contact.
+ * GET — Two shapes, one endpoint:
+ *
+ *   1. `?contactId=...` — legacy: lists ContactDocument rows uploaded against
+ *      a contact (intake attachments, signed forms, etc).
+ *
+ *   2. No params — workspace documents: returns the nine canonical docs for
+ *      the caller's Charles workspace, left-joined with the catalog so every
+ *      slug appears even if the DB row hasn't been created yet. Empty docs
+ *      report `hasContent: false` and `updatedAt: null`.
  */
 export async function GET(req: NextRequest) {
   const contactId = req.nextUrl.searchParams.get('contactId');
-  if (!contactId) return NextResponse.json({ error: 'contactId required' }, { status: 400 });
 
-  const auth = await requireContactAccess(contactId);
-  if (auth instanceof NextResponse) return auth;
+  // ── Legacy: contact attachments ────────────────────────────────────────────
+  if (contactId) {
+    const auth = await requireContactAccess(contactId);
+    if (auth instanceof NextResponse) return auth;
 
-  const { data: docs } = await supabase
-    .from('ContactDocument')
-    .select('id, fileName, fileType, fileSize, uploadedBy, createdAt')
-    .eq('contactId', contactId)
-    .order('createdAt', { ascending: false });
+    const { data: docs } = await supabase
+      .from('ContactDocument')
+      .select('id, fileName, fileType, fileSize, uploadedBy, createdAt')
+      .eq('contactId', contactId)
+      .order('createdAt', { ascending: false });
 
-  return NextResponse.json(docs ?? []);
+    return NextResponse.json(docs ?? []);
+  }
+
+  // ── Workspace documents (the nine) ─────────────────────────────────────────
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
+
+  const space = await getSpaceForUser(userId);
+  if (!space) {
+    return NextResponse.json({ error: 'No workspace' }, { status: 403 });
+  }
+
+  let rows: { slug: string; content: string | null; updatedAt: string | null }[] = [];
+  try {
+    const { data, error } = await supabase
+      .from('Document')
+      .select('slug, content, updatedAt')
+      .eq('spaceId', space.id);
+    if (error) throw error;
+    rows = (data ?? []) as typeof rows;
+  } catch (err) {
+    console.error('[documents] workspace fetch failed', err);
+    return NextResponse.json({ error: 'Failed to load documents' }, { status: 500 });
+  }
+
+  const bySlug = new Map(rows.map((r) => [r.slug, r]));
+
+  const documents = DOCUMENTS.map((def) => {
+    const row = bySlug.get(def.slug);
+    const content = row?.content ?? '';
+    return {
+      slug: def.slug,
+      title: def.title,
+      blurb: def.blurb,
+      group: def.group,
+      hasContent: content.trim().length > 0,
+      updatedAt: row?.updatedAt ?? null,
+    };
+  });
+
+  return NextResponse.json({ documents });
 }

@@ -11,6 +11,7 @@ import {
   Plug,
   Building2,
   Bot,
+  BookOpen,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -74,6 +75,14 @@ export const realtorNavItems: NavItem[] = [
       { href: '/deals/new', label: 'Add property' },
       { href: '/properties/commissions', label: 'Commissions' },
     ],
+  },
+  // Documents — the founder's desk. Nine documents, four groups. Lives above
+  // Settings because it's a daily destination once the company has shape;
+  // Settings is configuration that's visited rarely.
+  {
+    href: '/documents',
+    label: 'Documents',
+    icon: BookOpen,
   },
   {
     href: '/settings',

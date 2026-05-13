@@ -80,6 +80,20 @@ export async function POST(req: NextRequest) {
     console.warn('[onboarding/complete] seed_charles_workspace warning', rpcErr);
   }
 
+  // ── 3b. Seed the nine workspace documents (idempotent, non-fatal) ─────────
+  // A failure here must not break onboarding — empty document shells can be
+  // lazily created when the founder first opens /s/[slug]/documents.
+  try {
+    const { error: docSeedErr } = await supabase.rpc('seed_workspace_documents', {
+      p_space_id: space.id,
+    });
+    if (docSeedErr) {
+      console.warn('[onboarding/complete] seed_workspace_documents warning', docSeedErr);
+    }
+  } catch (err) {
+    console.warn('[onboarding/complete] seed_workspace_documents threw', err);
+  }
+
   // ── 4. Upsert CoreMemory slots ─────────────────────────────────────────────
   const memorySlots: { spaceId: string; slot: string; value: string | null }[] = [
     { spaceId: space.id, slot: 'company_name',        value: body.companyName?.trim() || null },
