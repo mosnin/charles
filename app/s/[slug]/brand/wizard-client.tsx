@@ -633,7 +633,7 @@ function StepPalette({
           Pick your colors.
         </h1>
         <p className={cn(BODY_MUTED, 'mt-3')}>
-          One ink that says "us". The rest is decided for you.
+          One ink that says &ldquo;us&rdquo;. The rest is decided for you.
         </p>
       </header>
 
@@ -704,7 +704,7 @@ function StepPalette({
           ))}
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          Neutrals are derived from the mood. You don't pick them.
+          Neutrals are derived from the mood. You don&rsquo;t pick them.
         </p>
       </Field>
     </div>
@@ -729,7 +729,7 @@ function StepTypography({
           Pick your faces.
         </h1>
         <p className={cn(BODY_MUTED, 'mt-3')}>
-          One heading, one body. That's the pairing.
+          One heading, one body. That&rsquo;s the pairing.
         </p>
       </header>
 
