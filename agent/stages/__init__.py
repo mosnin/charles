@@ -4,7 +4,7 @@ Keep in sync with lib/stages/catalog.ts. The TS file is the source of
 truth for the UI; this file is what advance_stage uses to seed gates.
 Drift between the two means gates created at advance-time disagree with
 what the UI displays — so the gate titles here must match the TS
-catalog and the SQL function in 20260513000000_charles_stage_seeding.sql.
+catalog and the SQL function in 20260606000005_charles_stage_seeding.sql.
 """
 
 from __future__ import annotations

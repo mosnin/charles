@@ -7,13 +7,13 @@
 -- TeamMembership row and mark the invite accepted.
 --
 -- Append-only. Idempotent (IF NOT EXISTS guards throughout). The existing
--- TeamMembership.role column already exists from 20260512000003 — the
+-- TeamMembership.role column already exists from 20260606000003 — the
 -- ADD COLUMN IF NOT EXISTS below is belt-and-suspenders for environments
 -- where the prior migration ran before the role column was finalized.
 -- ============================================================================
 
 -- ── TeamMembership.role — belt-and-suspenders ─────────────────────────────────
--- The expand-contract migration (20260512000003) already declares this column.
+-- The expand-contract migration (20260606000003) already declares this column.
 -- This is a no-op there; it exists only to harden against environments where
 -- an older shape of TeamMembership slipped in before role was added.
 
@@ -55,7 +55,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "TeamInvite_team_email_pending_uq"
 
 -- ── Row-Level Security ────────────────────────────────────────────────────────
 -- App uses SUPABASE_SERVICE_ROLE_KEY (bypasses RLS). Policies guard against
--- direct PostgREST / anon-role access. Pattern matches 20260512000003.
+-- direct PostgREST / anon-role access. Pattern matches 20260606000003.
 
 ALTER TABLE "TeamInvite" ENABLE ROW LEVEL SECURITY;
 
