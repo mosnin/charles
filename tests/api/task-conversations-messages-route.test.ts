@@ -104,6 +104,10 @@ beforeEach(() => {
   tableQueue.TaskConversation.length = 0;
   tableQueue.TaskMessage.length = 0;
   calls.inserts.length = 0;
+  // Force the no-key fallback path so this suite still exercises the
+  // canned-reply branch deterministically. The real-model path is covered
+  // by task-conversations-messages-real.test.ts.
+  delete process.env.OPENAI_API_KEY;
   mockAuth.mockResolvedValue({ userId: 'user_clerk_1' });
   mockGetSpace.mockResolvedValue(SPACE);
 });

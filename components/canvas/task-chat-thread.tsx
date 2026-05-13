@@ -59,6 +59,8 @@ export function TaskChatThread({
   const [value, setValue] = useState('');
   const [pending, setPending] = useState(false);
   const [pendingAssistant, setPendingAssistant] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastAttempt, setLastAttempt] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -87,12 +89,12 @@ export function TaskChatThread({
     return body.conversation.id;
   }
 
-  async function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const text = value.trim();
+  async function sendMessage(text: string) {
     if (!text || pending) return;
 
     setPending(true);
+    setError(null);
+    setLastAttempt(text);
 
     // Optimistic user message.
     const tempId = `temp_${Date.now()}`;
@@ -104,14 +106,13 @@ export function TaskChatThread({
       createdAt: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimisticUser]);
-    setValue('');
     setPendingAssistant(true);
 
     try {
       const id = await ensureConversation();
       if (!id) {
-        // Roll back optimistic message.
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        setError('Could not start the conversation. Try again.');
         return;
       }
 
@@ -122,6 +123,7 @@ export function TaskChatThread({
       });
       if (!res.ok) {
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        setError('That message failed to send.');
         return;
       }
       const body = (await res.json()) as { user: TaskMessage; assistant: TaskMessage };
@@ -129,11 +131,27 @@ export function TaskChatThread({
         const withoutTemp = prev.filter((m) => m.id !== tempId);
         return [...withoutTemp, body.user, body.assistant];
       });
+    } catch {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setError('Network error. Try again.');
     } finally {
       setPending(false);
       setPendingAssistant(false);
       inputRef.current?.focus();
     }
+  }
+
+  async function submit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const text = value.trim();
+    if (!text || pending) return;
+    setValue('');
+    await sendMessage(text);
+  }
+
+  async function retry() {
+    if (!lastAttempt || pending) return;
+    await sendMessage(lastAttempt);
   }
 
   return (
@@ -180,6 +198,24 @@ export function TaskChatThread({
           <ComingSoon label={tab} />
         )}
       </div>
+
+      {/* Error banner */}
+      {error && (
+        <div
+          data-testid="task-chat-error"
+          className="flex items-center justify-between border-t border-rose-200 bg-rose-50 px-4 py-2 text-[12px] text-rose-900"
+        >
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={retry}
+            disabled={pending}
+            className="ml-3 rounded-md border border-rose-300 bg-white px-2 py-0.5 text-[11px] font-medium text-rose-900 disabled:opacity-50"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Input */}
       <form onSubmit={submit} className="border-t border-slate-200 p-3">

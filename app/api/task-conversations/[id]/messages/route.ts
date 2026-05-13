@@ -1,30 +1,55 @@
 /**
  * POST /api/task-conversations/[id]/messages
  *
- * Body: { content: string; metadata?: object }
- *
- * Inserts the user message, generates a canned assistant reply via
- * cannedAssistantReply(), inserts that, bumps the conversation's
- * updatedAt, and returns both messages.
- *
- * Real agent wiring lives in Phase 7. This route is the placeholder
- * that lets the UX feel alive — keyword-classified "delegating to X"
- * replies, nothing more.
- *
- * Auth: caller must own the space the conversation belongs to.
+ * Inserts the caller's message, then calls OpenAI to generate a real
+ * assistant reply grounded in Mission + CoreMemory + recent thread
+ * history. Persists both rows, emits a CostEvent, and returns them.
+ * Falls back to a canned reply if the model call fails — the route
+ * never crashes.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import OpenAI from 'openai';
 import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/api-auth';
 import { getSpaceForUser } from '@/lib/space';
-import { cannedAssistantReply } from '@/lib/tasks/conversation-helpers';
+import {
+  cannedAssistantReply,
+  classifyDepartment,
+} from '@/lib/tasks/conversation-helpers';
+import { loadMemoryLayers } from '@/lib/agent-memory/layers';
+import {
+  buildPersonalizedSystemPrompt,
+  type Mission,
+  type MissionContext,
+} from '@/lib/ai-tools/system-prompt';
+import { emitCostEvent } from '@/lib/observability/cost-events';
+import { logger } from '@/lib/logger';
+import { DEPARTMENT_LABELS } from '@/lib/tasks/catalog';
 
 const CONTENT_MAX = 4000;
+const DEFAULT_MODEL = 'gpt-5-mini';
+const FALLBACK_MODEL = 'gpt-4o-mini';
+const HISTORY_LIMIT = 20;
+const MEMORY_TOP_K = 8;
+const MODEL_TIMEOUT_MS = 30_000;
+const FALLBACK_REPLY =
+  "I'm trying to think about this but something's off. Try again in a moment.";
+
+const MUTATION_VERBS = [
+  'deploy', 'push', 'send', 'post', 'publish', 'launch',
+  'merge', 'delete', 'remove', 'create', 'commit',
+];
 
 interface PostBody {
   content?: unknown;
   metadata?: unknown;
+}
+
+interface ConvMessageRow {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  createdAt: string;
 }
 
 export async function POST(
@@ -71,7 +96,7 @@ export async function POST(
     metadata = body.metadata as Record<string, unknown>;
   }
 
-  // Ownership: load the conversation and check it lives in the caller's space.
+  // Ownership check.
   const { data: conv, error: convErr } = await supabase
     .from('TaskConversation')
     .select('id, spaceId')
@@ -102,15 +127,24 @@ export async function POST(
     return NextResponse.json({ error: 'Insert failed' }, { status: 500 });
   }
 
-  // Canned assistant reply.
-  const canned = cannedAssistantReply(content);
+  // Build the real assistant reply. Wrapped in try/catch — never crash.
+  const assistantPayload = await generateAssistantReply({
+    userId,
+    spaceId: space.id,
+    spaceName: space.name,
+    spaceSlug: space.slug,
+    spaceOwnerId: space.ownerId,
+    conversationId: id,
+    userContent: content,
+  });
+
   const { data: assistantMsg, error: asErr } = await supabase
     .from('TaskMessage')
     .insert({
       conversationId: id,
       role: 'assistant',
-      content: canned.content,
-      metadata: canned.metadata,
+      content: assistantPayload.content,
+      metadata: assistantPayload.metadata,
     })
     .select('id, conversationId, role, content, metadata, createdAt')
     .single();
@@ -118,11 +152,224 @@ export async function POST(
     return NextResponse.json({ error: 'Assistant insert failed' }, { status: 500 });
   }
 
-  // Bump updatedAt — best effort, don't fail the request if it errors.
+  // Bump updatedAt — best effort.
   await supabase
     .from('TaskConversation')
     .update({ updatedAt: new Date().toISOString() })
     .eq('id', id);
 
   return NextResponse.json({ user: userMsg, assistant: assistantMsg });
+}
+
+/**
+ * Compose the assistant reply using OpenAI, grounded in mission + core
+ * memory + recent thread history. Returns a canned fallback on any error
+ * — the route layer above never crashes on a model failure.
+ */
+async function generateAssistantReply(args: {
+  userId: string;
+  spaceId: string;
+  spaceName: string;
+  spaceSlug: string;
+  spaceOwnerId: string;
+  conversationId: string;
+  userContent: string;
+}): Promise<{
+  content: string;
+  metadata: Record<string, unknown>;
+}> {
+  const dept = classifyDepartment(args.userContent);
+  const baseMetadata: Record<string, unknown> = { delegatedTo: dept };
+  if (dept) {
+    baseMetadata.subagentChip = {
+      label: `Delegating to ${DEPARTMENT_LABELS[dept]}`,
+      department: dept,
+    };
+  }
+
+  // Mutation-request warning log. Per v1 spec we don't block, just observe.
+  const lower = args.userContent.toLowerCase();
+  if (MUTATION_VERBS.some((v) => lower.includes(v))) {
+    logger.warn('[task-messages] possible mutation request', {
+      spaceId: args.spaceId,
+      conversationId: args.conversationId,
+    });
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    const canned = cannedAssistantReply(args.userContent);
+    return {
+      content: canned.content,
+      metadata: { ...baseMetadata, ...canned.metadata, fallback: 'no_api_key' },
+    };
+  }
+
+  try {
+    // Parallelize the three lookups: memory layers, mission row, recent history.
+    const [memory, missionRow, history] = await Promise.all([
+      loadMemoryLayers(args.spaceId, args.userContent, MEMORY_TOP_K).catch((err) => {
+        logger.warn('[task-messages] memory load failed', {
+          err: err instanceof Error ? err.message : String(err),
+        });
+        return { core: {}, working: {}, recent: [] };
+      }),
+      loadMission(args.spaceId),
+      loadRecentHistory(args.conversationId),
+    ]);
+
+    const stage = missionRow?.stage ?? 'idea';
+    const missionContext: MissionContext = {
+      mission: missionRow,
+      core: memory.core,
+      stage,
+    };
+
+    const ctx = {
+      userId: args.userId,
+      space: {
+        id: args.spaceId,
+        slug: args.spaceSlug,
+        name: args.spaceName,
+        ownerId: args.spaceOwnerId,
+      },
+      signal: new AbortController().signal,
+    };
+
+    const systemPrompt = await buildPersonalizedSystemPrompt(ctx, { missionContext });
+
+    // Build messages: system → trimmed history → new user turn. We rely on
+    // the user message having already been inserted, but loadRecentHistory
+    // may or may not include it depending on read timing — dedupe by
+    // dropping the trailing user message if it matches our current content.
+    const trimmedHistory = trimTrailingDuplicate(history, args.userContent);
+
+    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: systemPrompt },
+    ];
+    for (const h of trimmedHistory) {
+      if (h.role === 'system') continue;
+      messages.push({ role: h.role, content: h.content });
+    }
+    messages.push({ role: 'user', content: args.userContent });
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), MODEL_TIMEOUT_MS);
+
+    let response;
+    let modelUsed = DEFAULT_MODEL;
+    try {
+      const client = new OpenAI({ apiKey });
+      response = await client.chat.completions.create(
+        {
+          model: DEFAULT_MODEL,
+          messages,
+          max_completion_tokens: 800,
+        },
+        { signal: controller.signal },
+      );
+    } catch (primaryErr) {
+      logger.warn('[task-messages] primary model failed; retrying with fallback', {
+        err: primaryErr instanceof Error ? primaryErr.message : String(primaryErr),
+      });
+      const client = new OpenAI({ apiKey });
+      response = await client.chat.completions.create(
+        {
+          model: FALLBACK_MODEL,
+          messages,
+          max_completion_tokens: 800,
+        },
+        { signal: controller.signal },
+      );
+      modelUsed = FALLBACK_MODEL;
+    } finally {
+      clearTimeout(timer);
+    }
+
+    const raw = response.choices?.[0]?.message?.content?.trim();
+    if (!raw) throw new Error('Empty model response');
+
+    const usage = response.usage ?? { prompt_tokens: 0, completion_tokens: 0 };
+    const inputTokens = usage.prompt_tokens ?? 0;
+    const outputTokens = usage.completion_tokens ?? 0;
+
+    // Cost event — fire and forget; never blocks the response.
+    void emitCostEvent({
+      spaceId: args.spaceId,
+      department: dept ?? 'manager',
+      model: modelUsed,
+      inputTokens,
+      outputTokens,
+      toolName: 'task-conversation',
+    });
+
+    return {
+      content: raw,
+      metadata: {
+        ...baseMetadata,
+        model: modelUsed,
+        inputTokens,
+        outputTokens,
+      },
+    };
+  } catch (err) {
+    logger.error('[task-messages] model call failed; falling back to canned reply', {
+      err: err instanceof Error ? err.message : String(err),
+      spaceId: args.spaceId,
+    });
+    return {
+      content: FALLBACK_REPLY,
+      metadata: { ...baseMetadata, fallback: 'model_error' },
+    };
+  }
+}
+
+async function loadMission(spaceId: string): Promise<Mission | null> {
+  try {
+    const { data } = await supabase
+      .from('Mission')
+      .select('id, spaceId, title, description, oneLinePitch, targetCustomer, stage, createdAt, updatedAt')
+      .eq('spaceId', spaceId)
+      .maybeSingle();
+    return (data as Mission | null) ?? null;
+  } catch (err) {
+    logger.warn('[task-messages] mission load failed', {
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
+}
+
+async function loadRecentHistory(conversationId: string): Promise<ConvMessageRow[]> {
+  try {
+    const { data } = await supabase
+      .from('TaskMessage')
+      .select('role, content, createdAt')
+      .eq('conversationId', conversationId)
+      .order('createdAt', { ascending: false })
+      .limit(HISTORY_LIMIT);
+    const rows = (data ?? []) as ConvMessageRow[];
+    return rows.slice().reverse();
+  } catch (err) {
+    logger.warn('[task-messages] history load failed', {
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return [];
+  }
+}
+
+/**
+ * If the most recent history row is the same user content we're about to
+ * send (it was just inserted), drop it so we don't pass it twice.
+ */
+function trimTrailingDuplicate(
+  history: ConvMessageRow[],
+  newUserContent: string,
+): ConvMessageRow[] {
+  if (history.length === 0) return history;
+  const last = history[history.length - 1];
+  if (last.role === 'user' && last.content === newUserContent) {
+    return history.slice(0, -1);
+  }
+  return history;
 }

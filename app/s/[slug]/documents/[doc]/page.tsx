@@ -33,6 +33,8 @@ import {
 import { EditMode } from './edit-mode';
 import { MarkdownMode } from './markdown-mode';
 import { PdfMode } from './pdf-mode';
+import { DraftCard } from './draft-card';
+import { MAX_PER_HOUR as PRD_MAX_PER_HOUR } from '@/app/api/documents/product-prd/generate/_buckets';
 
 type Mode = 'edit' | 'markdown' | 'pdf';
 
@@ -109,6 +111,16 @@ export default async function DocumentPage({
 
       {/* ── Mode pills ─────────────────────────────────────────────── */}
       <ModePills slug={slug} docSlug={def.slug} mode={mode} />
+
+      {/* ── Draft affordance ───────────────────────────────────────── */}
+      {mode === 'edit' &&
+        def.slug === 'product-prd' &&
+        content.trim().length < 100 && (
+          <DraftCard
+            endpoint="/api/documents/product-prd/generate"
+            maxPerHour={PRD_MAX_PER_HOUR}
+          />
+        )}
 
       {/* ── Surface ────────────────────────────────────────────────── */}
       {mode === 'edit' && (
