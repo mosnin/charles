@@ -26,7 +26,7 @@ All variables found or inferable from code usage:
 | `STRIPE_PRICE_STARTER` | `app/api/billing/checkout/route.ts` | Stripe price ID for the Starter brokerage plan | **Medium** | Starter plan checkout cannot be created |
 | `STRIPE_PRICE_TEAM` | `app/api/billing/checkout/route.ts` | Stripe price ID for the Team brokerage plan | **Medium** | Team plan checkout cannot be created |
 | `STRIPE_PRICE_ENTERPRISE` | `app/api/billing/checkout/route.ts` | Stripe price ID for the Enterprise brokerage plan | **Medium** | Enterprise plan checkout cannot be created |
-| `COMPOSIO_API_KEY` | `lib/integrations/composio.ts`, `agent/integrations.py` | Composio API key for loading the realtor's connected toolkits (Gmail, Slack, HubSpot, etc.) into the chat agent AND autonomous runs | **High (when integrations used)** | Connections show "Connected" in /settings but Chippi can't see them as tools. **Must be set in BOTH Vercel env AND the Modal `chippi-secrets` secret** so chat (Modal) and the Next.js callback both work. |
+| `COMPOSIO_API_KEY` | `lib/integrations/composio.ts`, `agent/integrations.py` | Composio API key for loading the realtor's connected toolkits (Gmail, Slack, HubSpot, etc.) into the chat agent AND autonomous runs | **High (when integrations used)** | Connections show "Connected" in /settings but Chippi can't see them as tools. **Must be set in BOTH Vercel env AND the Modal `charles-secrets` secret** so chat (Modal) and the Next.js callback both work. |
 | `NODE_ENV` | `lib/utils.ts` | Protocol selection (http vs https) | **Auto-set** | Set automatically by Next.js; do not override manually |
 
 ### Clerk-specific variables
