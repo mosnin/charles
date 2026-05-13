@@ -2,7 +2,7 @@
  * Route-level tests for `POST /api/onboarding/complete`.
  *
  * Pins the 10-screen wizard contract:
- *   - Validates the new founder-profile fields (stage, role, technicalExperience).
+ *   - Validates the new founder-profile fields (ideaStage, founderRole, technicalExperience).
  *   - Persists them onto Mission as ideaStage / founderRole / technicalExperience.
  *   - Resolves the effective workspace template slug (explicit > auto-pick from
  *     stage > default), returned in the JSON response.
@@ -122,7 +122,7 @@ describe('POST /api/onboarding/complete — auth & shape', () => {
 });
 
 describe('POST /api/onboarding/complete — new founder-profile fields', () => {
-  it('accepts the new shape (stage/role/technicalExperience) and persists onto Mission', async () => {
+  it('accepts the new shape (ideaStage/founderRole/technicalExperience) and persists onto Mission', async () => {
     primeHappyPath();
     const res = await POST(
       makeReq({
@@ -130,8 +130,8 @@ describe('POST /api/onboarding/complete — new founder-profile fields', () => {
         founderName: 'Jane',
         whatBuilding: 'A thing.',
         targetCustomer: 'Founders.',
-        stage: 'mvp',
-        role: 'engineering',
+        ideaStage: 'mvp',
+        founderRole: 'engineering',
         technicalExperience: 'writes-code',
       }) as Parameters<typeof POST>[0],
     );
@@ -146,16 +146,16 @@ describe('POST /api/onboarding/complete — new founder-profile fields', () => {
     expect(missionUpdate.payload.technicalExperience).toBe('writes-code');
   });
 
-  it('400 on invalid stage', async () => {
+  it('400 on invalid ideaStage', async () => {
     const res = await POST(
-      makeReq({ stage: 'unicorn' }) as Parameters<typeof POST>[0],
+      makeReq({ ideaStage: 'unicorn' }) as Parameters<typeof POST>[0],
     );
     expect(res.status).toBe(400);
   });
 
-  it('400 on invalid role', async () => {
+  it('400 on invalid founderRole', async () => {
     const res = await POST(
-      makeReq({ role: 'philosopher' }) as Parameters<typeof POST>[0],
+      makeReq({ founderRole: 'philosopher' }) as Parameters<typeof POST>[0],
     );
     expect(res.status).toBe(400);
   });
@@ -176,7 +176,7 @@ describe('POST /api/onboarding/complete — new founder-profile fields', () => {
     expect(res.status).toBe(400);
   });
 
-  it('accepts each valid stage', async () => {
+  it('accepts each valid ideaStage', async () => {
     const stages = [
       'pre-idea',
       'idea',
@@ -186,18 +186,18 @@ describe('POST /api/onboarding/complete — new founder-profile fields', () => {
       'revenue',
       'public',
     ];
-    for (const stage of stages) {
+    for (const ideaStage of stages) {
       tableQueues.User.length = 0;
       tableQueues.Space.length = 0;
       primeHappyPath();
       const res = await POST(
-        makeReq({ stage }) as Parameters<typeof POST>[0],
+        makeReq({ ideaStage }) as Parameters<typeof POST>[0],
       );
       expect(res.status).toBe(200);
     }
   });
 
-  it('accepts each valid role', async () => {
+  it('accepts each valid founderRole', async () => {
     const roles = [
       'product',
       'engineering',
@@ -208,12 +208,12 @@ describe('POST /api/onboarding/complete — new founder-profile fields', () => {
       'founder',
       'other',
     ];
-    for (const role of roles) {
+    for (const founderRole of roles) {
       tableQueues.User.length = 0;
       tableQueues.Space.length = 0;
       primeHappyPath();
       const res = await POST(
-        makeReq({ role }) as Parameters<typeof POST>[0],
+        makeReq({ founderRole }) as Parameters<typeof POST>[0],
       );
       expect(res.status).toBe(200);
     }
@@ -282,10 +282,10 @@ describe('POST /api/onboarding/complete — back-compat', () => {
 });
 
 describe('POST /api/onboarding/complete — template auto-pick', () => {
-  it('returns auto-picked templateSlug when only stage is present', async () => {
+  it('returns auto-picked templateSlug when only ideaStage is present', async () => {
     primeHappyPath();
     const res = await POST(
-      makeReq({ stage: 'mvp' }) as Parameters<typeof POST>[0],
+      makeReq({ ideaStage: 'mvp' }) as Parameters<typeof POST>[0],
     );
     expect(res.status).toBe(200);
     const json = await res.json();
@@ -296,7 +296,7 @@ describe('POST /api/onboarding/complete — template auto-pick', () => {
     primeHappyPath();
     const res = await POST(
       makeReq({
-        stage: 'mvp',
+        ideaStage: 'mvp',
         templateSlug: 'physical-product',
       }) as Parameters<typeof POST>[0],
     );
@@ -305,7 +305,7 @@ describe('POST /api/onboarding/complete — template auto-pick', () => {
     expect(json.appliedTemplateSlug).toBe('physical-product');
   });
 
-  it('falls back to default when neither stage nor templateSlug is present', async () => {
+  it('falls back to default when neither ideaStage nor templateSlug is present', async () => {
     primeHappyPath();
     const res = await POST(
       makeReq({ companyName: 'Acme' }) as Parameters<typeof POST>[0],
@@ -315,7 +315,7 @@ describe('POST /api/onboarding/complete — template auto-pick', () => {
     expect(json.appliedTemplateSlug).toBe('saas-b2b');
   });
 
-  it('uses templateSlug when stage is absent', async () => {
+  it('uses templateSlug when ideaStage is absent', async () => {
     primeHappyPath();
     const res = await POST(
       makeReq({ templateSlug: 'b2b-agency' }) as Parameters<typeof POST>[0],
@@ -331,8 +331,8 @@ describe('POST /api/onboarding/complete — persistence side-effects', () => {
     primeHappyPath();
     await POST(
       makeReq({
-        stage: 'idea',
-        role: 'product',
+        ideaStage: 'idea',
+        founderRole: 'product',
         technicalExperience: 'non-technical',
       }) as Parameters<typeof POST>[0],
     );

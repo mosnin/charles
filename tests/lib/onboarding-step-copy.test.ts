@@ -57,17 +57,17 @@ describe('STEPS — ordering', () => {
 });
 
 describe('STEPS — kinds and fields', () => {
-  it('stage step is a scrubber bound to the `stage` field', () => {
+  it('stage step is a scrubber bound to the `ideaStage` field', () => {
     const step = STEPS.find((s) => s.id === 'stage')!;
     expect(step.kind).toBe('scrubber');
-    expect(step.field).toBe('stage');
+    expect(step.field).toBe('ideaStage');
     expect(step.stages).toBeDefined();
   });
 
-  it('role step is options bound to the `role` field', () => {
+  it('role step is options bound to the `founderRole` field', () => {
     const step = STEPS.find((s) => s.id === 'role')!;
     expect(step.kind).toBe('options');
-    expect(step.field).toBe('role');
+    expect(step.field).toBe('founderRole');
     expect(step.options).toBeDefined();
   });
 

@@ -26,8 +26,8 @@ export interface WizardValues {
   companyName: string;
   whatBuilding: string;
   targetCustomer: string;
-  stage: string;
-  role: string;
+  ideaStage: string;
+  founderRole: string;
   technicalExperience: string;
   githubConnected: boolean;
   githubSkipped: boolean;
@@ -38,8 +38,8 @@ export interface CompletePayload {
   companyName: string;
   whatBuilding: string;
   targetCustomer: string;
-  stage: string;
-  role: string;
+  ideaStage: string;
+  founderRole: string;
   technicalExperience: string;
   githubConnected: boolean;
 }
@@ -110,15 +110,15 @@ export function payloadFromValues(values: WizardValues): CompletePayload {
     companyName: values.companyName.trim(),
     whatBuilding: values.whatBuilding.trim(),
     targetCustomer: values.targetCustomer.trim(),
-    stage: values.stage,
-    role: values.role,
+    ideaStage: values.ideaStage,
+    founderRole: values.founderRole,
     technicalExperience: values.technicalExperience,
     githubConnected: values.githubConnected,
   };
 }
 
 /**
- * Default form values for a fresh wizard mount. `stage` is seeded to "idea"
+ * Default form values for a fresh wizard mount. `ideaStage` is seeded to "idea"
  * so the scrubber has a meaningful default; founderName is optionally
  * pre-filled from Clerk.
  */
@@ -128,8 +128,8 @@ export function defaultValues(defaultFounderName = ''): WizardValues {
     companyName: '',
     whatBuilding: '',
     targetCustomer: '',
-    stage: 'idea',
-    role: '',
+    ideaStage: 'idea',
+    founderRole: '',
     technicalExperience: '',
     githubConnected: false,
     githubSkipped: false,

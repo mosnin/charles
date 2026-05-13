@@ -44,8 +44,8 @@ export interface FormValues {
   companyName: string;
   whatBuilding: string;
   targetCustomer: string;
-  stage: string;
-  role: string;
+  ideaStage: string;
+  founderRole: string;
   technicalExperience: string;
   githubConnected: boolean;
   githubSkipped: boolean;
@@ -102,7 +102,7 @@ export const STEPS = [
     id: 'stage',
     kind: 'scrubber',
     headline: 'What stage is your idea?',
-    field: 'stage',
+    field: 'ideaStage',
     stages: STAGE_OPTIONS,
     ctaLabel: 'Next',
   },
@@ -110,7 +110,7 @@ export const STEPS = [
     id: 'role',
     kind: 'options',
     headline: 'Which best describes you?',
-    field: 'role',
+    field: 'founderRole',
     options: ROLE_OPTIONS,
     ctaLabel: 'Continue',
   },

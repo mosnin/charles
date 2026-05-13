@@ -59,8 +59,8 @@ const BodySchema = z.object({
   templateSlug: z.string().optional(),
 
   // New founder-profile signals.
-  stage: z.enum(FOUNDER_IDEA_STAGES as readonly [string, ...string[]]).optional(),
-  role: z.enum(FOUNDER_ROLES).optional(),
+  ideaStage: z.enum(FOUNDER_IDEA_STAGES as readonly [string, ...string[]]).optional(),
+  founderRole: z.enum(FOUNDER_ROLES).optional(),
   technicalExperience: z.enum(TECHNICAL_EXPERIENCE).optional(),
 });
 
@@ -156,8 +156,8 @@ export async function POST(req: NextRequest) {
     { spaceId: space.id, slot: 'product_description', value: body.whatBuilding?.trim() || null },
     { spaceId: space.id, slot: 'one_line_pitch',      value: body.oneLinePitch?.trim() || null },
     { spaceId: space.id, slot: 'target_customer',     value: body.targetCustomer?.trim() || null },
-    { spaceId: space.id, slot: 'idea_stage',          value: body.stage ?? null },
-    { spaceId: space.id, slot: 'founder_role',        value: body.role ?? null },
+    { spaceId: space.id, slot: 'idea_stage',          value: body.ideaStage ?? null },
+    { spaceId: space.id, slot: 'founder_role',        value: body.founderRole ?? null },
     { spaceId: space.id, slot: 'technical_experience',value: body.technicalExperience ?? null },
   ].filter((s) => s.value !== null);
 
@@ -179,8 +179,8 @@ export async function POST(req: NextRequest) {
   if (body.oneLinePitch?.trim()) missionUpdates.oneLinePitch = body.oneLinePitch.trim();
   if (body.targetCustomer?.trim()) missionUpdates.targetCustomer = body.targetCustomer.trim();
   if (body.whatBuilding?.trim()) missionUpdates.description = body.whatBuilding.trim();
-  if (body.stage) missionUpdates.ideaStage = body.stage;
-  if (body.role) missionUpdates.founderRole = body.role;
+  if (body.ideaStage) missionUpdates.ideaStage = body.ideaStage;
+  if (body.founderRole) missionUpdates.founderRole = body.founderRole;
   if (body.technicalExperience) missionUpdates.technicalExperience = body.technicalExperience;
 
   if (Object.keys(missionUpdates).length > 0) {
@@ -207,7 +207,7 @@ export async function POST(req: NextRequest) {
     appliedTemplateSlug = body.templateSlug;
   } else {
     appliedTemplateSlug = autoPickTemplateForStage(
-      body.stage as FounderIdeaStage | undefined,
+      body.ideaStage as FounderIdeaStage | undefined,
     );
   }
 

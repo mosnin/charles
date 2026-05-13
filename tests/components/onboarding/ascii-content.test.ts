@@ -28,10 +28,10 @@ describe('SUNFLOWER_ASCII', () => {
 });
 
 describe('WORDMARK_ASCII', () => {
-  it('is built from slash, underscore, and pipe glyphs', () => {
-    expect(WORDMARK_ASCII).toContain('_');
-    expect(WORDMARK_ASCII).toContain('/');
-    expect(WORDMARK_ASCII).toContain('|');
+  it('is built from block + box-drawing glyphs', () => {
+    expect(WORDMARK_ASCII).toContain('█');
+    expect(WORDMARK_ASCII).toContain('╗');
+    expect(WORDMARK_ASCII).toContain('═');
   });
 
   it('has the mass of a tall blocky wordmark', () => {
@@ -39,8 +39,6 @@ describe('WORDMARK_ASCII', () => {
   });
 
   it('renders the seven letters of "Charles" as ASCII art', () => {
-    // Each letter is a tall glyph block; verify the wordmark has at least
-    // six rows of art and enough horizontal width to fit seven letters.
     const lines = WORDMARK_ASCII.split('\n').filter((l) => l.length > 0);
     expect(lines.length).toBeGreaterThanOrEqual(6);
     const widest = Math.max(...lines.map((l) => l.length));

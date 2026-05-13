@@ -58,23 +58,23 @@ describe('isStepValid', () => {
   });
 
   it('options invalid when empty string', () => {
-    const step: StepShape = { kind: 'options', field: 'role' };
-    expect(isStepValid(step, vals({ role: '' }))).toBe(false);
+    const step: StepShape = { kind: 'options', field: 'founderRole' };
+    expect(isStepValid(step, vals({ founderRole: '' }))).toBe(false);
   });
 
   it('options valid when any non-empty id', () => {
-    const step: StepShape = { kind: 'options', field: 'role' };
-    expect(isStepValid(step, vals({ role: 'founder' }))).toBe(true);
+    const step: StepShape = { kind: 'options', field: 'founderRole' };
+    expect(isStepValid(step, vals({ founderRole: 'founder' }))).toBe(true);
   });
 
-  it('scrubber valid because default stage is seeded', () => {
-    const step: StepShape = { kind: 'scrubber', field: 'stage' };
-    expect(isStepValid(step, vals())).toBe(true); // default stage = 'idea'
+  it('scrubber valid because default ideaStage is seeded', () => {
+    const step: StepShape = { kind: 'scrubber', field: 'ideaStage' };
+    expect(isStepValid(step, vals())).toBe(true); // default ideaStage = 'idea'
   });
 
-  it('scrubber invalid if stage somehow blanked', () => {
-    const step: StepShape = { kind: 'scrubber', field: 'stage' };
-    expect(isStepValid(step, vals({ stage: '' }))).toBe(false);
+  it('scrubber invalid if ideaStage somehow blanked', () => {
+    const step: StepShape = { kind: 'scrubber', field: 'ideaStage' };
+    expect(isStepValid(step, vals({ ideaStage: '' }))).toBe(false);
   });
 
   it('text/textarea/options/scrubber without a field are invalid', () => {
@@ -121,8 +121,8 @@ describe('payloadFromValues', () => {
       companyName: ' Acme ',
       whatBuilding: '  An AI cofounder.  ',
       targetCustomer: '  Solo founders.  ',
-      stage: 'building',
-      role: 'founder',
+      ideaStage: 'building',
+      founderRole: 'founder',
       technicalExperience: 'technical',
       githubConnected: true,
       githubSkipped: false,
@@ -132,8 +132,8 @@ describe('payloadFromValues', () => {
       companyName: 'Acme',
       whatBuilding: 'An AI cofounder.',
       targetCustomer: 'Solo founders.',
-      stage: 'building',
-      role: 'founder',
+      ideaStage: 'building',
+      founderRole: 'founder',
       technicalExperience: 'technical',
       githubConnected: true,
     });
@@ -153,8 +153,8 @@ describe('payloadFromValues', () => {
 });
 
 describe('defaultValues', () => {
-  it('seeds stage to "idea" so the scrubber has a meaningful default', () => {
-    expect(defaultValues().stage).toBe('idea');
+  it('seeds ideaStage to "idea" so the scrubber has a meaningful default', () => {
+    expect(defaultValues().ideaStage).toBe('idea');
   });
 
   it('uses the supplied founderName from Clerk if given', () => {
