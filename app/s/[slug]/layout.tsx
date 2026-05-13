@@ -9,6 +9,7 @@ import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { auth } from '@clerk/nextjs/server';
 import { getSpaceFromSlug } from '@/lib/space';
+import { listSpacesForUser, type UserSpace } from '@/lib/space/list-for-user';
 import { supabase } from '@/lib/supabase';
 import { ensureOnboardingBackfill } from '@/lib/onboarding';
 import { PaywallBanner } from '@/components/billing/paywall-banner';
@@ -159,13 +160,25 @@ export default async function WorkspaceLayout({
     // Fall back to space.name.
   }
 
+  // Switcher payload: every workspace this founder can step into.
+  let userSpaces: UserSpace[] = [];
+  try {
+    userSpaces = await listSpacesForUser(userId, space.id);
+  } catch (err) {
+    console.error('[layout] listSpacesForUser failed (non-blocking)', {
+      clerkId: userId,
+      slug,
+      error: err,
+    });
+  }
+
   return (
     <div className="app-theme flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <PlatformBanner />
       {!paywall.allowed && paywall.reason && (
         <PaywallBanner slug={slug} reason={paywall.reason} />
       )}
-      <WorkspaceShell slug={slug} workspaceName={workspaceName}>
+      <WorkspaceShell slug={slug} workspaceName={workspaceName} spaces={userSpaces}>
         {children}
       </WorkspaceShell>
     </div>

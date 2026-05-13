@@ -25,6 +25,7 @@
 
 import {
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -48,6 +49,7 @@ import { StatusDot } from './status-dot';
 import { ORBIT_ORDER, orbitPoint } from '@/lib/canvas/orbit';
 import type { DeptCounts } from '@/lib/canvas/dept-counts';
 import type { AuditEvent } from '@/lib/observability/audit-feed';
+import { subscribeToDeptActivity, subscribeToAuditFeed } from '@/lib/canvas/realtime';
 
 export interface CanvasHomeProps {
   slug: string;
@@ -82,9 +84,54 @@ export function CanvasHome({
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
+  const [liveDeptCounts, setLiveDeptCounts] = useState(deptCounts);
+  const [liveAuditFeed, setLiveAuditFeed] = useState(initialAuditFeed);
   const dragRef = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(
     null,
   );
+
+  const refreshDeptCounts = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/space/${slug}/dept-counts`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = (await res.json()) as Record<DepartmentSlug, DeptCounts>;
+      if (data && typeof data === 'object') setLiveDeptCounts(data);
+    } catch {
+      // Network blip — next tick will catch up.
+    }
+  }, [slug]);
+
+  const refreshAuditFeed = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/space/${slug}/audit-feed?limit=8`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = (await res.json()) as AuditEvent[];
+      if (Array.isArray(data)) setLiveAuditFeed(data);
+    } catch {
+      // Same — polling fallback handles it.
+    }
+  }, [slug]);
+
+  // Realtime subscriptions + polling fallback. The unsubscribe is a no-op
+  // if the browser client couldn't initialize, in which case polling alone
+  // keeps things fresh.
+  useEffect(() => {
+    const unsubDept = subscribeToDeptActivity(slug, () => {
+      void refreshDeptCounts();
+    });
+    const unsubAudit = subscribeToAuditFeed(slug, () => {
+      void refreshAuditFeed();
+    });
+    const pollId = window.setInterval(() => {
+      void refreshDeptCounts();
+      void refreshAuditFeed();
+    }, 30_000);
+    return () => {
+      unsubDept();
+      unsubAudit();
+      window.clearInterval(pollId);
+    };
+  }, [slug, refreshDeptCounts, refreshAuditFeed]);
 
   const onPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
     // Only left-button drags pan the canvas.
@@ -275,9 +322,9 @@ export function CanvasHome({
                     deptSlug={p.deptSlug}
                     name={DEPARTMENT_NAMES[p.deptSlug]}
                     autonomyLevel={autonomyBySlug[p.deptSlug]}
-                    runningCount={deptCounts[p.deptSlug]?.running ?? 0}
-                    queuedCount={deptCounts[p.deptSlug]?.queued ?? 0}
-                    idleCount={deptCounts[p.deptSlug]?.idle ?? 1}
+                    runningCount={liveDeptCounts[p.deptSlug]?.running ?? 0}
+                    queuedCount={liveDeptCounts[p.deptSlug]?.queued ?? 0}
+                    idleCount={liveDeptCounts[p.deptSlug]?.idle ?? 1}
                   />
                 </div>
               ))}
@@ -303,7 +350,7 @@ export function CanvasHome({
       </section>
 
       {/* Desktop chat dock — hidden on mobile via its own md: classes. */}
-      <ChatDock slug={slug} initialAuditFeed={initialAuditFeed} />
+      <ChatDock slug={slug} initialAuditFeed={liveAuditFeed} />
 
       {/* ─── Mobile (< md): vertical stack ─────────────────────────────── */}
       <section
@@ -333,9 +380,9 @@ export function CanvasHome({
                 deptSlug={deptSlug}
                 name={DEPARTMENT_NAMES[deptSlug]}
                 autonomyLevel={autonomyBySlug[deptSlug]}
-                runningCount={deptCounts[deptSlug]?.running ?? 0}
-                queuedCount={deptCounts[deptSlug]?.queued ?? 0}
-                idleCount={deptCounts[deptSlug]?.idle ?? 1}
+                runningCount={liveDeptCounts[deptSlug]?.running ?? 0}
+                queuedCount={liveDeptCounts[deptSlug]?.queued ?? 0}
+                idleCount={liveDeptCounts[deptSlug]?.idle ?? 1}
               />
             ))}
           </div>
@@ -383,7 +430,7 @@ export function CanvasHome({
             <div className="flex-1 min-h-0">
               <ChatDock
                 slug={slug}
-                initialAuditFeed={initialAuditFeed}
+                initialAuditFeed={liveAuditFeed}
                 variant="mobile"
               />
             </div>

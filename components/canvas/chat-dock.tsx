@@ -34,6 +34,7 @@ import { iconForDepartment } from '@/lib/icons/manifest';
 import type { AuditEvent } from '@/lib/observability/audit-feed';
 import { eventsToDockRows, type DockRow } from '@/lib/canvas/dock-feed';
 import { SubagentChip } from './subagent-chip';
+import { LibraryTab } from './library-tab';
 
 const TABS = ['Home', 'Company', 'Charles', 'Tasks', 'Library'] as const;
 type Tab = (typeof TABS)[number];
@@ -190,6 +191,8 @@ export function ChatDock({ slug, initialAuditFeed, variant = 'desktop' }: Props)
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {tab === 'Home' || tab === 'Charles' ? (
           <HomeFeed rows={rows} />
+        ) : tab === 'Library' ? (
+          <LibraryTab />
         ) : (
           <ComingSoon label={tab} />
         )}

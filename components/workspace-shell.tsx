@@ -15,37 +15,32 @@
  */
 
 import { useCallback, useState } from 'react';
-import Link from 'next/link';
 import { UserButton } from '@clerk/nextjs';
 import { Command } from 'lucide-react';
 import { CommandPalette, useCommandPaletteHotkey } from '@/components/command-palette';
 import { WorkspaceThemeToggle } from '@/components/workspace-theme-toggle';
+import { WorkspaceSwitcher } from '@/components/workspace-switcher';
+import type { UserSpace } from '@/lib/space/list-for-user';
 
 interface Props {
   slug: string;
   workspaceName: string;
+  spaces: UserSpace[];
   children: React.ReactNode;
 }
 
-export function WorkspaceShell({ slug, workspaceName, children }: Props) {
+export function WorkspaceShell({ slug, workspaceName, spaces, children }: Props) {
   const [open, setOpen] = useState(false);
   const onOpen = useCallback(() => setOpen(true), []);
   useCommandPaletteHotkey(onOpen);
 
-  // Mobile gets ~20 chars; desktop keeps its ~32.
-  const displayMobile = workspaceName.length > 20 ? workspaceName.slice(0, 20).trimEnd() + '…' : workspaceName;
-  const displayDesktop = workspaceName.length > 32 ? workspaceName.slice(0, 32).trimEnd() + '…' : workspaceName;
-
   return (
     <>
       <header className="flex h-12 items-center border-b border-border/60 px-4 gap-4 flex-shrink-0">
-        <Link
-          href={`/s/${slug}`}
-          className="text-sm font-medium text-foreground/90 hover:text-foreground transition-colors truncate max-w-[55%] md:max-w-[40%]"
-        >
-          <span className="md:hidden">{displayMobile}</span>
-          <span className="hidden md:inline">{displayDesktop}</span>
-        </Link>
+        <WorkspaceSwitcher
+          current={{ slug, name: workspaceName }}
+          spaces={spaces}
+        />
 
         <div className="flex-1 flex items-center justify-center">
           <button
