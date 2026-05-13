@@ -61,7 +61,7 @@ app/           Next.js 15 App Router: routes, API handlers, SSE proxies, server 
 components/    React 19 UI components, shared primitives, brand surfaces
 lib/           TypeScript libs: db clients, auth helpers, integrations, agent tooling, sanitizer, cost-tracker
 plugins/       Slash-command plugin packs loaded by Charles at runtime
-supabase/      schema.sql, migrations/, RLS policies, seed data
+supabase/      migrations/ (single baseline + timestamped follow-ups), RLS policies, seed functions
 docs/          Internal reference docs (architecture deep-dives, contracts)
 ```
 

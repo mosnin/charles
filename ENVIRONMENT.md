@@ -49,9 +49,9 @@ Clerk requires additional environment variables that are standard for `@clerk/ne
 | Service | Role in Chippi | Key integration files |
 |---|---|---|
 | **Clerk** | Authentication, session management, route protection | `middleware.ts`, `app/(auth)/*`, all API routes using `auth()` |
-| **Supabase** | Source-of-truth for all app data (users, spaces, contacts, deals, stages, messages, embeddings) | `lib/supabase.ts`, `supabase/schema.sql` |
+| **Supabase** | Source-of-truth for all app data (users, spaces, contacts, deals, stages, messages, embeddings) | `lib/supabase.ts`, `supabase/migrations/00000000000000_charles_baseline.sql` |
 | **OpenAI** | Lead scoring (gpt-4o-mini), text embeddings (text-embedding-3-small), AI assistant primary provider | `lib/lead-scoring.ts`, `lib/embeddings.ts`, `lib/ai.ts` |
-| **Supabase pgvector** | Vector storage and similarity search for RAG-enriched AI assistant context, scoped per workspace | `lib/zilliz.ts`, `lib/vectorize.ts`, `supabase/schema.sql` (`DocumentEmbedding` table + `match_documents` RPC) |
+| **Supabase pgvector** | Vector storage and similarity search for RAG-enriched AI assistant context, scoped per workspace | `lib/zilliz.ts`, `lib/vectorize.ts`, `supabase/migrations/00000000000000_charles_baseline.sql` (`DocumentEmbedding` table + `match_documents` RPC) |
 | **Resend** | Transactional email — sends lead notifications, tour confirmations/reminders/follow-ups, brokerage invitations, follow-up digests, and CRM emails | `lib/email.ts`, `lib/tour-emails.ts`, `app/api/public/apply/route.ts` |
 | **Telnyx** | SMS notifications — sends text messages to workspace owners for new leads, tour bookings, and deals (opt-in per workspace via settings) | `lib/sms.ts`, `lib/notify.ts` |
 | **Upstash Redis** | Rate limiting (`lib/rate-limit.ts`), pending-approval state for the AI agent (`lib/ai-tools/pending-approvals.ts`), legacy slug metadata + admin dashboard | `lib/redis.ts`, `lib/rate-limit.ts`, `lib/ai-tools/pending-approvals.ts`, `lib/slugs.ts`, `app/actions.ts` |
@@ -144,6 +144,6 @@ The `SpaceSetting` model stores per-workspace configuration:
 Before the vector search features work, run the following in the Supabase SQL Editor:
 
 1. **Enable pgvector extension**: Dashboard → Database → Extensions → search "vector" → enable
-2. **Run `supabase/schema.sql`**: Creates all tables including `DocumentEmbedding`, the HNSW index, and the `match_documents` RPC function
+2. **Run `npx supabase db push`** (or apply `supabase/migrations/00000000000000_charles_baseline.sql` manually): creates all tables including `DocumentEmbedding`, the HNSW index, and the `match_documents` RPC function
 3. The AI assistant will automatically embed and index contacts/deals as they are created or updated
 4. Use `POST /api/vectorize/sync` (with `{ slug }` payload) to back-fill existing records
