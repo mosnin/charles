@@ -932,3 +932,78 @@ export async function sendStatusUpdateEmail(params: StatusUpdateEmailParams): Pr
     logger.error('[email] status update failed', { to: toEmail }, err);
   }
 }
+
+// ── Team invite email (Charles Phase 5 multi-seat) ──────────────────────────
+
+export interface TeamInviteEmailParams {
+  toEmail: string;
+  teamName: string;
+  inviterName: string | null;
+  role: 'admin' | 'member';
+  token: string;
+}
+
+/**
+ * Sends a "you've been invited to join {team}" email. Silent no-op when
+ * RESEND_API_KEY is not set — we never want a missing env var to crash an
+ * invite write. The DB row is the source of truth; the email is the nudge.
+ */
+export async function sendTeamInvite(params: TeamInviteEmailParams): Promise<void> {
+  if (!process.env.RESEND_API_KEY) {
+    logger.warn('[email] RESEND_API_KEY not set — skipping team invite email');
+    return;
+  }
+  const { Resend } = await import('resend');
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const FROM = getFromAddress();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://my.usechippi.com';
+
+  const { toEmail, teamName, inviterName, role, token } = params;
+  const acceptUrl = `${appUrl}/team/accept/${encodeURIComponent(token)}`;
+  const inviter = inviterName ?? 'A teammate';
+  const roleLabel = role === 'admin' ? 'Admin' : 'Member';
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:32px 16px">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden">
+        <tr><td style="background:#0f172a;padding:20px 28px">
+          <p style="margin:0;color:#94a3b8;font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.05em">Charles</p>
+          <p style="margin:4px 0 0;color:#ffffff;font-size:20px;font-weight:700">${esc(teamName)}</p>
+        </td></tr>
+        <tr><td style="padding:24px 28px">
+          <p style="margin:0;font-size:15px;color:#111827;line-height:1.6">
+            <strong>${esc(inviter)}</strong> invited you to join <strong>${esc(teamName)}</strong> as a <strong>${esc(roleLabel)}</strong>.
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px">
+            <tr><td>
+              <a href="${acceptUrl}" style="display:inline-block;background:#0f172a;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:10px 22px;border-radius:8px">Accept invite &rarr;</a>
+            </td></tr>
+          </table>
+          <p style="margin:16px 0 0;font-size:11px;color:#9ca3af">This invite expires in 7 days.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  try {
+    const result = await resend.emails.send({
+      from: FROM,
+      to: toEmail,
+      subject: `You're invited to join ${teamName.replace(/[\r\n\t]/g, ' ').slice(0, 100)}`,
+      html,
+    });
+    if (result.error) {
+      logger.error('[email] team invite: Resend API error', { to: toEmail, resendError: result.error });
+    } else {
+      logger.info('[email] team invite sent', { to: toEmail, messageId: result.data?.id });
+    }
+  } catch (err) {
+    logger.error('[email] team invite failed', { to: toEmail }, err);
+  }
+}

@@ -10,6 +10,8 @@ import { ensureOnboardingBackfill } from '@/lib/onboarding';
 import { getBrokerContext } from '@/lib/permissions';
 import { LiveNotifications } from '@/components/dashboard/live-notifications';
 import { PlatformBanner } from '@/components/platform-banner';
+import { PaywallBanner } from '@/components/billing/paywall-banner';
+import { checkPaywall } from '@/lib/billing/paywall';
 import { CommandPalette } from '@/components/command-palette/command-palette';
 import { AgentStatusBar } from '@/components/agent/agent-status-bar';
 import { ChippiBar } from '@/components/chippi/chippi-bar';
@@ -217,6 +219,24 @@ export default async function DashboardLayout({
     activePropertyCount = 0;
   }
 
+  // Charles platform paywall — banner only, no hard-lock. If the
+  // subscription is past_due/canceled we surface a quiet banner above the
+  // workspace. Active/trialing/no-sub paths fall through silently. The
+  // hard-lock can come later once we've seen this UX with real founders.
+  let paywall: { allowed: boolean; reason: 'past_due' | 'canceled' | null } = {
+    allowed: true,
+    reason: null,
+  };
+  try {
+    const res = await checkPaywall(space.id);
+    paywall = {
+      allowed: res.allowed,
+      reason: res.reason === 'past_due' || res.reason === 'canceled' ? res.reason : null,
+    };
+  } catch {
+    // Banner is decoration. If the check fails, behave as if all is well.
+  }
+
   // Check broker context and brokerage memberships for sidebar
   let isBroker = false;
   let brokerageName: string | null = null;
@@ -248,6 +268,9 @@ export default async function DashboardLayout({
       <Sidebar slug={slug} spaceName={space.name} unreadLeadCount={unreadLeadCount} pendingDraftCount={pendingDraftCount ?? 0} overdueFollowUpCount={overdueFollowUpCount} activePropertyCount={activePropertyCount} isBroker={isBroker} brokerageName={brokerageName} brokerageRole={brokerageRole} brokerageMemberships={brokerageMemberships} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <PlatformBanner />
+        {!paywall.allowed && paywall.reason && (
+          <PaywallBanner slug={slug} reason={paywall.reason} />
+        )}
         <Header slug={slug} spaceName={space.name} title={space.name} isBroker={isBroker} brokerageName={brokerageName} />
         <AgentStatusBar slug={slug} />
         <LayoutShell slug={slug} liveNotifications={<LiveNotifications spaceId={space.id} slug={slug} />}>

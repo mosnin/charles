@@ -20,6 +20,7 @@ from agents import Agent, Runner, function_tool
 from config import settings
 from db import supabase
 from departments import DEPARTMENT_REGISTRY
+from lib.cost_events import emit_cost_event
 from memory.layers import format_core_for_prompt, load_layers, set_core_slot
 from memory.store import save_memory, search_similar
 from stages import gates_for_stage
@@ -186,6 +187,33 @@ class CharlesManager:
                 message = task if not context else f"{task}\n\nContext:\n{context}"
                 result = await Runner.run(dept_agent, message, max_turns=12)
                 output = result.final_output or "No output produced."
+
+                # Record cost for this delegation. Best-effort; the helper
+                # swallows its own exceptions, but we still wrap in try/except
+                # so any *attribute*-extraction failure here can't bubble.
+                try:
+                    usage = getattr(result, "usage", None)
+                    tokens_in = int(getattr(usage, "input_tokens", 0) or 0) if usage else 0
+                    tokens_out = int(getattr(usage, "output_tokens", 0) or 0) if usage else 0
+                    # If the SDK gave us no usage object, fall back to an
+                    # estimate based on a typical turn shape (~2000 in / 500
+                    # out per turn) so the dashboard still shows directional
+                    # spend. Tune the constants once we have real data.
+                    if not usage:
+                        turns = len(getattr(result, "raw_responses", []) or []) or 1
+                        tokens_in = turns * 2000
+                        tokens_out = turns * 500
+                    await emit_cost_event(
+                        space_id=space_id,
+                        department=department,  # type: ignore[arg-type]
+                        model=settings.worker_model,
+                        input_tokens=tokens_in,
+                        output_tokens=tokens_out,
+                        run_id=run_id,
+                    )
+                except Exception:  # noqa: BLE001
+                    # A cost-event failure must never break a delegation.
+                    pass
 
                 if member_id:
                     await (
