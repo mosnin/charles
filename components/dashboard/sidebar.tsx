@@ -35,7 +35,6 @@ import {
   Upload,
   ArrowLeft,
   Settings,
-  Key,
   Shuffle,
   GitBranch,
   CreditCard,
@@ -132,7 +131,6 @@ const brokerSettingsNavSections = [
     items: [
       { href: '/broker/settings', label: 'General', icon: Settings, exact: true },
       { href: '/broker/invitations', label: 'Invitations', icon: Mail, exact: false },
-      { href: '/broker/settings/mcp', label: 'MCP', icon: Key, exact: false },
     ],
   },
   {

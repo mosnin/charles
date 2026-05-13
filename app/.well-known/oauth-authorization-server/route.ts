@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 
-const BASE_URL = process.env.NEXT_PUBLIC_ROOT_DOMAIN
-  ? `https://${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`
-  : 'https://my.usechippi.com';
+const BASE_URL = (
+  process.env.NEXT_PUBLIC_APP_URL ||
+  process.env.APP_URL ||
+  (process.env.NEXT_PUBLIC_ROOT_DOMAIN
+    ? `https://${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`
+    : 'https://app.charles.dev')
+).replace(/\/$/, '');
 
 /**
  * GET /.well-known/oauth-authorization-server

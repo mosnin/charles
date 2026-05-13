@@ -1,0 +1,27 @@
+{
+  "id": "fundraise-prep",
+  "name": "Fundraise Prep",
+  "version": "0.1.0",
+  "author": "Charles team",
+  "description": "Get your fundraise organised before the first meeting. Generates a starter deck outline, summarises everything the data room should contain, and briefs you on every investor in your pipeline.",
+  "slashCommands": [
+    {
+      "name": "deck-outline",
+      "description": "Generate a starter pitch deck outline tailored to your company.",
+      "prompt": "Generate a pitch deck outline for the founder. Steps: (1) recall_history for the company's positioning, traction notes, and prior fundraise material; (2) propose a 12-slide outline using the standard sequence — problem, insight, product, why now, traction, market, business model, competition, team, ask, use of funds, vision; (3) for each slide, write a one-line description of what goes on it, grounded in what we already know. Use create_plan to emit the outline as a structured plan."
+    },
+    {
+      "name": "data-room",
+      "description": "Summarise the current state of the data room and what's missing.",
+      "prompt": "Audit the founder's data room readiness. Steps: (1) recall_history for every prior mention of metrics, contracts, financials, or org docs; (2) compare against the standard checklist: cap table, financials (last 24mo + projection), customer contracts, key hires, IP assignments, board materials, prior fundraise docs; (3) output a tight readiness brief: what we have, what's missing, what to gather first. Use add_checklist_item to create gathering tasks for the missing items."
+    }
+  ],
+  "skills": [
+    {
+      "name": "fundraise_brief",
+      "description": "Briefs the founder on a specific investor: history, mutual contacts, prior conversations.",
+      "instructions": "You brief the founder on a specific investor before a meeting. Use recall_history to surface every prior touchpoint, email, deck send, or note about this investor. Use find_person to identify mutual contacts and warm intro paths. Output: who they are, what they invest in (only what's in our notes), our prior history with them, the warmest intro path, and one specific question the founder should ask. No bullet padding. No generic VC advice.",
+      "tools": ["recall_history", "find_person"]
+    }
+  ]
+}

@@ -328,12 +328,34 @@ export default async function SettingsPage({
         />
       </section>
 
-      {/* MCP KEYS + MESSAGE TEMPLATES */}
+      {/* MCP — external MCP clients (Claude Desktop, Cursor, custom agents) */}
+      <section
+        id="mcp"
+        className="space-y-5 pt-10 border-t border-border/60 scroll-mt-24"
+      >
+        <p className={SECTION_LABEL}>MCP</p>
+        <div className="flex items-center justify-between gap-6">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">Connect external clients via Model Context Protocol.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Read-only. Mint a key, point Claude Desktop or Cursor at it.
+            </p>
+          </div>
+          <a
+            href={`/s/${slug}/settings/mcp`}
+            className={PRIMARY_PILL}
+          >
+            Open
+          </a>
+        </div>
+      </section>
+
+      {/* MESSAGE TEMPLATES — legacy realtor surface, kept until Phase 7 cull */}
       <section
         id="api-keys"
         className="space-y-5 pt-10 border-t border-border/60 scroll-mt-24"
       >
-        <p className={SECTION_LABEL}>API keys &amp; templates</p>
+        <p className={SECTION_LABEL}>Templates</p>
         <IntegrationsSection slug={space.slug} />
       </section>
 
