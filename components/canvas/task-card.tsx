@@ -153,7 +153,7 @@ export function TaskCard({
       {/* Arrow → tasks page (future stages: hidden) */}
       {canNavigate ? (
         <Link
-          href={`/s/${slug}/tasks?gate=${encodeURIComponent(id)}`}
+          href={`/s/${slug}/stages/gates/${encodeURIComponent(id)}`}
           aria-label={`Open ${title}`}
           className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 transition-colors duration-150"
         >

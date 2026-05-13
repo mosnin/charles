@@ -9,7 +9,8 @@
  */
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { Check, MoreHorizontal, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -68,6 +69,10 @@ function assigneeLabel(task: Task): string {
 
 export function TaskRow({ task, muted }: TaskRowProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  // The row sits under /s/[slug]/tasks — pull the slug straight off the path
+  // so the title link can deep-link to /s/[slug]/tasks/[task.id].
+  const slug = pathname?.split('/')[2] ?? '';
   const [isPending, startTransition] = useTransition();
   const [menuOpen, setMenuOpen] = useState(false);
   const [optimisticStatus, setOptimisticStatus] = useState<TaskStatus | null>(null);
@@ -164,9 +169,10 @@ export function TaskRow({ task, muted }: TaskRowProps) {
 
       {/* Title + due */}
       <div className="min-w-0 flex-1 flex items-center gap-3">
-        <p
+        <Link
+          href={slug ? `/s/${slug}/tasks/${task.id}` : '#'}
           className={cn(
-            'text-sm leading-snug truncate',
+            'text-sm leading-snug truncate hover:underline underline-offset-2',
             isDone || muted
               ? 'text-muted-foreground line-through decoration-muted-foreground/40'
               : 'text-foreground',
@@ -174,7 +180,7 @@ export function TaskRow({ task, muted }: TaskRowProps) {
           title={task.title}
         >
           {task.title}
-        </p>
+        </Link>
         {task.dueAt && !isDone && (
           <span className="text-[11px] tabular-nums text-muted-foreground flex-shrink-0">
             {relativeDue(task.dueAt)}
