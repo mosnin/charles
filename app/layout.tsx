@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
+import { Inter, Newsreader, JetBrains_Mono } from 'next/font/google';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { ClerkProvider } from '@clerk/nextjs';
 import { ThemeProvider } from '@/components/theme-provider';
@@ -7,6 +8,34 @@ import { AmplitudeProvider } from '@/components/amplitude-provider';
 import { MotionProvider } from '@/components/motion/motion-provider';
 import { Toaster } from 'sonner';
 import './globals.css';
+
+// Fonts for the cofounder.co-style canvas system.
+// - Inter (sans) is the UI/body workhorse.
+// - Newsreader (serif) is the canvas centerpiece + hero serif.
+// - JetBrains Mono is for chips, status pills, zoom indicators, eyebrow text.
+// All three are loaded via next/font with `display: 'swap'` and exposed as
+// CSS variables so Tailwind v4's font-sans / font-serif / font-mono resolve
+// to them (see globals.css `@theme inline` block).
+const fontSans = Inter({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-sans-pro',
+  display: 'swap',
+});
+
+const fontSerif = Newsreader({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  variable: '--font-serif',
+  display: 'swap',
+});
+
+const fontMono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  variable: '--font-mono-pro',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Charles — Your AI cofounder',
@@ -44,8 +73,10 @@ export default async function RootLayout({
   const h = await headers();
   const isPublicPage = h.get('x-public-page') === '1';
 
+  const fontVars = `${fontSans.variable} ${fontSerif.variable} ${fontMono.variable}`;
+
   const renderShell = (body: React.ReactNode) => (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={fontVars} suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{

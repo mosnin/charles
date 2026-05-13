@@ -1,20 +1,17 @@
 /**
  * /s/[slug] — Charles workspace home.
  *
- * The launchpad. Mission at the top, a single prompt input that hands off
- * to /chat, two whisper-rows underneath. No stepper. No gate list. No
- * recent activity. Those have their own homes.
+ * The canvas. Mission at the centre, six departments orbiting, the chat
+ * dock on the right. One screen. One idea. Everything else is one keystroke
+ * away (⌘K) or one tab away (the dock).
  */
 
 import { redirect, notFound } from 'next/navigation';
-import Link from 'next/link';
 import { auth } from '@clerk/nextjs/server';
-import { ArrowRight } from 'lucide-react';
 import { getSpaceFromSlug } from '@/lib/space';
 import { supabase } from '@/lib/supabase';
-import { cn } from '@/lib/utils';
-import { H1, BODY_MUTED, TITLE_FONT } from '@/lib/typography';
-import { HomePrompt } from './home-prompt';
+import { getAllDepartmentAutonomy } from '@/lib/departments/autonomy';
+import { CanvasHome } from '@/components/canvas/canvas-home';
 
 interface Mission {
   title: string;
@@ -33,27 +30,20 @@ export default async function SpacePage({
   const space = await getSpaceFromSlug(slug);
   if (!space) notFound();
 
-  const [missionResult, taskResult, draftResult, pausedResult] = await Promise.allSettled([
+  // Pull mission, autonomy levels, and the GitHub repo slot in parallel.
+  const [missionResult, autonomyResult, githubResult] = await Promise.allSettled([
     supabase
       .from('Mission')
       .select('title, oneLinePitch')
       .eq('spaceId', space.id)
       .maybeSingle(),
+    getAllDepartmentAutonomy(space.id),
     supabase
-      .from('AgentTask')
-      .select('id', { count: 'exact', head: true })
+      .from('CoreMemory')
+      .select('value')
       .eq('spaceId', space.id)
-      .eq('status', 'open'),
-    supabase
-      .from('AgentDraft')
-      .select('id', { count: 'exact', head: true })
-      .eq('spaceId', space.id)
-      .eq('status', 'pending'),
-    supabase
-      .from('AgentPausedRun')
-      .select('id', { count: 'exact', head: true })
-      .eq('spaceId', space.id)
-      .eq('status', 'pending'),
+      .eq('slot', 'github_repo')
+      .maybeSingle(),
   ]);
 
   const mission: Mission | null =
@@ -61,101 +51,37 @@ export default async function SpacePage({
       ? (missionResult.value.data as Mission)
       : null;
 
-  const openTasks =
-    taskResult.status === 'fulfilled' ? (taskResult.value.count ?? 0) : 0;
-  const pendingApprovals =
-    pausedResult.status === 'fulfilled' ? (pausedResult.value.count ?? 0) : 0;
-  const draftsInReview =
-    draftResult.status === 'fulfilled' ? (draftResult.value.count ?? 0) : 0;
+  const autonomyBySlug =
+    autonomyResult.status === 'fulfilled'
+      ? autonomyResult.value
+      : ({
+          engineering: 'ask',
+          design: 'ask',
+          marketing: 'ask',
+          sales: 'ask',
+          support: 'ask',
+          ops_finance: 'ask',
+        } as const);
 
-  const missionReady = mission?.title && mission.title.length > 0;
+  const githubRepo =
+    githubResult.status === 'fulfilled' && githubResult.value.data
+      ? ((githubResult.value.data as { value: string | null }).value ?? null)
+      : null;
 
-  return (
-    <div className="mx-auto w-full max-w-[720px] px-6 pt-[14vh] pb-24">
-      {missionReady ? (
-        <>
-          <header className="space-y-2">
-            <p className={cn(BODY_MUTED, 'text-[12px]')}>Mission</p>
-            <h1 className={H1} style={TITLE_FONT}>
-              {mission!.title}
-            </h1>
-            {mission!.oneLinePitch && (
-              <p className={cn(BODY_MUTED, 'max-w-[60ch] text-base')}>
-                {mission!.oneLinePitch}
-              </p>
-            )}
-          </header>
-
-          <div className="mt-10">
-            <HomePrompt slug={slug} />
-          </div>
-
-          <Whispers
-            slug={slug}
-            openTasks={openTasks}
-            pendingApprovals={pendingApprovals}
-            draftsInReview={draftsInReview}
-          />
-        </>
-      ) : (
-        <SetupCard />
-      )}
-    </div>
-  );
-}
-
-function Whispers({
-  slug,
-  openTasks,
-  pendingApprovals,
-  draftsInReview,
-}: {
-  slug: string;
-  openTasks: number;
-  pendingApprovals: number;
-  draftsInReview: number;
-}) {
-  const parts: string[] = [];
-  if (openTasks > 0) parts.push(`${openTasks} ${openTasks === 1 ? 'task' : 'tasks'} open`);
-  if (pendingApprovals > 0)
-    parts.push(
-      `${pendingApprovals} pending ${pendingApprovals === 1 ? 'approval' : 'approvals'}`,
-    );
-  if (draftsInReview > 0)
-    parts.push(`${draftsInReview} ${draftsInReview === 1 ? 'draft' : 'drafts'} in review`);
+  const workspaceName = mission?.title?.trim().length
+    ? mission!.title
+    : space.name;
+  const missionTitle = workspaceName;
 
   return (
-    <div className="mt-4 space-y-1.5">
-      {parts.length > 0 && (
-        <Link
-          href={`/s/${slug}/inbox`}
-          className="block text-[12px] text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {parts.join(' · ')}.
-        </Link>
-      )}
-      <p className="text-[12px] text-muted-foreground/70">
-        Press <kbd className="font-mono text-[11px] text-muted-foreground">⌘K</kbd> to open anything.
-      </p>
-    </div>
-  );
-}
-
-function SetupCard() {
-  return (
-    <div className="mt-[6vh] rounded-xl border border-dashed border-border/70 bg-foreground/[0.02] p-8 flex items-center justify-between gap-6">
-      <div className="space-y-1.5">
-        <p className="text-base font-medium text-foreground">Complete your setup.</p>
-        <p className={cn(BODY_MUTED, 'max-w-[44ch]')}>
-          Tell Charles about your company so it knows what to build.
-        </p>
-      </div>
-      <Link
-        href="/onboarding"
-        className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-foreground text-background text-sm font-medium flex-shrink-0 hover:opacity-90 transition-opacity"
-      >
-        Set up <ArrowRight size={13} />
-      </Link>
+    <div className="h-full w-full">
+      <CanvasHome
+        slug={slug}
+        workspaceName={workspaceName}
+        missionTitle={missionTitle}
+        autonomyBySlug={autonomyBySlug}
+        githubRepo={githubRepo}
+      />
     </div>
   );
 }
