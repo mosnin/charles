@@ -10,7 +10,7 @@
  *   - 200 on revoke; 404 when revoking a key not in this space; 400 missing id.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 
 vi.mock('@/lib/api-auth', () => ({ requireAuth: vi.fn() }));
 vi.mock('@/lib/space', () => ({ getSpaceForUser: vi.fn() }));
@@ -103,13 +103,13 @@ beforeEach(() => {
   mockRate.mockResolvedValue({ allowed: true });
 });
 
-function req(method: 'GET' | 'POST' | 'DELETE', body?: unknown): Request {
+function req(method: 'GET' | 'POST' | 'DELETE', body?: unknown): NextRequest {
   const init: RequestInit = { method };
   if (body !== undefined) {
     init.headers = { 'Content-Type': 'application/json' };
     init.body = typeof body === 'string' ? body : JSON.stringify(body);
   }
-  return new Request('http://localhost/api/mcp-keys', init);
+  return new Request('http://localhost/api/mcp-keys', init) as unknown as NextRequest;
 }
 
 describe('GET /api/mcp-keys', () => {

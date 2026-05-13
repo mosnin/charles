@@ -22,7 +22,9 @@ async function writePlugin(id: string, manifest: unknown) {
   return dir;
 }
 
-const baseManifest = (overrides: Partial<PluginManifest> = {}) => ({
+// Override type is the pre-parse input shape — the loader applies zod
+// defaults for `args` / `tools` after JSON.parse, so fixtures don't need them.
+const baseManifest = (overrides: Record<string, unknown> = {}) => ({
   id: 'demo',
   name: 'Demo',
   version: '1.0.0',

@@ -55,20 +55,24 @@ export function McpActions(props: Props) {
     );
   }
 
+  // Narrow the discriminated union into locals BEFORE defining `revoke`.
+  // TS doesn't propagate narrowing through nested function closures.
+  const { id, name } = props;
+
   async function revoke() {
     const ok = window.confirm(
-      `Revoke "${props.name}"? Any client using this key will stop working.`,
+      `Revoke "${name}"? Any client using this key will stop working.`,
     );
     if (!ok) return;
     try {
       const res = await fetch('/api/mcp-keys', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: props.id }),
+        body: JSON.stringify({ id }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(data.error || 'Could not revoke.');
-      toast.success(`Revoked ${props.name}.`);
+      toast.success(`Revoked ${name}.`);
       startTransition(() => router.refresh());
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Could not revoke.';
