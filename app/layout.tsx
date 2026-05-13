@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { Inter, Newsreader, JetBrains_Mono } from 'next/font/google';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { ClerkProvider } from '@clerk/nextjs';
+import { ConvexClientProvider } from '@/components/convex-client-provider';
 import { ThemeProvider } from '@/components/theme-provider';
 import { AmplitudeProvider } from '@/components/amplitude-provider';
 import { MotionProvider } from '@/components/motion/motion-provider';
@@ -115,5 +116,12 @@ export default async function RootLayout({
   );
 
   if (isPublicPage) return renderShell(children);
-  return <ClerkProvider>{renderShell(children)}</ClerkProvider>;
+  // ClerkProvider must wrap ConvexClientProvider so Clerk's `useAuth` is
+  // available to Convex's auth bridge. The live-state layer (Convex) sees
+  // the same authed user the durable layer (Supabase) does.
+  return (
+    <ClerkProvider>
+      <ConvexClientProvider>{renderShell(children)}</ConvexClientProvider>
+    </ClerkProvider>
+  );
 }

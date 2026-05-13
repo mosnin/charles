@@ -41,6 +41,18 @@ Non-negotiables. These apply to every agent, every task.
 
 ---
 
+## Data split: Convex vs Supabase
+
+Charles runs on two stores. The split is enforced — do not blur it.
+
+- **Live ephemeral state → Convex.** Presence (who's here, cursor positions), live cursors, in-progress chat messages that haven't yet been audit-backfilled, transient canvas activity ("Engineering is building a prospect list"). These rows die when the user closes the tab; that is the point. Convex tables, mutations, and queries live in `convex/`.
+- **Durable founder data → Supabase.** Mission, Tasks, Documents, Audit (`TelemetryEvent`, cost-tracker), Billing, Memory (working/core/long-term), Person, PipelineObject, integrations, plugins, approval gate. Anything that needs RLS, migrations, embeddings, or an audit trail belongs here.
+- **Bridge rule.** When Convex data needs to outlive the live moment — a chat message that becomes audit-worthy, a canvas activity that wraps into a run record — backfill it to Supabase via the existing TS APIs, then flip the `persistedToSupabase` flag on the Convex row. The Convex row can then be GC'd. There is no other direction across the line: Supabase never reads from Convex, and Convex never writes durable data.
+
+Full setup, decision tree, and rationale: `docs/CONVEX.md`.
+
+---
+
 ## Project structure
 
 ```

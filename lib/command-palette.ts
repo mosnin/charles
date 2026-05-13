@@ -8,6 +8,9 @@
  * Hard rule: items are slug-relative. The renderer prefixes the workspace
  * slug at render time so this file stays a static catalog with no runtime
  * dependency on the current space.
+ *
+ * Convex-backed live surfaces (presence pills, in-flight chat, canvas
+ * activity) are wired in Wave 2 of the Convex push — no entries yet.
  */
 import {
   Activity,
