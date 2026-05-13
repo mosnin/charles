@@ -282,7 +282,7 @@ export default async function SettingsPage({
         <div className="mb-6">
           <h2 className="text-base font-semibold">AI Personalization</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Tell Chippi about you so responses feel tailored, not generic.
+            Tell Charles about you so responses feel tailored, not generic.
           </p>
         </div>
         <AIProfileForm slug={slug} spaceId={space.id} />

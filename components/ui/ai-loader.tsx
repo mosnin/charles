@@ -10,7 +10,7 @@ interface AILoaderProps {
 }
 
 /**
- * Chippi AI loader — letters fade in sequence + a warm-orange gradient ring
+ * Charles AI loader — letters fade in sequence + a warm-orange gradient ring
  * rotates behind them. Used while the agent is connecting / generating.
  *
  * Honors `prefers-reduced-motion` via globals.css fallbacks.

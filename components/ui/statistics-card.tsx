@@ -24,7 +24,7 @@ const candyBgStyle = `
 const bars = [
   { value: 34, label: "Manual DMs",    delay: 0.2 },
   { value: 28, label: "Listing forms", delay: 0.4 },
-  { value: 91, label: "Chippi",        highlight: true, delay: 0.6 },
+  { value: 91, label: "Charles",        highlight: true, delay: 0.6 },
   { value: 41, label: "Spreadsheets",  delay: 0.8 },
 ];
 
@@ -49,7 +49,7 @@ export function Stats() {
                   with cleanup.
                 </p>
                 <p>
-                  Chippi gives you one clean intake path and one command center so you
+                  Charles gives you one clean intake path and one command center so you
                   can act faster with less manual chaos.
                 </p>
               </div>

@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { timeAgo } from '@/lib/formatting';
-import { ChippiAvatar } from './chippi-avatar';
 
 const ACTION_LABELS: Record<string, string> = {
   create_draft_message: 'Drafted message',
@@ -176,7 +175,7 @@ export function AgentMissionControl({ slug }: { slug: string }) {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-y-1 px-5 py-3.5 border-b border-border">
         <div className="flex items-center gap-2 min-w-0">
-          <ChippiAvatar size="xs" className={enabled ? undefined : 'opacity-40'} pulse={!!enabled} />
+          <Bot size={14} className={cn('text-foreground', enabled ? undefined : 'opacity-40')} />
           <h2 className="text-sm font-semibold flex-shrink-0">Agent</h2>
           <span className={cn(
             'inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0',
@@ -208,9 +207,9 @@ export function AgentMissionControl({ slug }: { slug: string }) {
             <Bot size={14} className="text-muted-foreground" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium">Bring Chippi on as your cowork</p>
+            <p className="text-sm font-medium">Bring Charles on as your cowork</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Chippi watches your leads, drafts the follow-ups, and hands them to you for a quick read.
+              Charles watches your leads, drafts the follow-ups, and hands them to you for a quick read.
             </p>
           </div>
           <Link
@@ -323,7 +322,7 @@ export function AgentMissionControl({ slug }: { slug: string }) {
             <Bot size={14} className="text-orange-500" />
           </div>
           <div>
-            <p className="text-sm font-medium">Chippi is settling in</p>
+            <p className="text-sm font-medium">Charles is settling in</p>
             <p className="text-xs text-muted-foreground mt-0.5">First sweep through your pipeline coming up &mdash; I&apos;ll post anything worth your attention here.</p>
           </div>
         </div>

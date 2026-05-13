@@ -5,7 +5,7 @@ import { motion } from "motion/react";
 
 const testimonials = [
   {
-    text: "Chippi helped me stop guessing. I can see qualified renter leads first and follow up with confidence.",
+    text: "Charles helped me stop guessing. I can see qualified renter leads first and follow up with confidence.",
     image:
       "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=faces",
     name: "Sofia Bennett",
@@ -33,7 +33,7 @@ const testimonials = [
     role: "Broker Associate",
   },
   {
-    text: "Chippi gives me a polished intake flow that clients trust, and it saves me hours every week.",
+    text: "Charles gives me a polished intake flow that clients trust, and it saves me hours every week.",
     image:
       "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=120&h=120&fit=crop&crop=faces",
     name: "Priya Shah",
@@ -143,7 +143,7 @@ const Testimonials = () => {
             Trusted by agents managing renter applications daily
           </h2>
           <p className="text-center mt-5 text-muted-foreground">
-            Real feedback from teams using Chippi to qualify, score, and follow up faster.
+            Real feedback from teams using Charles to qualify, score, and follow up faster.
           </p>
         </motion.div>
 

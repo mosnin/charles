@@ -37,7 +37,7 @@ export default async function JoinWithCodePage({ params }: Params) {
                 <Building2 size={20} className="text-background/70" />
               )}
               <p className="text-background font-semibold text-base">
-                {brokerage?.name ?? 'Chippi'}
+                {brokerage?.name ?? 'Charles'}
               </p>
             </div>
             <p className="mt-1 text-background/60 text-sm">Brokerage invite code</p>

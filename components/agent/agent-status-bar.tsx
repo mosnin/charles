@@ -65,7 +65,7 @@ export function AgentStatusBar({ slug }: { slug: string }) {
         : 'bg-muted/30 border-border',
     )}>
       <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-1.5 max-w-screen-2xl mx-auto">
-        {/* Chippi identity */}
+        {/* Charles identity */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <div className="relative flex-shrink-0">
             <Bot size={13} className={cn(

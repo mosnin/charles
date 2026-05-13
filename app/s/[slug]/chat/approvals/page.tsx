@@ -77,7 +77,7 @@ export default async function ApprovalsPage({
     .limit(50);
 
   if (error) {
-    console.error('[chippi/approvals] query error:', error);
+    console.error('[charles/approvals] query error:', error);
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <div className="text-center space-y-4 p-8">

@@ -80,7 +80,7 @@ export default async function AcceptInvitationPage({ params }: Params) {
                 <Building2 size={20} className="text-background/70" />
               )}
               <p className="text-background font-semibold text-base">
-                {inv?.brokerageName ?? 'Chippi'}
+                {inv?.brokerageName ?? 'Charles'}
               </p>
             </div>
             <p className="mt-1 text-background/60 text-sm">Brokerage invitation</p>

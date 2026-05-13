@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Join Brokerage — Chippi' };
+export const metadata: Metadata = { title: 'Join Brokerage — Charles' };
 
 export default async function InviteSignUpPage({
   params,
@@ -34,7 +34,7 @@ export default async function InviteSignUpPage({
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
         <div className="w-full max-w-sm space-y-6">
           <div className="text-center space-y-2">
-            <BrandLogo className="h-7 mx-auto" alt="Chippi" />
+            <BrandLogo className="h-7 mx-auto" alt="Charles" />
             <h1 className="text-xl font-bold mt-4">Join {brokerageName}</h1>
             <p className="text-sm text-muted-foreground">
               Create your account to accept the invitation and access the brokerage dashboard.
@@ -72,7 +72,7 @@ export default async function InviteSignUpPage({
         <div className="text-center space-y-3 px-8">
           <p className="text-2xl font-bold">Welcome to the team</p>
           <p className="text-muted-foreground max-w-sm">
-            You&apos;ve been invited to join {brokerageName} on Chippi. Create your account to get started.
+            You&apos;ve been invited to join {brokerageName} on Charles. Create your account to get started.
           </p>
         </div>
       </div>

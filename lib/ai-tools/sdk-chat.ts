@@ -99,7 +99,7 @@ export function buildChatAgent(
   // through `opts.instructions`. The fallback path uses the synchronous
   // static prompt so resume / tests / failure modes still work.
   return new Agent({
-    name: 'Chippi',
+    name: 'Charles',
     instructions: opts.instructions ?? buildSystemPrompt(ctx),
     tools: [...domainTools, ...skillTools, ...(opts.integrationTools ?? [])],
     model: opts.model ?? DEFAULT_MODEL,

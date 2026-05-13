@@ -191,7 +191,7 @@ export function GeneralSettingsForm({ space, settings }: GeneralSettingsFormProp
               </div>
             )}
           </div>
-          <p className={CAPTION}>Your intake link: chippi.com/apply/{newSlug}</p>
+          <p className={CAPTION}>Your intake link: charles.app/apply/{newSlug}</p>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="number" className="text-[12.5px] font-medium text-foreground">

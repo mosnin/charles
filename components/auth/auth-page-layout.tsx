@@ -61,7 +61,7 @@ export function AuthPageLayout({ children, heading, subheading, variant: _varian
 
         {/* Logo */}
         <div className="shrink-0">
-          <BrandLogo className="h-6 sm:h-7" alt="Chippi" />
+          <BrandLogo className="h-6 sm:h-7" alt="Charles" />
         </div>
 
         {/* Form area */}

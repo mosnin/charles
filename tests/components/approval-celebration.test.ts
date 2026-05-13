@@ -17,7 +17,7 @@ import {
   approvalSubjectFromArgs,
   getApprovalSentence,
   type ApprovalKind,
-} from '@/components/chippi/approval-celebration';
+} from '@/components/charles/approval-celebration';
 
 describe('getApprovalSentence', () => {
   it('renders the email line', () => {

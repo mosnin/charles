@@ -1,7 +1,7 @@
 /**
  * POST /api/ai/task — on-demand agent streaming endpoint.
  *
- * Every chat turn proxies to the Modal Python sandbox running Chippi via the
+ * Every chat turn proxies to the Modal Python sandbox running Charles via the
  * OpenAI Agents SDK. Modal provides the secure isolated execution environment
  * for long-running, autonomous, multi-step reasoning chains. The Next.js layer
  * handles auth, rate-limiting, persistence, and SSE translation; Modal handles
@@ -31,10 +31,10 @@ import { saveUserMessage, saveAssistantMessage } from '@/lib/ai-tools/persistenc
 import { resolveToolContext } from '@/lib/ai-tools/context';
 import type { ToolContext } from '@/lib/ai-tools/types';
 import {
-  chippiErrorMessage,
+  charlesErrorMessage,
   computeConversationTitle,
   fallbackHeuristic,
-} from '@/lib/ai-tools/chippi-voice';
+} from '@/lib/ai-tools/charles-voice';
 import {
   emit as emitTelemetry,
   hasEmitted as hasEmittedTelemetry,
@@ -337,7 +337,7 @@ function proxyModalStream({
       } catch (err) {
         if (!abortController.signal.aborted) {
           logger.error('[ai/task] modal stream read error', { spaceId }, err);
-          push(controller, { type: 'error', message: chippiErrorMessage('internal') });
+          push(controller, { type: 'error', message: charlesErrorMessage('internal') });
         }
       } finally {
         controller.close();
@@ -395,21 +395,21 @@ export async function POST(req: NextRequest) {
 
   const { allowed } = await checkRateLimit(`ai:task:${ctx.userId}`, 30, 3600);
   if (!allowed) {
-    return NextResponse.json({ error: chippiErrorMessage('rate_limited') }, { status: 429 });
+    return NextResponse.json({ error: charlesErrorMessage('rate_limited') }, { status: 429 });
   }
 
   const ip = getClientIp(req);
   const ipLimit = await checkRateLimit(`chat:ip:${ip}`, 30, 600);
   if (!ipLimit.allowed) {
     return NextResponse.json(
-      { error: chippiErrorMessage('rate_limited') },
+      { error: charlesErrorMessage('rate_limited') },
       { status: 429, headers: { 'Retry-After': '600' } },
     );
   }
   const spaceLimit = await checkRateLimit(`chat:space:${ctx.space.id}`, 60, 600);
   if (!spaceLimit.allowed) {
     return NextResponse.json(
-      { error: chippiErrorMessage('rate_limited') },
+      { error: charlesErrorMessage('rate_limited') },
       { status: 429, headers: { 'Retry-After': '600' } },
     );
   }
@@ -454,14 +454,14 @@ export async function POST(req: NextRequest) {
     conversationId = await resolveConversation(ctx.space.id, body.conversationId ?? null, message);
   } catch (err) {
     logger.error('[ai/task] conversation resolve failed', { spaceSlug }, err);
-    return NextResponse.json({ error: chippiErrorMessage('internal') }, { status: 500 });
+    return NextResponse.json({ error: charlesErrorMessage('internal') }, { status: 500 });
   }
 
   try {
     await saveUserMessage({ spaceId: ctx.space.id, conversationId, content: message });
   } catch (err) {
     logger.error('[ai/task] save user message failed', { spaceSlug }, err);
-    return NextResponse.json({ error: chippiErrorMessage('internal') }, { status: 500 });
+    return NextResponse.json({ error: charlesErrorMessage('internal') }, { status: 500 });
   }
 
   void (async () => {
@@ -546,13 +546,13 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     logger.error('[ai/task] Modal fetch failed', { spaceSlug }, err);
-    return NextResponse.json({ error: chippiErrorMessage('internal') }, { status: 502 });
+    return NextResponse.json({ error: charlesErrorMessage('internal') }, { status: 502 });
   }
 
   if (!modalRes.ok || !modalRes.body) {
     const status = modalRes.status;
     logger.error('[ai/task] Modal returned error', { status, spaceSlug });
-    return NextResponse.json({ error: chippiErrorMessage('internal') }, { status: 502 });
+    return NextResponse.json({ error: charlesErrorMessage('internal') }, { status: 502 });
   }
 
   return proxyModalStream({

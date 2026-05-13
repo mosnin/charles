@@ -23,7 +23,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { timeAgo } from '@/lib/formatting';
 import { StaggerList, StaggerItem } from '@/components/motion/stagger-list';
-import { ApprovalCelebration, type ApprovalKind } from '@/components/chippi/approval-celebration';
+import { ApprovalCelebration, type ApprovalKind } from '@/components/charles/approval-celebration';
 
 interface DeliveryResult {
   sent: boolean;
@@ -724,7 +724,7 @@ export function AgentDraftInbox({ slug }: Props) {
       {/* Empty state */}
       {!loading && drafts.length === 0 && (
         <div className="py-8 text-sm text-muted-foreground">
-          Inbox is clear. Chippi will leave new outreach here whenever there&apos;s someone worth following up with.
+          Inbox is clear. Charles will leave new outreach here whenever there&apos;s someone worth following up with.
         </div>
       )}
 

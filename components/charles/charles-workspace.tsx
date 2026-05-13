@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ConversationSidebar } from '@/components/ai/conversation-sidebar';
-import { ChippiPromptBox, type MentionItem } from '@/components/ui/chippi-prompt-box';
+import { CharlesPromptBox, type MentionItem } from '@/components/ui/charles-prompt-box';
 import { Button } from '@/components/ui/button';
 import { History, X, AlertCircle, Mic, Settings, ArrowLeft, Play, Loader2, NotebookText, ListTodo, RotateCcw } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -17,16 +17,14 @@ import { useAgentTask, type UiMessage } from '@/components/ai/hooks/use-agent-ta
 import { blocksFromLegacyContent, type MessageBlock, type ToolCallBlock } from '@/lib/ai-tools/blocks';
 import type { Conversation } from '@/lib/types';
 import { useUser } from '@clerk/nextjs';
-import { TodayFeed } from './today-feed';
-import { MorningStory } from './morning-story';
 import { AgentSettingsPanel } from '@/components/agent/agent-settings-panel';
 import { toast } from 'sonner';
 import { approvalKindForTool, approvalSubjectFromArgs, type ApprovalKind } from './approval-celebration';
-import { PlanCard } from '@/components/chippi/plan-card';
+import { PlanCard } from '@/components/charles/plan-card';
 import { useSplitPanel } from '@/hooks/use-split-panel';
-import { SplitPanelToggle } from '@/components/chippi/split-panel-toggle';
-import { RightPanel } from '@/components/chippi/right-panel';
-import { PanelResizeHandle } from '@/components/chippi/panel-resize-handle';
+import { SplitPanelToggle } from '@/components/charles/split-panel-toggle';
+import { RightPanel } from '@/components/charles/right-panel';
+import { PanelResizeHandle } from '@/components/charles/panel-resize-handle';
 
 /**
  * Legacy on-the-wire message shape from /api/ai/messages. The DB now also
@@ -39,7 +37,7 @@ interface LegacyMessage {
   blocks?: MessageBlock[] | null;
 }
 
-interface ChippiWorkspaceProps {
+interface CharlesWorkspaceProps {
   slug: string;
   /** When 'settings', renders the agent settings panel instead of the workspace. */
   view?: 'workspace' | 'settings';
@@ -49,15 +47,10 @@ interface ChippiWorkspaceProps {
   /** Pre-send this message on mount (used when arriving from the command palette). */
   initialInput?: string;
   /** Pre-populate the composer on mount but do NOT auto-send — the realtor
-   *  finishes the sentence themselves. Used by "or just tell Chippi →"
+   *  finishes the sentence themselves. Used by "or just tell Charles →"
    *  shortcuts on /contacts and /deals, and by morning-actions. Distinct
    *  from `initialInput` which auto-sends. */
   initialPrefill?: string;
-  /** When true, render the "Connect Gmail to send your drafts →" tertiary
-   *  line under the post-tour affordance. Snapshot at page load: the realtor
-   *  has zero active integrations AND Composio is configured. Once they
-   *  connect, the OAuth round-trip reloads the page and this flips false. */
-  showConnectBanner?: boolean;
 }
 
 const MESSAGE_LIMIT = 50;
@@ -124,7 +117,7 @@ function legacyToUi(messages: LegacyMessage[]): UiMessage[] {
   }));
 }
 
-export function ChippiWorkspace({
+export function CharlesWorkspace({
   slug,
   view = 'workspace',
   initialMessages,
@@ -132,8 +125,7 @@ export function ChippiWorkspace({
   initialConversationId,
   initialInput,
   initialPrefill,
-  showConnectBanner = false,
-}: ChippiWorkspaceProps) {
+}: CharlesWorkspaceProps) {
   const { user } = useUser();
   const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
@@ -538,61 +530,11 @@ export function ChippiWorkspace({
   const isEmpty = messages.length === 0 && !isLoadingConversation;
   const firstName = user?.firstName ?? '';
 
-  // Composer prefill — bumped by the day-one welcome's "Tell me about a lead"
-  // action, and seeded on mount when arriving from `?prefill=` (the
-  // "or just tell Chippi →" shortcuts on /contacts and /deals, and
-  // morning-actions). Nonce so identical text twice in a row still re-applies.
+  // Composer prefill — seeded on mount when arriving with `?prefill=` from
+  // a deep link. Nonce so identical text twice in a row still re-applies.
   const [prefill, setPrefill] = useState<{ text: string; nonce: number } | null>(
     initialPrefill ? { text: initialPrefill, nonce: Date.now() } : null,
   );
-  const handleTellMeAboutLead = useCallback((text: string) => {
-    setPrefill({ text, nonce: Date.now() });
-  }, []);
-
-  // Counts for the header status sentence. Fetch only when we're rendering
-  // the today view — no point pinging while in an active conversation. The
-  // child sections still self-fetch their own data; this is a lightweight
-  // duplicate read for a one-line summary.
-  const [counts, setCounts] = useState<{ drafts: number; questions: number }>({
-    drafts: 0,
-    questions: 0,
-  });
-  const [countsLoaded, setCountsLoaded] = useState(false);
-  useEffect(() => {
-    if (!isEmpty) return;
-    const controller = new AbortController();
-    void (async () => {
-      try {
-        const [draftsRes, questionsRes] = await Promise.all([
-          fetch('/api/agent/drafts?status=pending&limit=50', { signal: controller.signal }),
-          fetch('/api/agent/questions?status=pending&limit=50', { signal: controller.signal }),
-        ]);
-        const drafts = draftsRes.ok ? await draftsRes.json() : [];
-        const questions = questionsRes.ok ? await questionsRes.json() : [];
-        setCounts({
-          drafts: Array.isArray(drafts) ? drafts.length : 0,
-          questions: Array.isArray(questions) ? questions.length : 0,
-        });
-      } catch {
-        // non-critical — header just falls back to a generic line
-      } finally {
-        setCountsLoaded(true);
-      }
-    })();
-    return () => controller.abort();
-  }, [isEmpty]);
-
-  // Day-one signal: zero of everything. The realtor has truly never engaged.
-  // We wait for `countsLoaded` so we don't flash the welcome before we know
-  // whether there's pending work. `messages.length === 0` is implied by
-  // `isEmpty`; checking it twice is cheap and explicit.
-  const isFresh =
-    isEmpty &&
-    countsLoaded &&
-    messages.length === 0 &&
-    counts.drafts === 0 &&
-    counts.questions === 0 &&
-    conversations.length === 0;
 
   // Run Now — kicks off a background sweep and tells the user via toast.
   const [running, setRunning] = useState(false);
@@ -747,7 +689,7 @@ export function ChippiWorkspace({
     }
     // Streaming, no tool call active, no tokens yet → still warming up the
     // container / fetching tools / waiting on first model token. Fill the
-    // dead air with a single calm status so the realtor knows Chippi is on
+    // dead air with a single calm status so the realtor knows Charles is on
     // it, not stuck.
     const hasText = tailMessage.blocks.some(
       (b) => b.type === 'text' && b.content.trim().length > 0,
@@ -839,8 +781,8 @@ export function ChippiWorkspace({
           /
         </button>
         <div className="flex-1 min-w-0">
-          <ChippiPromptBox
-            placeholder="Message Chippi — draft a follow-up, prep a tour, summarize your day…"
+          <CharlesPromptBox
+            placeholder="Message Charles — draft a follow-up, prep a tour, summarize your day…"
             onSend={handleSend}
             onMentionSearch={handleMentionSearch}
             onVoiceStart={() => setVoiceOpen(true)}
@@ -873,7 +815,7 @@ export function ChippiWorkspace({
                 className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ArrowLeft size={12} />
-                Back to Chippi
+                Back to Charles
               </Link>
               <h1
                 className="text-3xl tracking-tight text-foreground"
@@ -882,7 +824,7 @@ export function ChippiWorkspace({
                 Settings
               </h1>
               <p className="text-sm text-muted-foreground">
-                Tune what Chippi does on its own and what it brings to you.
+                Tune what Charles does on its own and what it brings to you.
               </p>
             </div>
           </div>
@@ -907,7 +849,7 @@ export function ChippiWorkspace({
             onClick={() => void handleRunNow()}
             disabled={running}
             className="inline-flex items-center gap-1.5 mr-1 h-8 px-2.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors disabled:opacity-50"
-            title="Run Chippi now"
+            title="Run Charles now"
           >
             {running ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
             <span className="hidden sm:inline">Run now</span>
@@ -940,7 +882,7 @@ export function ChippiWorkspace({
           href={`/s/${slug}/chat/memory`}
           className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-muted/60 transition-colors"
           title="What I remember"
-          aria-label="What Chippi remembers"
+          aria-label="What Charles remembers"
         >
           <NotebookText size={15} />
         </Link>
@@ -948,7 +890,7 @@ export function ChippiWorkspace({
           href={`/s/${slug}/chat?tab=settings`}
           className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-muted/60 transition-colors"
           title="Settings"
-          aria-label="Chippi settings"
+          aria-label="Charles settings"
         >
           <Settings size={15} />
         </Link>
@@ -1001,63 +943,22 @@ export function ChippiWorkspace({
         </div>
       ) : isEmpty ? (
         <>
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            <div className="w-full max-w-3xl mx-auto chat-content-wrap pt-8 sm:pt-14 pb-40 sm:pb-32 space-y-10 sm:space-y-12">
-              {/* The home is one sentence — Chippi's composed morning story
-                  promoted to h1. Pulls stuck deals, overdue follow-ups, new
-                  arrivals, hot people, drafts, questions in one shot; names
-                  the loudest single fact and (when there's a top subject)
-                  becomes a doorway to that deal or person.
-
-                  The audit cut the "Good morning, Sarah" greeting (wallpaper —
-                  every productivity app ships it; nobody notices) and the
-                  MorningReplay recap card (the agent talking about itself
-                  instead of about the deals). The home now answers one
-                  question: what should I do next? */}
-              {/* Morning sentence + post-tour affordance — wrapped together so
-                  the tertiary "Just toured? Log it →" line sits tight under the
-                  headline (mt-3) instead of joining the page's space-y-12
-                  rhythm. The affordance is muted, single-line, centered — it
-                  has to be *findable* the second time a realtor uses Chippi
-                  without competing with the morning's primary action. */}
-              <div>
-                <MorningStory slug={slug} />
-                <div className="mt-3 text-center">
-                  <Link
-                    href={`/s/${slug}/chat/log`}
-                    className="inline-flex items-center text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Just toured? Log it &rarr;
-                  </Link>
-                </div>
-                {showConnectBanner && (
-                  <div className="mt-1.5 text-center">
-                    <Link
-                      href={`/s/${slug}/integrations`}
-                      className="inline-flex items-center text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      Connect Gmail to send your drafts &rarr;
-                    </Link>
-                  </div>
-                )}
-              </div>
-
-              {/* Today's work — one focal item with Send / Edit / Hold. */}
-              <TodayFeed
-                slug={slug}
-                isFresh={isFresh}
-                firstName={firstName}
-                onTellMeAboutLead={handleTellMeAboutLead}
-              />
+          {/* Empty state — quiet hero with the composer centered. The
+              realtor-flavored MorningStory / TodayFeed / post-tour log
+              affordance / Gmail connect banner were cut in the Charles
+              fork; they presumed a CRM model the agent task layer doesn't
+              yet have. */}
+          <div className="flex-1 min-h-0 overflow-y-auto flex items-center justify-center">
+            <div className="w-full max-w-3xl mx-auto chat-content-wrap py-12 text-center">
+              <h1
+                className="text-2xl sm:text-3xl tracking-tight text-foreground"
+                style={{ fontFamily: 'var(--font-title)' }}
+              >
+                {firstName ? `What can I do for you, ${firstName}?` : 'What can I do for you?'}
+              </h1>
             </div>
           </div>
 
-          {/* Docked composer — sticky to viewport bottom so the input stays
-              reachable as the realtor scrolls. The four suggestion chips
-              that used to sit above were a crutch (and ChatGPT removed
-              theirs for a reason). The composer's placeholder already
-              cues the verbs: "draft a follow-up, prep a tour, summarize
-              your day…" — trust the user to type. */}
           <div className="sticky bottom-0 z-10 w-full max-w-3xl mx-auto chat-content-wrap pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-background via-background to-background/0">
             {renderInput()}
           </div>
@@ -1208,9 +1109,9 @@ export function ChippiWorkspace({
                     )}
                   </AnimatePresence>
 
-                  {/* Errors land inline as Chippi assistant messages
-                      (see useAgentTask.landChippiError) so the failure mode
-                      reads like Chippi talking, not a red system banner. The
+                  {/* Errors land inline as Charles assistant messages
+                      (see useAgentTask.landCharlesError) so the failure mode
+                      reads like Charles talking, not a red system banner. The
                       `error` state is still tracked for telemetry / a11y but
                       not rendered here. */}
 

@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger';
  * fix it automatically.
  */
 function getFromAddress(): string {
-  const raw = process.env.RESEND_FROM_EMAIL ?? 'notifications@alerts.usechippi.com';
+  const raw = process.env.RESEND_FROM_EMAIL ?? 'notifications@alerts.charles.app';
   if (raw.includes('@')) return raw;
   return `notifications@${raw}`;
 }
@@ -108,7 +108,7 @@ export async function sendNewDealNotification(params: NewDealEmailParams): Promi
   const FROM = getFromAddress();
 
   const { toEmail, spaceName, spaceSlug, dealTitle, dealValue, dealAddress, dealPriority, contactNames } = params;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://my.usechippi.com';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://my.charles.app';
   const dealsUrl = `${appUrl}/s/${spaceSlug}/deals`;
 
   const detailRows = [
@@ -182,7 +182,7 @@ export async function sendWelcomeEmail(params: {
 
   const { toEmail, userName, spaceName, spaceSlug } = params;
   const name = esc(userName) || 'there';
-  const domain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'my.usechippi.com';
+  const domain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'my.charles.app';
   const dashboardUrl = spaceSlug ? `https://${domain}/s/${spaceSlug}` : `https://${domain}/setup`;
 
   const html = `
@@ -241,7 +241,7 @@ export async function sendMfaEnrollmentPrompt(params: MfaEnrollmentPromptParams)
   const FROM = getFromAddress();
 
   const { toEmail, userName } = params;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://my.usechippi.com';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://my.charles.app';
   const accountSettingsUrl = `${appUrl}/settings/account`;
   const name = esc(userName) || 'there';
 
@@ -311,7 +311,7 @@ export async function sendTeamInvite(params: TeamInviteEmailParams): Promise<voi
   const { Resend } = await import('resend');
   const resend = new Resend(process.env.RESEND_API_KEY);
   const FROM = getFromAddress();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://my.usechippi.com';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://my.charles.app';
 
   const { toEmail, teamName, inviterName, role, token } = params;
   const acceptUrl = `${appUrl}/team/accept/${encodeURIComponent(token)}`;

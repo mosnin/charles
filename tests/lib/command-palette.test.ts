@@ -102,11 +102,6 @@ describe('matchCommands', () => {
     expect(matchCommands('zzzzz-no-such-thing')).toEqual([]);
   });
 
-  it('finds the chat entry by the legacy "chippi" keyword', () => {
-    const hits = matchCommands('chippi');
-    expect(hits.some((i) => i.id === 'chat')).toBe(true);
-  });
-
   it('preserves catalog order in results', () => {
     const hits = matchCommands('');
     expect(hits.map((i) => i.id)).toEqual(COMMAND_ITEMS.map((i) => i.id));

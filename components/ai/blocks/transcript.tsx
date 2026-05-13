@@ -6,7 +6,7 @@ import { TextBlockView } from './text-block-view';
 import { ToolCallBlockView } from './tool-call-block-view';
 import { PermissionBlockView } from './permission-block-view';
 import { PermissionPromptView, type PermissionPromptData } from './permission-prompt-view';
-import { ApprovalCelebration, type ApprovalKind } from '@/components/chippi/approval-celebration';
+import { ApprovalCelebration, type ApprovalKind } from '@/components/charles/approval-celebration';
 
 interface TranscriptProps {
   blocks: MessageBlock[];
@@ -38,7 +38,7 @@ interface TranscriptProps {
   };
   /**
    * When present, the surface the approval prompt occupied is replaced by
-   * one calm Chippi-voiced sentence for ~2.5s. The parent owns the dwell —
+   * one calm Charles-voiced sentence for ~2.5s. The parent owns the dwell —
    * the celebration calls `onDone` when its time is up so the parent can
    * clear this state and let the next streamed blocks (or whatever's next)
    * take the floor.

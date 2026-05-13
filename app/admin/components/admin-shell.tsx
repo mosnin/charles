@@ -123,7 +123,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 Admin
               </p>
               <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-                Chippi Internal
+                Charles Internal
               </p>
             </div>
           </div>
@@ -153,7 +153,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             Back to app
           </Link>
           <div className="flex items-center gap-2 px-3 pt-3">
-            <BrandLogo className="h-4" alt="Chippi" />
+            <BrandLogo className="h-4" alt="Charles" />
           </div>
         </div>
       </aside>

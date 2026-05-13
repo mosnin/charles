@@ -31,7 +31,7 @@ import { requireAuth } from '@/lib/api-auth';
 import { supabase } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
 import { checkRateLimit } from '@/lib/rate-limit';
-import { chippiErrorMessage } from '@/lib/ai-tools/chippi-voice';
+import { charlesErrorMessage } from '@/lib/ai-tools/charles-voice';
 import type { ToolContext } from '@/lib/ai-tools/types';
 import { streamTsResumeTurn } from '@/lib/ai-tools/sdk-chat-stream';
 import { chatRuntime } from '@/lib/ai-tools/runtime-flag';
@@ -85,7 +85,7 @@ export async function POST(
   // Per-user rate limit. Approvals are cheap so we allow plenty of them.
   const { allowed } = await checkRateLimit(`ai:task:resume:${auth.userId}`, 60, 3600);
   if (!allowed) {
-    return NextResponse.json({ error: chippiErrorMessage('rate_limited') }, { status: 429 });
+    return NextResponse.json({ error: charlesErrorMessage('rate_limited') }, { status: 429 });
   }
 
   // Load + scope check. The userId stored on the row is the Clerk userId.
@@ -96,7 +96,7 @@ export async function POST(
     .maybeSingle();
   if (error) {
     logger.error('[ai/task resume] load failed', { pausedRunId }, error);
-    return NextResponse.json({ error: chippiErrorMessage('internal') }, { status: 500 });
+    return NextResponse.json({ error: charlesErrorMessage('internal') }, { status: 500 });
   }
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   const paused = row as PausedRunRow;

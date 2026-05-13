@@ -3,10 +3,10 @@
  *
  * The realtor opens this from the sidebar (or from a chat banner that
  * says "Connect Gmail to send drafts →"). One page, one job: see every
- * app Chippi can connect to, with status and a connect/disconnect verb
+ * app Charles can connect to, with status and a connect/disconnect verb
  * inline. No tabs, no wizards, no settings.
  *
- * The realtor's lens — what does Chippi DO once I connect Gmail? — is
+ * The realtor's lens — what does Charles DO once I connect Gmail? — is
  * answered by the app's blurb in the row, not by a help article. If the
  * blurb doesn't sell it, fix the blurb.
  *
@@ -17,7 +17,7 @@
  *   - yellow "Auth expired"     — Composio reports EXPIRED; realtor must reconnect
  *   - red    "Connection error" — Composio reports FAILED or a fetch error
  *   - gray   "Not connected"    — no connection in our DB or Composio
- * This surfaces broken auth before Chippi tries to use the integration,
+ * This surfaces broken auth before Charles tries to use the integration,
  * eliminating silent task failures.
  */
 
@@ -68,7 +68,7 @@ export default async function IntegrationsPage({
           Connected apps
         </h1>
         <p className={BODY_MUTED}>
-          Connect Chippi to the apps you already use. Drafts go where you send mail. Tours land on your calendar. Chippi never sends without your tap.
+          Connect Charles to the apps you already use. Drafts go where you send mail. Tours land on your calendar. Charles never sends without your tap.
         </p>
       </header>
 

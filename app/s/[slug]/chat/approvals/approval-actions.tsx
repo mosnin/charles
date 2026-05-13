@@ -34,7 +34,7 @@ export function ApprovalActions({ taskId, slug }: ApprovalActionsProps) {
       }
 
       if (action === 'approve') {
-        toast.success('Approved. Chippi will continue.');
+        toast.success('Approved. Charles will continue.');
       } else {
         toast.success('Rejected. Action cancelled.');
       }

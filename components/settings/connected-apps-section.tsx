@@ -442,7 +442,7 @@ export function ConnectedAppsSection({ callbackResult }: { callbackResult?: Call
 
       <p className={CAPTION}>
         Connections are scoped to this workspace. Disconnect anytime —
-        Chippi stops using the app on the next message.
+        Charles stops using the app on the next message.
       </p>
     </div>
   );

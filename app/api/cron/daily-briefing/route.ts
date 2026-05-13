@@ -17,7 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
 
 function getFromAddress(): string {
-  const raw = process.env.RESEND_FROM_EMAIL ?? 'notifications@alerts.usechippi.com';
+  const raw = process.env.RESEND_FROM_EMAIL ?? 'notifications@alerts.charles.app';
   return raw.includes('@') ? raw : `notifications@${raw}`;
 }
 

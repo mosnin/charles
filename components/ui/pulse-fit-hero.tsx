@@ -46,7 +46,7 @@ interface PulseFitHeroProps {
 }
 
 export function PulseFitHero({
-  logo = 'Chippi',
+  logo = 'Charles',
   navigation = [
     { label: 'Problem' },
     { label: 'Solution' },
@@ -84,7 +84,7 @@ export function PulseFitHero({
         className="relative z-20 flex flex-row justify-between items-center px-6 lg:px-10 py-8"
       >
         <div className="flex items-center" aria-label={logo}>
-          <BrandLogo className="h-7" alt="Chippi" />
+          <BrandLogo className="h-7" alt="Charles" />
         </div>
 
         <nav className="hidden lg:flex flex-row items-center gap-7" aria-label="Main navigation">

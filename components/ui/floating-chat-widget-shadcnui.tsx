@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import { ChippiWorkspace } from '@/components/chippi/chippi-workspace';
+import { CharlesWorkspace } from '@/components/charles/charles-workspace';
 import type { Conversation } from '@/lib/types';
 import type { MessageBlock } from '@/lib/ai-tools/blocks';
 import { cn } from '@/lib/utils';
@@ -105,7 +105,7 @@ export function FloatingChatWidget({ slug }: FloatingChatWidgetProps) {
             className="w-[94vw] max-w-[430px] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
           >
             <div className="flex items-center justify-between border-b border-border px-3 py-2">
-              <p className="text-sm font-semibold">Chippi AI</p>
+              <p className="text-sm font-semibold">Charles AI</p>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
@@ -121,7 +121,7 @@ export function FloatingChatWidget({ slug }: FloatingChatWidgetProps) {
                   Loading chat…
                 </div>
               ) : (
-                <ChippiWorkspace
+                <CharlesWorkspace
                   key={chatKey}
                   slug={slug}
                   initialMessages={initialMessages}
@@ -142,7 +142,7 @@ export function FloatingChatWidget({ slug }: FloatingChatWidgetProps) {
           isOpen ? 'ring-2 ring-destructive/40' : 'hover:ring-2 hover:ring-primary/30'
         )}
       >
-        <img src="/favicon.png" alt="Chippi" className="h-8 w-8 rounded-full" />
+        <img src="/favicon.png" alt="Charles" className="h-8 w-8 rounded-full" />
       </button>
     </div>
   );

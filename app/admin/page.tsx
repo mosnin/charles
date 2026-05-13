@@ -514,7 +514,7 @@ export default async function AdminOverviewPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Chippi platform overview
+            Charles platform overview
           </p>
         </div>
       </div>

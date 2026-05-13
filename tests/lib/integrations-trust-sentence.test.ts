@@ -27,7 +27,7 @@ const PAGE_PATH = resolve(
 // substring rather than a verbatim multi-line snapshot — a layout reflow
 // (line wrap, surrounding paragraph reorder) shouldn't break the test,
 // only a softening of the actual promise should.
-const TRUST_PHRASE = 'Chippi never sends without your tap.';
+const TRUST_PHRASE = 'Charles never sends without your tap.';
 
 describe('integrations page — trust sentence', () => {
   it('contains the realtor-facing consent line', () => {

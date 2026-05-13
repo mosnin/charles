@@ -2,10 +2,9 @@ import { notFound, redirect } from 'next/navigation';
 import { auth } from '@clerk/nextjs/server';
 import { getSpaceFromSlug } from '@/lib/space';
 import { supabase } from '@/lib/supabase';
-import { ChippiWorkspace } from '@/components/chippi/chippi-workspace';
+import { CharlesWorkspace } from '@/components/charles/charles-workspace';
 import type { Conversation } from '@/lib/types';
 import type { MessageBlock } from '@/lib/ai-tools/blocks';
-import { composioConfigured } from '@/lib/integrations/composio';
 
 // Force dynamic rendering — the page reads searchParams to pick which
 // conversation to hydrate, and we need a fresh server render on every
@@ -30,6 +29,7 @@ export default async function ChatPage({
   const view = tab === 'settings' ? 'settings' : 'workspace';
 
   const { userId } = await auth();
+  // TODO(charles): phase 4 — rename `/login/realtor` to `/login` once auth routes are flattened.
   if (!userId) redirect('/login/realtor');
 
   const space = await getSpaceFromSlug(slug);
@@ -80,26 +80,9 @@ export default async function ChatPage({
     // fall back to empty state
   }
 
-  // Discovery banner: show "Connect Gmail to send your drafts →" under the
-  // morning when the realtor has zero active integrations AND Composio is
-  // configured. Snapshot at page load — connecting an integration triggers
-  // an OAuth navigation that reloads the page, so the banner self-clears.
-  let hasIntegrations = false;
-  if (composioConfigured()) {
-    const { count } = await supabase
-      .from('IntegrationConnection')
-      .select('id', { count: 'exact', head: true })
-      .eq('spaceId', space.id)
-      .eq('status', 'active');
-    hasIntegrations = (count ?? 0) > 0;
-  }
-  // If Composio isn't configured at all, treat as "has integrations" so the
-  // banner stays hidden — there's nothing to connect to.
-  const showConnectBanner = composioConfigured() && !hasIntegrations;
-
   return (
     <div className="flex h-full flex-col">
-      <ChippiWorkspace
+      <CharlesWorkspace
         slug={slug}
         view={view}
         initialMessages={initialMessages}
@@ -107,7 +90,6 @@ export default async function ChatPage({
         initialConversationId={initialConversationId}
         initialInput={initialInput}
         initialPrefill={initialPrefill}
-        showConnectBanner={showConnectBanner}
       />
     </div>
   );

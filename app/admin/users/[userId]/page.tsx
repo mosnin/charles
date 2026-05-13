@@ -41,7 +41,7 @@ export async function generateMetadata({
     .maybeSingle();
   const user = rows as { name: string | null; email: string } | null;
   return {
-    title: `${user?.name || user?.email || 'User'} — Admin — Chippi`,
+    title: `${user?.name || user?.email || 'User'} — Admin — Charles`,
   };
 }
 

@@ -180,7 +180,7 @@ function renderMarkdown(content: string, streaming?: boolean): React.ReactNode[]
             </Fragment>
           ))}
           {isLast && streaming && (
-            <span className="chippi-cursor" aria-hidden="true" />
+            <span className="charles-cursor" aria-hidden="true" />
           )}
         </p>,
       );
@@ -248,7 +248,7 @@ export function TextBlockView({
     >
       {nodes}
       {needsTrailingCursor && (
-        <span className="chippi-cursor" aria-hidden="true" />
+        <span className="charles-cursor" aria-hidden="true" />
       )}
     </div>
   );

@@ -13,9 +13,6 @@
 import type { DepartmentSlug } from '@/lib/departments/autonomy';
 import { SalesEnrich } from './dept-tabs/sales-enrich';
 import { SalesResearch } from './dept-tabs/sales-research';
-import { SalesOutreach } from './dept-tabs/sales-outreach';
-import { SalesCampaigns } from './dept-tabs/sales-campaigns';
-import { MarketingCampaigns } from './dept-tabs/marketing-campaigns';
 import { MarketingAnalytics } from './dept-tabs/marketing-analytics';
 import { MarketingSocial } from './dept-tabs/marketing-social';
 import { MarketingImages } from './dept-tabs/marketing-images';
@@ -26,8 +23,6 @@ import { EngineeringDatabase } from './dept-tabs/engineering-database';
 import { DesignBrand } from './dept-tabs/design-brand';
 import { DesignAssets } from './dept-tabs/design-assets';
 import { DesignDocs } from './dept-tabs/design-docs';
-import { SupportInbox } from './dept-tabs/support-inbox';
-import { SupportTemplates } from './dept-tabs/support-templates';
 import { OpsRevenue } from './dept-tabs/ops-revenue';
 import { OpsExpenses } from './dept-tabs/ops-expenses';
 import { OpsRunway } from './dept-tabs/ops-runway';
@@ -47,14 +42,8 @@ export function DeptTabContent({ deptSlug, tabSlug, spaceId, spaceSlug }: Props)
       return <SalesEnrich />;
     case 'sales:research':
       return <SalesResearch spaceSlug={spaceSlug} />;
-    case 'sales:outreach':
-      return <SalesOutreach spaceSlug={spaceSlug} />;
-    case 'sales:campaigns':
-      return <SalesCampaigns spaceId={spaceId} spaceSlug={spaceSlug} />;
 
     // Marketing
-    case 'marketing:campaigns':
-      return <MarketingCampaigns spaceId={spaceId} spaceSlug={spaceSlug} />;
     case 'marketing:analytics':
       return <MarketingAnalytics spaceId={spaceId} spaceSlug={spaceSlug} />;
     case 'marketing:social':
@@ -79,12 +68,6 @@ export function DeptTabContent({ deptSlug, tabSlug, spaceId, spaceSlug }: Props)
       return <DesignAssets spaceSlug={spaceSlug} />;
     case 'design:docs':
       return <DesignDocs spaceSlug={spaceSlug} />;
-
-    // Support
-    case 'support:inbox':
-      return <SupportInbox spaceSlug={spaceSlug} />;
-    case 'support:templates':
-      return <SupportTemplates spaceSlug={spaceSlug} />;
 
     // Ops/Finance
     case 'ops_finance:revenue':

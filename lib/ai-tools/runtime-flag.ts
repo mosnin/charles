@@ -2,7 +2,7 @@
  * Runtime flag that selects which chat backend handles a request.
  *
  * `'modal'` — **default**. Proxies chat turns to the Modal Python sandbox
- * running Chippi via the OpenAI Agents SDK. Provides secure isolation,
+ * running Charles via the OpenAI Agents SDK. Provides secure isolation,
  * autonomous long-running chains, background execution, and model fallback.
  * Requires MODAL_CHAT_URL in env. Deploy with `modal deploy agent/modal_app.py`.
  *

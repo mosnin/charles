@@ -85,7 +85,7 @@ export default async function AgentTasksPage({
 
   if (error) {
     // TODO: log channel name is bookkeeping, not user-facing — kept for now.
-    console.error('[chippi/tasks] query error:', error);
+    console.error('[charles/tasks] query error:', error);
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <div className="text-center space-y-4 p-8">

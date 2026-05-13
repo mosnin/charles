@@ -44,7 +44,7 @@ function BillingRequiredContent() {
   const isInactive = reason === 'inactive';
   const needsResubscribe = isCanceled || isInactive;
 
-  // Headline: a calm fact. Body voice: forward-looking, in Chippi's tone.
+  // Headline: a calm fact. Body voice: forward-looking, in Charles's tone.
   const title = needsResubscribe
     ? 'Your access ended.'
     : 'Payment didn’t go through.';
@@ -176,7 +176,7 @@ function BillingRequiredContent() {
           <p className="mt-12 text-xs text-muted-foreground">
             Need help?{' '}
             <a
-              href="mailto:support@usechippi.com"
+              href="mailto:support@charles.app"
               className="underline underline-offset-4 hover:text-foreground transition-colors"
             >
               Contact support

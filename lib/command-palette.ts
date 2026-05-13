@@ -57,7 +57,7 @@ export interface CommandItem {
 export const COMMAND_ITEMS: readonly CommandItem[] = [
   // Workspace (nav)
   { id: 'home',      kind: 'nav', label: 'Home',              shortcut: 'H', icon: Home,          group: 'Workspace', href: '',           keywords: ['mission', 'dashboard', 'start'] },
-  { id: 'chat',      kind: 'nav', label: 'Chat with Charles', shortcut: 'C', icon: MessageSquare, group: 'Workspace', href: '/chat',      keywords: ['ask', 'prompt', 'assistant', 'chippi'] },
+  { id: 'chat',      kind: 'nav', label: 'Chat with Charles', shortcut: 'C', icon: MessageSquare, group: 'Workspace', href: '/chat',      keywords: ['ask', 'prompt', 'assistant', 'charles'] },
   { id: 'tasks',     kind: 'nav', label: 'Tasks',             shortcut: 'T', icon: CheckSquare,   group: 'Workspace', href: '/tasks',     keywords: ['todo', 'to-do', 'work'] },
   { id: 'documents', kind: 'nav', label: 'Documents',         shortcut: 'D', icon: BookOpen,      group: 'Workspace', href: '/documents', keywords: ['docs', 'memory', 'notes'] },
   { id: 'brand',     kind: 'nav', label: 'Brand',                            icon: Palette,       group: 'Workspace', href: '/brand',     keywords: ['identity', 'voice', 'logo'] },

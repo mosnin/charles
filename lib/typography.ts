@@ -1,5 +1,5 @@
 /**
- * Chippi typography + spacing scale.
+ * Charles typography + spacing scale.
  *
  * Single source of truth for every page's visual hierarchy. Agents and
  * components import from here so the eye lands on the same thing on every

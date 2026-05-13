@@ -87,7 +87,7 @@ export default function AnimatedFooter({
     >
       <div className="mx-auto flex w-full max-w-6xl flex-col justify-between gap-6 px-6 pb-20 pt-10 md:flex-row">
         <div className="space-y-4">
-          <BrandLogo className="h-7" alt="Chippi" />
+          <BrandLogo className="h-7" alt="Charles" />
           <ul className="flex flex-wrap gap-4">
             {leftLinks.map((link) => (
               <li key={link.label}>

@@ -1,7 +1,7 @@
 /**
  * GET /api/agent/memory
  *
- * Lists Chippi's long-term memory rows for the caller's space, with entity
+ * Lists Charles's long-term memory rows for the caller's space, with entity
  * names resolved for display. The agent writes here via the Python memory
  * store; this endpoint is the read side for the user-facing memory surface.
  *

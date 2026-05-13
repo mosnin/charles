@@ -107,7 +107,7 @@ export interface NotifyNewContactParams {
 
 /**
  * Notify space owner about a manually added contact (new lead).
- * No-op for now — SMS path was removed with the Chippi cleanup; the
+ * No-op for now — SMS path was removed with the Charles cleanup; the
  * email path went with it. Kept as a stub so ai-tools/add-person can
  * still call it without conditional logic.
  */

@@ -14,11 +14,11 @@ interface Props {
   slug: string;
 }
 
-const STORAGE_KEY = (slug: string) => `chippi.bar.${slug}.convId`;
+const STORAGE_KEY = (slug: string) => `charles.bar.${slug}.convId`;
 const MAX_PANEL_MESSAGES = 6;
 
 /**
- * ChippiBar — the persistent agent presence on every workspace page.
+ * CharlesBar — the persistent agent presence on every workspace page.
  *
  * Slim by default: a single input pinned to the bottom of the viewport,
  * one keystroke (⌘/) or one tap from anywhere. Click into it (or send a
@@ -29,9 +29,9 @@ const MAX_PANEL_MESSAGES = 6;
  *
  * Hidden on /chat (that page already IS the chat).
  */
-export function ChippiBar({ slug }: Props) {
+export function CharlesBar({ slug }: Props) {
   const pathname = usePathname() ?? '';
-  const onChippiPage = pathname.endsWith(`/s/${slug}/chat`) || pathname.startsWith(`/s/${slug}/chat/`);
+  const onCharlesPage = pathname.endsWith(`/s/${slug}/chat`) || pathname.startsWith(`/s/${slug}/chat/`);
 
   const contextPlaceholder = useMemo(() => {
     if (pathname.includes('/contacts') || pathname.includes('/people')) {
@@ -56,9 +56,9 @@ export function ChippiBar({ slug }: Props) {
       return 'Ask about your connected tools…';
     }
     if (pathname.includes('/settings') || pathname.includes('/configure')) {
-      return 'Ask Chippi anything about your setup…';
+      return 'Ask Charles anything about your setup…';
     }
-    return 'Ask Chippi or just talk…';
+    return 'Ask Charles or just talk…';
   }, [pathname]);
 
   const [convId, setConvId] = useState<string | null>(null);
@@ -177,13 +177,13 @@ export function ChippiBar({ slug }: Props) {
     isStreaming && tailMessage?.role === 'assistant' && tailMessage.blocks.length === 0;
 
   // Only render the bar inside a workspace, and not on /chat itself.
-  if (onChippiPage) return null;
+  if (onCharlesPage) return null;
 
   // The most recent few messages — keep the panel light. Full thread lives
   // in /chat.
   const visibleMessages = messages.slice(-MAX_PANEL_MESSAGES);
   const hiddenCount = Math.max(0, messages.length - visibleMessages.length);
-  const chippiHref = `/s/${slug}/chat`;
+  const charlesHref = `/s/${slug}/chat`;
 
   return (
     <div
@@ -194,7 +194,7 @@ export function ChippiBar({ slug }: Props) {
         'px-3 sm:px-6 pb-3 md:pb-5',
       )}
       role="region"
-      aria-label="Chippi"
+      aria-label="Charles"
     >
       {/* Floating panel above the bar, shown when expanded */}
       {expanded && hasContent && (
@@ -205,11 +205,11 @@ export function ChippiBar({ slug }: Props) {
           <div className="flex items-center justify-between px-4 py-2 border-b border-border/60">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              Chippi
+              Charles
             </div>
             <div className="flex items-center gap-1">
               <Link
-                href={chippiHref}
+                href={charlesHref}
                 className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-muted/60"
                 title="Open in full chat"
               >
@@ -231,7 +231,7 @@ export function ChippiBar({ slug }: Props) {
             <div className="px-4 py-4 space-y-5">
               {hiddenCount > 0 && (
                 <Link
-                  href={chippiHref}
+                  href={charlesHref}
                   className="block text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                 >
                   + {hiddenCount} earlier message{hiddenCount === 1 ? '' : 's'} — see all
@@ -330,14 +330,14 @@ export function ChippiBar({ slug }: Props) {
         <Sparkles size={13} className="text-muted-foreground/80 flex-shrink-0" />
         <input
           ref={inputRef}
-          id="chippi-bar-input"
+          id="charles-bar-input"
           type="text"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onFocus={() => setExpanded(true)}
           placeholder={dictation.listening ? 'Listening…' : contextPlaceholder}
           disabled={!!pendingApproval}
-          aria-label="Message Chippi"
+          aria-label="Message Charles"
           className="flex-1 min-w-0 bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground/70 disabled:opacity-50"
         />
         {dictation.supported && !isStreaming && (

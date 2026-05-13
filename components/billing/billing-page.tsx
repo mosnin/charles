@@ -160,7 +160,7 @@ export function BillingPage({
   trialDays = 7,
   usageStats,
   canceledAccessEnd,
-  supportUrl = 'mailto:support@chippi.com',
+  supportUrl = 'mailto:support@charles.app',
 }: BillingPageProps) {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [canceling, setCanceling] = useState(false);
@@ -358,7 +358,7 @@ export function BillingPage({
             )}
             {!isActive && (
               <p className="text-xs text-muted-foreground">
-                Subscribe to unlock full access to Chippi
+                Subscribe to unlock full access to Charles
               </p>
             )}
           </div>

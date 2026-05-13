@@ -11,7 +11,7 @@ export function DashboardFooter() {
   return (
     <footer className="pt-8 pb-1">
       <div className="border-t border-border/50 pt-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground/70">
-        <p>© {new Date().getFullYear()} Chippi. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} Charles. All rights reserved.</p>
         <div className="flex items-center gap-4">
           <Link href="/legal/terms" className="hover:text-foreground transition-colors">
             Terms of Service

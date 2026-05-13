@@ -29,7 +29,7 @@ export interface MentionItem {
 
 type Mode = 'draft' | null;
 
-interface ChippiPromptBoxProps {
+interface CharlesPromptBoxProps {
   placeholder?: string;
   onSend?: (message: string, mentions: MentionItem[], attachmentIds?: string[]) => void;
   onMentionSearch?: (query: string) => Promise<MentionItem[]>;
@@ -47,7 +47,7 @@ interface ChippiPromptBoxProps {
   /**
    * External prefill — when `nonce` changes, the composer adopts `text` as
    * its current value and focuses the textarea (cursor at end). Used by the
-   * day-one welcome to seed "Hi Chippi, my most recent lead is …" without
+   * day-one welcome to seed "Hi Charles, my most recent lead is …" without
    * having to lift composer state into the parent.
    */
   prefill?: { text: string; nonce: number };
@@ -118,10 +118,10 @@ function formatTime(seconds: number) {
   return `${m}:${s}`;
 }
 
-export const ChippiPromptBox = React.forwardRef<HTMLTextAreaElement, ChippiPromptBoxProps>(
-  function ChippiPromptBox(
+export const CharlesPromptBox = React.forwardRef<HTMLTextAreaElement, CharlesPromptBoxProps>(
+  function CharlesPromptBox(
     {
-      placeholder = 'Message Chippi…',
+      placeholder = 'Message Charles…',
       onSend,
       onMentionSearch,
       onAttach,

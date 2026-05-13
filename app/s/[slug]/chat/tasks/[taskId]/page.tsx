@@ -155,7 +155,7 @@ export default async function AgentTaskDetailPage({
   ]);
 
   if (taskResult.error) {
-    console.error('[chippi/tasks/[taskId]] task fetch error:', taskResult.error);
+    console.error('[charles/tasks/[taskId]] task fetch error:', taskResult.error);
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <div className="text-center space-y-4 p-8">

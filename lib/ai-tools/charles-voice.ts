@@ -1,15 +1,15 @@
 /**
- * Chippi-voiced helpers for the chat path.
+ * Charles-voiced helpers for the chat path.
  *
  *   - computeConversationTitle: a 3-6 word sidebar title from the user's first
  *     message. One-shot LLM call (~$0.0001/turn, multilingual). Falls back to
  *     a local heuristic if the LLM call fails or is rate-limited.
  *
- *   - chippiErrorMessage: maps an error code to a first-person Chippi line so
- *     a tool failure or backend hiccup reads like Chippi talking, not like a
+ *   - charlesErrorMessage: maps an error code to a first-person Charles line so
+ *     a tool failure or backend hiccup reads like Charles talking, not like a
  *     stack trace leaking through.
  *
- * `chippiErrorMessage` / `classifyError` are sync, side-effect free, and safe
+ * `charlesErrorMessage` / `classifyError` are sync, side-effect free, and safe
  * to import on the client. `computeConversationTitle` is async and SERVER-ONLY
  * (uses the OpenAI SDK). The OpenAI client is lazy-imported inside the
  * function body so this module stays client-safe for the other exports.
@@ -111,7 +111,7 @@ function cleanTitle(s: string): string {
  * non-empty title without an external call.
  *
  * Strategy:
- *   1. Strip HTML, control chars, mention prefix from chippi-workspace.
+ *   1. Strip HTML, control chars, mention prefix from charles-workspace.
  *   2. Drop leading conversational filler ("hi", "can you", "please", ...).
  *   3. Take the first 4-6 words; capitalize the first letter; strip trailing
  *      `?` `.` `!`; cap at 50 chars.
@@ -171,7 +171,7 @@ export function fallbackHeuristic(userMessage: string): string {
  * `code` enum on purpose — we use this to pick a friendly message before
  * shipping it across the wire.
  */
-export type ChippiErrorCode =
+export type CharlesErrorCode =
   | 'cold_start'
   | 'tool_failure'
   | 'budget_exhausted'
@@ -183,10 +183,10 @@ export type ChippiErrorCode =
   | 'internal';
 
 /**
- * The single source of truth for what Chippi says when something goes wrong.
+ * The single source of truth for what Charles says when something goes wrong.
  * First-person, in-character, no system-warning vocabulary.
  */
-export function chippiErrorMessage(code: ChippiErrorCode): string {
+export function charlesErrorMessage(code: CharlesErrorCode): string {
   switch (code) {
     case 'cold_start':
       return "Give me a second — I'm warming up the workshop.";
@@ -210,11 +210,11 @@ export function chippiErrorMessage(code: ChippiErrorCode): string {
 }
 
 /**
- * Best-effort classification of a raw error message into a ChippiErrorCode.
+ * Best-effort classification of a raw error message into a CharlesErrorCode.
  * Used at points where we only have a string (e.g. a fetch reject reason)
- * and need to pick the right Chippi line.
+ * and need to pick the right Charles line.
  */
-export function classifyError(raw: string | undefined | null): ChippiErrorCode {
+export function classifyError(raw: string | undefined | null): CharlesErrorCode {
   const s = (raw ?? '').toLowerCase();
   if (!s) return 'internal';
   if (s.includes('rate limit') || s.includes('too many')) return 'rate_limited';
