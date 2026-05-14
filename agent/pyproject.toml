@@ -1,7 +1,7 @@
 [project]
-name = "chippi-agent"
+name = "charles-agent"
 version = "0.1.0"
-description = "Chippi background AI agent — Modal + OpenAI Agents SDK"
+description = "Charles background AI agent — Modal + OpenAI Agents SDK"
 requires-python = ">=3.12"
 
 dependencies = [

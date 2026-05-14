@@ -17,7 +17,7 @@
  *   7. Translate Modal SSE events → standard agent event format.
  *   8. Persist the assistant message on turn completion.
  *
- * Set CHIPPI_CHAT_RUNTIME=ts to fall back to the in-process TypeScript runtime
+ * Set CHARLES_CHAT_RUNTIME=ts to fall back to the in-process TypeScript runtime
  * (useful for local dev without a Modal deployment).
  */
 
@@ -466,10 +466,10 @@ export async function POST(req: NextRequest) {
 
   void (async () => {
     try {
-      if (await hasEmittedTelemetry(ctx.space.id, 'chippi_first_message')) return;
+      if (await hasEmittedTelemetry(ctx.space.id, 'charles_first_message')) return;
       const signupAt = await getFirstEmittedAt(ctx.space.id, 'signup_completed');
       await emitTelemetry({
-        event: 'chippi_first_message',
+        event: 'charles_first_message',
         spaceId: ctx.space.id,
         userId: ctx.userId,
         payload: {
@@ -500,7 +500,7 @@ export async function POST(req: NextRequest) {
 
   // ── TS fallback (local dev without Modal) ────────────────────────────────
   if (chatRuntime() === 'ts') {
-    logger.info('[ai/task] using in-process TS runtime (CHIPPI_CHAT_RUNTIME=ts)', { spaceSlug });
+    logger.info('[ai/task] using in-process TS runtime (CHARLES_CHAT_RUNTIME=ts)', { spaceSlug });
     return streamTsChatTurn({
       ctx,
       conversationId,

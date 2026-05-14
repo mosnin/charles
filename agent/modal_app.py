@@ -1,7 +1,7 @@
-"""Modal entrypoint for Chippi.
+"""Modal entrypoint for Charles.
 
 Two web endpoints, no scheduled functions. The 15-minute heartbeat is gone —
-Chippi only wakes up on real triggers or explicit user action.
+Charles only wakes up on real triggers or explicit user action.
 
   POST  chat_turn        — interactive chat surface (called by /api/ai/task)
   POST  run_now_webhook  — autonomous run for a single space (or trigger-drain)
@@ -9,7 +9,7 @@ Chippi only wakes up on real triggers or explicit user action.
 Deployment:
   modal deploy agent/modal_app.py
 
-Secrets: a single Modal secret named "chippi-secrets" containing all env
+Secrets: a single Modal secret named "charles-secrets" containing all env
 vars listed in config.py.
 """
 
@@ -87,7 +87,7 @@ image = (
     .add_local_dir(_AGENT_DIR, remote_path="/app")
 )
 
-app = modal.App("chippi-agent", image=image)
+app = modal.App("charles-agent", image=image)
 
 secrets = [modal.Secret.from_name("charles-secrets")]
 
@@ -98,7 +98,7 @@ secrets = [modal.Secret.from_name("charles-secrets")]
 
 @app.function(secrets=secrets, timeout=600)
 async def run_space(space_id: str) -> None:
-    """Run Chippi for one space. Useful for local testing / cron drains."""
+    """Run Charles for one space. Useful for local testing / cron drains."""
     import sys
     sys.path.insert(0, "/app")
 
@@ -142,7 +142,7 @@ async def run_space(space_id: str) -> None:
 @app.function(secrets=secrets, timeout=600)
 @modal.fastapi_endpoint(method="POST")
 async def run_now_webhook(item: dict) -> dict:
-    """HTTP webhook that runs Chippi autonomously for a space.
+    """HTTP webhook that runs Charles autonomously for a space.
 
     Set MODAL_WEBHOOK_URL in the Next.js env to the URL printed by
     `modal deploy`. Secured with AGENT_INTERNAL_SECRET.
@@ -212,7 +212,7 @@ async def run_swarm_endpoint(payload: dict) -> dict:
 # ---------------------------------------------------------------------------
 # Web endpoint — chat turn (called by /api/ai/task)
 # ---------------------------------------------------------------------------
-# Runs Chippi inline in this Modal function and streams SDK events back as
+# Runs Charles inline in this Modal function and streams SDK events back as
 # Server-Sent Events. The previous architecture spawned a fresh Sandbox per
 # call and piped JSONL through stdin/stdout — that bought no real isolation
 # (none of these tools shell out or write outside postgres) and cost 5–15s

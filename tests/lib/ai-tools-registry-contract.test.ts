@@ -78,7 +78,7 @@ describe('ALL_TOOLS registry contract', () => {
   });
 
   // The "mutating tools form the majority" sanity check was removed in the
-  // Chippi → Charles cleanup: the realtor-era People/Pipeline/Properties
+  // Charles cleanup: the realtor-era People/Pipeline/Properties
   // mutators were ripped out, leaving the catalog read-heavy until Charles
   // grows its own department tools. Re-add the invariant when the new
   // mutators land.

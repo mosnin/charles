@@ -3,10 +3,10 @@
 There is no heartbeat. The agent wakes up only when something happens in the
 workspace: a new lead, a tour completed, a deal stage changed, an inbound
 message, a goal completed. Triggers are pushed to a Redis list by the Next.js
-side; this module pops them, builds the opening prompt, and runs Chippi.
+side; this module pops them, builds the opening prompt, and runs Charles.
 
 For manual sweeps (the Run-now button), the trigger list is empty and the
-prompt tells Chippi to look for stale leads / stalled deals on its own.
+prompt tells Charles to look for stale leads / stalled deals on its own.
 
 Security: spaceId is set once in AgentContext and flows through
 RunContextWrapper. No tool ever accepts spaceId as an argument.
@@ -205,7 +205,7 @@ def _build_opening_prompt(
     memory_context: str,
     triggers: list[dict],
 ) -> str:
-    """Frame the autonomous run for Chippi.
+    """Frame the autonomous run for Charles.
 
     The opening message either lists the triggers to act on or asks for a
     sweep when nothing specific fired.

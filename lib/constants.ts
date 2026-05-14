@@ -17,40 +17,6 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 
-// ── Contact pipeline stages ────────────────────────────────────────────────
-
-export const CONTACT_STAGES = [
-  {
-    key: 'QUALIFICATION' as const,
-    label: 'Qualifying',
-    description: 'Initial review',
-    className: 'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400',
-    dotColor: 'bg-blue-400',
-    border: 'border-blue-200/60 dark:border-blue-800/40',
-    headerBg: 'bg-blue-50/60 dark:bg-blue-500/5',
-  },
-  {
-    key: 'TOUR' as const,
-    label: 'Tour',
-    description: 'Showing scheduled',
-    className: 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400',
-    dotColor: 'bg-amber-400',
-    border: 'border-amber-200/60 dark:border-amber-800/40',
-    headerBg: 'bg-amber-50/60 dark:bg-amber-500/5',
-  },
-  {
-    key: 'APPLICATION' as const,
-    label: 'Applied',
-    description: 'Application submitted',
-    className: 'bg-green-50 text-green-700 dark:bg-green-500/15 dark:text-green-400',
-    dotColor: 'bg-green-400',
-    border: 'border-green-200/60 dark:border-green-800/40',
-    headerBg: 'bg-green-50/60 dark:bg-green-500/5',
-  },
-] as const;
-
-export type ContactStageKey = (typeof CONTACT_STAGES)[number]['key'];
-
 // ── Lead tier config ────────────────────────────────────────────────────────
 
 export const LEAD_TIERS = {

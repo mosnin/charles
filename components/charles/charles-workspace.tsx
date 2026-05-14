@@ -431,48 +431,17 @@ export function CharlesWorkspace({
     }
   }
 
+  // TODO(charles): mention types need a Charles-native pass. The old search
+  // queried /api/contacts + /api/deals — realtor endpoints deleted in the
+  // Charles cleanup — so it always returned []. Stubbed to [] until the
+  // mention system is rebuilt around Charles entities (Person / Task /
+  // Document). The MentionItem type in charles-prompt-box.tsx still carries
+  // the realtor-era 'contact' | 'deal' union for the same reason.
   const handleMentionSearch = useCallback(
-    async (query: string): Promise<MentionItem[]> => {
-      const results: MentionItem[] = [];
-      try {
-        const [contactsRes, dealsRes] = await Promise.all([
-          fetch(`/api/contacts?slug=${encodeURIComponent(slug)}&search=${encodeURIComponent(query)}`),
-          fetch(`/api/deals?slug=${encodeURIComponent(slug)}`),
-        ]);
-
-        if (contactsRes.ok) {
-          const contacts = await contactsRes.json();
-          for (const c of contacts.slice(0, 10)) {
-            results.push({
-              id: c.id,
-              type: 'contact',
-              label: c.name,
-              subtitle: c.email || c.phone || undefined,
-            });
-          }
-        }
-
-        if (dealsRes.ok) {
-          const deals = await dealsRes.json();
-          const lowerQuery = query.toLowerCase();
-          const filtered = lowerQuery
-            ? deals.filter((d: { title: string }) => d.title.toLowerCase().includes(lowerQuery))
-            : deals;
-          for (const d of filtered.slice(0, 10)) {
-            results.push({
-              id: d.id,
-              type: 'deal',
-              label: d.title,
-              subtitle: d.value ? `$${Number(d.value).toLocaleString()}` : d.address || undefined,
-            });
-          }
-        }
-      } catch (err) {
-        console.error('[Chat] Mention search failed:', err);
-      }
-      return results;
+    async (_query: string): Promise<MentionItem[]> => {
+      return [];
     },
-    [slug],
+    [],
   );
 
   const handleSend = useCallback(

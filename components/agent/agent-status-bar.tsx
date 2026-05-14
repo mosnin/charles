@@ -79,7 +79,7 @@ export function AgentStatusBar({ slug }: { slug: string }) {
             'text-[11px] font-semibold tracking-wide hidden sm:inline',
             hasActivity ? 'text-orange-600 dark:text-orange-400' : 'text-muted-foreground',
           )}>
-            CHIPPI
+            CHARLES
           </span>
         </div>
 

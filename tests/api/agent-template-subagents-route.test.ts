@@ -223,7 +223,7 @@ describe('POST /api/agent-templates/[id]/subagents', () => {
         role: 'research',
         // recall_history is in the surviving catalog; the other two are not.
         // (find_person / send_email and friends were ripped out in the
-        // Chippi → Charles cleanup along with their tables.)
+        // Charles cleanup along with their tables.)
         tools: ['recall_history', 'frobnicate', 'bogus_tool'],
       }),
       parentCtx,

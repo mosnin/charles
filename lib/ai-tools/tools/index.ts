@@ -30,11 +30,11 @@ import { createPlanTool } from './plan';
  * Domain tools only. The orchestrator's `delegate_to_subagent` tool is
  * intentionally NOT in this list — it gets added at the `registry` layer.
  *
- * NOTE: the realtor-era People/Pipeline/Properties/Communication tools were
- * ripped out in the Chippi → Charles cleanup. They queried Contact/Deal/
- * DealContact/DealStage/DealActivity/ContactActivity/Property — none of which
- * survive in the Charles schema. Person/PipelineObject equivalents will be
- * added in a later phase once the Charles agent runtime needs them.
+ * NOTE: only Memory + Planning tools ship today. The realtor-era
+ * People/Pipeline/Properties/Communication tools were removed during the
+ * Charles cleanup — they queried tables that don't exist in the Charles
+ * schema. Charles-native domain tools get added here in a later phase once
+ * the agent runtime needs them.
  */
 export const ALL_TOOLS: ToolDefinition[] = [
   // ── Memory ─────────────────────────────────────────────────────────────

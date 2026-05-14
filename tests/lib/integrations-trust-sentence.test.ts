@@ -2,7 +2,7 @@
  * Snapshot the exact wording of the integrations-page trust sentence.
  *
  * The sentence is the answer to a realtor's actual fear ("am I handing
- * Chippi the keys to my inbox?"). Drive-by copy edits that soften it back
+ * Charles the keys to my inbox?"). Drive-by copy edits that soften it back
  * into corporate fluff would make this fix moot — so we read the page's
  * source and assert the verbatim string is present. Any change to that
  * sentence has to flip this test on purpose.

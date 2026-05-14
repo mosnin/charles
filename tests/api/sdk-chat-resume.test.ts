@@ -72,19 +72,19 @@ import { requireAuth } from '@/lib/api-auth';
 
 const mockedAuth = vi.mocked(requireAuth);
 
-const ORIGINAL_RUNTIME = process.env.CHIPPI_CHAT_RUNTIME;
+const ORIGINAL_RUNTIME = process.env.CHARLES_CHAT_RUNTIME;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  process.env.CHIPPI_CHAT_RUNTIME = 'ts';
+  process.env.CHARLES_CHAT_RUNTIME = 'ts';
   mockedAuth.mockResolvedValue({ userId: 'user_clerk_123' });
   for (const k of Object.keys(tableQueue)) delete tableQueue[k];
   updateMock.mockResolvedValue({ data: null, error: null });
 });
 
 afterEach(() => {
-  if (ORIGINAL_RUNTIME === undefined) delete process.env.CHIPPI_CHAT_RUNTIME;
-  else process.env.CHIPPI_CHAT_RUNTIME = ORIGINAL_RUNTIME;
+  if (ORIGINAL_RUNTIME === undefined) delete process.env.CHARLES_CHAT_RUNTIME;
+  else process.env.CHARLES_CHAT_RUNTIME = ORIGINAL_RUNTIME;
 });
 
 function makeReq(body: Record<string, unknown>) {
@@ -129,8 +129,8 @@ function queueSpace(space: typeof SPACE | null) {
 }
 
 describe('POST /api/ai/task/resume/[pausedRunId] — flag gate', () => {
-  it('returns 404 when CHIPPI_CHAT_RUNTIME != "ts"', async () => {
-    process.env.CHIPPI_CHAT_RUNTIME = 'modal';
+  it('returns 404 when CHARLES_CHAT_RUNTIME != "ts"', async () => {
+    process.env.CHARLES_CHAT_RUNTIME = 'modal';
     const res = await POST(makeReq({ approved: true }), params('run_1'));
     expect(res.status).toBe(404);
   });

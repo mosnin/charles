@@ -1,4 +1,4 @@
-"""Agent guardrails — pre-run safety checks for Chippi.
+"""Agent guardrails — pre-run safety checks for Charles.
 
 Input guardrail (fires before the first LLM call):
   pending_drafts_guardrail — blocks the run if the realtor already has

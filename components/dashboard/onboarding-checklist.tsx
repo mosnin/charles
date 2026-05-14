@@ -38,9 +38,7 @@ type Step = {
 // (e.g. a `dismissedOnboardingChecklist` column on the User table), but
 // that requires a schema migration. Keeping localStorage for now as a
 // low-priority known limitation.
-// TODO(charles): phase 4 cleanup — rename to 'charles-onboarding-dismissed' after a
-// migration that flips already-set localStorage keys (or expire-and-reset).
-const STORAGE_KEY = 'chippi-onboarding-dismissed';
+const STORAGE_KEY = 'charles-onboarding-dismissed';
 
 export function OnboardingChecklist({ slug, hasLeads, hasContacts, hasTours, hasDeals }: OnboardingChecklistProps) {
   const [dismissed, setDismissed] = useState(true); // Start hidden to avoid flash

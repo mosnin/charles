@@ -5,7 +5,7 @@ optionally overrides `get_department_tools()`. Call `build_agent()` to
 get an Agent instance ready to run.
 
 The space_id is closed over at construction time — never taken from
-LLM tool arguments — mirroring the AgentContext pattern from chippi.py.
+LLM tool arguments — mirroring the AgentContext pattern from security/context.py.
 """
 
 from __future__ import annotations

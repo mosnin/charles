@@ -187,7 +187,7 @@ describe('Supabase adapter — stageMigration', () => {
     // No fetch — no DDL executed against the founder's project.
     expect(fetchMock).not.toHaveBeenCalled();
     // No platform-side persistence either: the StagedMigration table was
-    // dropped in the Chippi → Charles cleanup. Re-add persistence (and this
+    // dropped in the Charles cleanup. Re-add persistence (and this
     // assertion) when a Charles-shaped staging surface lands.
     expect(insertMock).not.toHaveBeenCalled();
   });

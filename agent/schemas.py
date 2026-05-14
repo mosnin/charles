@@ -97,7 +97,7 @@ class AgentSettings(BaseModel):
     """Per-space agent configuration.
 
     Autonomy modes, per-agent overrides, confidence thresholds, and the
-    enabled-agents list have all been retired — Chippi is one agent and
+    enabled-agents list have all been retired — Charles is one agent and
     every contact-facing action drafts. The DB columns still exist for
     backwards compat with the UI; we just don't read them. `extra="ignore"`
     keeps existing rows loadable without a migration.

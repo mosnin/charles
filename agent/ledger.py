@@ -67,7 +67,7 @@ class StepLedger:
     Or the convenience wrapper for a full LLM call::
 
         await ledger.record_llm_call(
-            tool_name="chippi",
+            tool_name="charles",
             input_summary="Autonomous sweep prompt",
             output_summary="Drafted follow-up email",
             model="gpt-4o",

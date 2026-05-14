@@ -1,8 +1,8 @@
 /**
- * TypeScript in-process chat runtime (fallback). Active when CHIPPI_CHAT_RUNTIME=ts.
+ * TypeScript in-process chat runtime (fallback). Active when CHARLES_CHAT_RUNTIME=ts.
  *
  * The primary runtime is Modal (agent/modal_app.py). This module is the fallback when
- * `CHIPPI_CHAT_RUNTIME=ts` is set. The flag default is `'modal'`, so this
+ * `CHARLES_CHAT_RUNTIME=ts` is set. The flag default is `'modal'`, so this
  * code is dormant until explicitly activated — see `runtime-flag.ts`.
  *
  * Two entry points:
