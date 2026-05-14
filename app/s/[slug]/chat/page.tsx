@@ -29,8 +29,8 @@ export default async function ChatPage({
   const view = tab === 'settings' ? 'settings' : 'workspace';
 
   const { userId } = await auth();
-  // TODO(charles): phase 4 — rename `/login/realtor` to `/login` once auth routes are flattened.
-  if (!userId) redirect('/login/realtor');
+  // TODO(charles): phase 4 — rename `/sign-in` to `/login` once auth routes are flattened.
+  if (!userId) redirect('/sign-in');
 
   const space = await getSpaceFromSlug(slug);
   if (!space) notFound();

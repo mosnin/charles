@@ -21,7 +21,7 @@ export default async function BrandWizardPage({ params }: PageProps) {
   const { slug } = await params;
 
   const { userId } = await auth();
-  if (!userId) redirect('/login/realtor');
+  if (!userId) redirect('/sign-in');
 
   const result = await requireSpaceOwner(slug);
   // requireSpaceOwner returns a NextResponse on failure; in a server page we

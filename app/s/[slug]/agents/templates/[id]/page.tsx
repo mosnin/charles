@@ -45,7 +45,7 @@ export default async function BuilderPage({
 }) {
   const { slug, id } = await params;
   const { userId } = await auth();
-  if (!userId) redirect('/login/realtor');
+  if (!userId) redirect('/sign-in');
 
   const space = await getSpaceFromSlug(slug);
   if (!space) notFound();

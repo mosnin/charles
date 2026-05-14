@@ -26,7 +26,7 @@ export default async function NewTemplatePage({
 }) {
   const { slug } = await params;
   const { userId } = await auth();
-  if (!userId) redirect('/login/realtor');
+  if (!userId) redirect('/sign-in');
 
   const space = await getSpaceFromSlug(slug);
   if (!space) notFound();

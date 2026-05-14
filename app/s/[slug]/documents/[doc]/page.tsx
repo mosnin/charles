@@ -55,7 +55,7 @@ export default async function DocumentPage({
     searchParams,
   ]);
   const { userId } = await auth();
-  if (!userId) redirect('/login/realtor');
+  if (!userId) redirect('/sign-in');
 
   const def = getDocument(docSlug);
   if (!def) notFound();

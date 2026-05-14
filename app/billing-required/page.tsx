@@ -28,7 +28,7 @@ function BillingRequiredContent() {
 
   // Redirect unauthenticated users
   if (isLoaded && !isSignedIn) {
-    window.location.href = '/login/realtor';
+    window.location.href = '/sign-in';
     return null;
   }
 
@@ -165,7 +165,7 @@ function BillingRequiredContent() {
             {/* Quiet secondary — sign out */}
             <button
               type="button"
-              onClick={() => signOut({ redirectUrl: '/login/realtor' })}
+              onClick={() => signOut({ redirectUrl: '/sign-in' })}
               className={GHOST_PILL}
             >
               Sign out

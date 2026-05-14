@@ -31,7 +31,7 @@ export default async function AcceptInvitePage({
   // Not signed in — bounce through sign-in and come back. We use the
   // existing realtor login route so all auth lands in one place.
   if (!userId) {
-    redirect(`/login/realtor?redirect_url=${encodeURIComponent(`/team/accept/${token}`)}`);
+    redirect(`/sign-in?redirect_url=${encodeURIComponent(`/team/accept/${token}`)}`);
   }
 
   const { data: invite } = await supabase

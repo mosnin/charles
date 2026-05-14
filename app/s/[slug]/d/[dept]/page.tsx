@@ -39,7 +39,7 @@ export default async function DepartmentDetailPage({
   const { tab } = await searchParams;
 
   const { userId } = await auth();
-  if (!userId) redirect('/login/realtor');
+  if (!userId) redirect('/sign-in');
 
   const space = await getSpaceFromSlug(slug);
   if (!space) notFound();

@@ -45,7 +45,7 @@ export default async function IntegrationsCallback({
   const { userId } = await auth();
   if (!userId) {
     logger.warn('[integrations.callback] no clerk session — redirecting to login');
-    redirect('/login/realtor');
+    redirect('/sign-in');
   }
 
   if (!connectedAccountId) {
