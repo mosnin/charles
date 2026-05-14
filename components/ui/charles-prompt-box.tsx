@@ -11,7 +11,6 @@ import {
   FileText,
   Paperclip,
   Square,
-  StopCircle,
   Plus,
   ImagePlus,
   Search,
