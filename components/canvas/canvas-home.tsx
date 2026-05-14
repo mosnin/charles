@@ -47,9 +47,11 @@ import { ChatDock } from './chat-dock';
 import { Sapling } from './sapling';
 import { StatusDot } from './status-dot';
 import { FirstMoveCard } from './first-move-card';
+import { MorningBriefing } from './morning-briefing';
 import { ORBIT_ORDER, orbitPoint } from '@/lib/canvas/orbit';
 import type { DeptCounts } from '@/lib/canvas/dept-counts';
 import type { AuditEvent } from '@/lib/observability/audit-feed';
+import type { DailyBriefingData } from '@/lib/briefing/build-daily-briefing';
 import { subscribeToDeptActivity, subscribeToAuditFeed } from '@/lib/canvas/realtime';
 import { useCanvasActivity } from '@/lib/convex/use-canvas-activity';
 import { usePresence } from '@/lib/convex/use-presence';
@@ -67,6 +69,8 @@ export interface CanvasHomeProps {
   deptCounts: Record<DepartmentSlug, DeptCounts>;
   /** Initial audit feed for the chat dock home tab. */
   initialAuditFeed: AuditEvent[];
+  /** Daily briefing snapshot — null if it couldn't be built. */
+  briefing: DailyBriefingData | null;
 }
 
 const ORBIT_RADIUS = 220;
@@ -87,6 +91,7 @@ export function CanvasHome({
   githubRepo,
   deptCounts,
   initialAuditFeed,
+  briefing,
 }: CanvasHomeProps) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -429,6 +434,10 @@ export function CanvasHome({
         {/* Day-one bridge — points the founder at Charles's welcome message
             and first task. Retires once Charles has work in flight. */}
         {hasNoActivity && <FirstMoveCard slug={slug} variant="canvas" />}
+
+        {/* Daily briefing — what happened overnight. Self-suppresses on a
+            rest day and once seen today. */}
+        {briefing && <MorningBriefing slug={slug} data={briefing} variant="canvas" />}
       </section>
 
       {/* Desktop chat dock — hidden on mobile via its own md: classes. */}
@@ -472,6 +481,8 @@ export function CanvasHome({
               );
             })}
           </div>
+
+          {briefing && <MorningBriefing slug={slug} data={briefing} variant="inline" />}
 
           {hasNoActivity && <FirstMoveCard slug={slug} variant="inline" />}
 

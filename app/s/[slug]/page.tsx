@@ -13,6 +13,7 @@ import { supabase } from '@/lib/supabase';
 import { getAllDepartmentAutonomy } from '@/lib/departments/autonomy';
 import { loadDeptCounts } from '@/lib/canvas/dept-counts';
 import { loadAuditFeed } from '@/lib/observability/audit-feed';
+import { buildDailyBriefing, type DailyBriefingData } from '@/lib/briefing/build-daily-briefing';
 import { CanvasHome } from '@/components/canvas/canvas-home';
 
 interface Mission {
@@ -32,26 +33,33 @@ export default async function SpacePage({
   const space = await getSpaceFromSlug(slug);
   if (!space) notFound();
 
-  // Pull mission, autonomy levels, the GitHub slot, dept counts, and the
-  // audit feed for the chat dock — all in parallel. Any single failure is
-  // absorbed; the page still renders.
-  const [missionResult, autonomyResult, githubResult, deptCountsResult, auditFeedResult] =
-    await Promise.allSettled([
-      supabase
-        .from('Mission')
-        .select('title, oneLinePitch')
-        .eq('spaceId', space.id)
-        .maybeSingle(),
-      getAllDepartmentAutonomy(space.id),
-      supabase
-        .from('CoreMemory')
-        .select('value')
-        .eq('spaceId', space.id)
-        .eq('slot', 'github_repo')
-        .maybeSingle(),
-      loadDeptCounts(space.id),
-      loadAuditFeed(space.id, { limit: 8 }),
-    ]);
+  // Pull mission, autonomy levels, the GitHub slot, dept counts, the audit
+  // feed for the chat dock, and the daily briefing — all in parallel. Any
+  // single failure is absorbed; the page still renders.
+  const [
+    missionResult,
+    autonomyResult,
+    githubResult,
+    deptCountsResult,
+    auditFeedResult,
+    briefingResult,
+  ] = await Promise.allSettled([
+    supabase
+      .from('Mission')
+      .select('title, oneLinePitch')
+      .eq('spaceId', space.id)
+      .maybeSingle(),
+    getAllDepartmentAutonomy(space.id),
+    supabase
+      .from('CoreMemory')
+      .select('value')
+      .eq('spaceId', space.id)
+      .eq('slot', 'github_repo')
+      .maybeSingle(),
+    loadDeptCounts(space.id),
+    loadAuditFeed(space.id, { limit: 8 }),
+    buildDailyBriefing(space.id),
+  ]);
 
   const mission: Mission | null =
     missionResult.status === 'fulfilled' && missionResult.value.data
@@ -90,6 +98,9 @@ export default async function SpacePage({
   const initialAuditFeed =
     auditFeedResult.status === 'fulfilled' ? auditFeedResult.value : [];
 
+  const briefing: DailyBriefingData | null =
+    briefingResult.status === 'fulfilled' ? briefingResult.value : null;
+
   const workspaceName = mission?.title?.trim().length
     ? mission!.title
     : space.name;
@@ -106,6 +117,7 @@ export default async function SpacePage({
         githubRepo={githubRepo}
         deptCounts={deptCounts}
         initialAuditFeed={initialAuditFeed}
+        briefing={briefing}
       />
     </div>
   );

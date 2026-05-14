@@ -11,13 +11,20 @@ import { loadAuditFeed, type AuditEvent } from '@/lib/observability/audit-feed';
 import { supabase } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
 
+/** A single "needs you today" action item — a line plus where it goes. */
+export interface BriefingAction {
+  label: string;
+  /** Workspace-relative href to the surface that resolves the action. */
+  href: string;
+}
+
 export interface DailyBriefingData {
   founderFirstName: string | null;
   workspaceName: string;
   /** 3-5 short lines summarising what happened in the last 24h. */
   yesterdayHighlights: string[];
-  /** Up to 3 one-line action items. */
-  needsYouToday: string[];
+  /** Up to 3 one-line action items, each linking to its surface. */
+  needsYouToday: BriefingAction[];
   pendingApprovalsCount: number;
   openTasksCount: number;
   currentStage: string;
@@ -111,36 +118,47 @@ function summarizeHighlights(events: AuditEvent[]): string[] {
   return lines.slice(0, HIGHLIGHT_CAP);
 }
 
-/** Build the action list from the live backlogs. */
+/** Build the action list from the live backlogs. Each action links to the
+ *  surface that resolves it — approvals for drafts + paused runs, the task
+ *  list for stalled tasks. */
 function buildActions(
+  slug: string,
   pendingApprovals: number,
   pausedRuns: number,
   overdueTasks: number,
-): string[] {
-  const actions: string[] = [];
+): BriefingAction[] {
+  const actions: BriefingAction[] = [];
+  const approvalsHref = `/s/${slug}/chat/approvals`;
+  const tasksHref = `/s/${slug}/tasks`;
 
   if (pendingApprovals > 0) {
-    actions.push(
-      pendingApprovals === 1
-        ? 'Approve 1 draft waiting for you.'
-        : `Approve ${pendingApprovals} drafts waiting for you.`,
-    );
+    actions.push({
+      label:
+        pendingApprovals === 1
+          ? 'Approve 1 draft waiting for you.'
+          : `Approve ${pendingApprovals} drafts waiting for you.`,
+      href: approvalsHref,
+    });
   }
 
   if (pausedRuns > 0) {
-    actions.push(
-      pausedRuns === 1
-        ? 'Decide on 1 paused run.'
-        : `Decide on ${pausedRuns} paused runs.`,
-    );
+    actions.push({
+      label:
+        pausedRuns === 1
+          ? 'Decide on 1 paused run.'
+          : `Decide on ${pausedRuns} paused runs.`,
+      href: approvalsHref,
+    });
   }
 
   if (overdueTasks > 0) {
-    actions.push(
-      overdueTasks === 1
-        ? 'Unblock 1 stalled task.'
-        : `Unblock ${overdueTasks} stalled tasks.`,
-    );
+    actions.push({
+      label:
+        overdueTasks === 1
+          ? 'Unblock 1 stalled task.'
+          : `Unblock ${overdueTasks} stalled tasks.`,
+      href: tasksHref,
+    });
   }
 
   return actions.slice(0, ACTION_CAP);
@@ -265,6 +283,7 @@ export async function buildDailyBriefing(
     ]);
 
   const needsYouToday = buildActions(
+    ctx.space.slug,
     pendingApprovalsCount,
     pausedRunsCount,
     openTasksCount,

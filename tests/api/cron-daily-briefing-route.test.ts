@@ -75,7 +75,7 @@ beforeEach(() => {
     founderFirstName: 'Jane',
     workspaceName: 'Acme',
     yesterdayHighlights: ['x'],
-    needsYouToday: ['y'],
+    needsYouToday: [{ label: 'y', href: '/s/acme/tasks' }],
     pendingApprovalsCount: 1,
     openTasksCount: 0,
     currentStage: 'building',

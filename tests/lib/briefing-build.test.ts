@@ -165,14 +165,19 @@ describe('summarizeHighlights', () => {
 
 describe('buildActions', () => {
   it('returns empty when nothing pending', () => {
-    expect(_internals.buildActions(0, 0, 0)).toEqual([]);
+    expect(_internals.buildActions('acme', 0, 0, 0)).toEqual([]);
   });
   it('singular vs plural copy', () => {
-    expect(_internals.buildActions(1, 0, 0)[0]).toBe('Approve 1 draft waiting for you.');
-    expect(_internals.buildActions(2, 0, 0)[0]).toBe('Approve 2 drafts waiting for you.');
+    expect(_internals.buildActions('acme', 1, 0, 0)[0].label).toBe('Approve 1 draft waiting for you.');
+    expect(_internals.buildActions('acme', 2, 0, 0)[0].label).toBe('Approve 2 drafts waiting for you.');
+  });
+  it('links drafts + paused runs to approvals, stalled tasks to the task list', () => {
+    expect(_internals.buildActions('acme', 1, 0, 0)[0].href).toBe('/s/acme/chat/approvals');
+    expect(_internals.buildActions('acme', 0, 1, 0)[0].href).toBe('/s/acme/chat/approvals');
+    expect(_internals.buildActions('acme', 0, 0, 1)[0].href).toBe('/s/acme/tasks');
   });
   it('caps at 3 actions', () => {
-    const out = _internals.buildActions(5, 5, 5);
+    const out = _internals.buildActions('acme', 5, 5, 5);
     expect(out.length).toBe(3);
   });
 });
@@ -207,7 +212,10 @@ describe('buildDailyBriefing', () => {
     queueAll({ pendingDrafts: 3, pausedRuns: 0, stalledTasks: 0 });
     const out = await buildDailyBriefing('space-1', NOW);
     expect(out!.pendingApprovalsCount).toBe(3);
-    expect(out!.needsYouToday).toContain('Approve 3 drafts waiting for you.');
+    expect(
+      out!.needsYouToday.some((a) => a.label === 'Approve 3 drafts waiting for you.'),
+    ).toBe(true);
+    expect(out!.needsYouToday[0].href).toBe('/s/acme/chat/approvals');
   });
 
   it('caps highlights at 5 even with many events', async () => {

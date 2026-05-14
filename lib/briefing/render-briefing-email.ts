@@ -115,7 +115,7 @@ function renderActiveHtml(data: DailyBriefingData, ctaUrl: string): string {
       ${renderListHtml(data.yesterdayHighlights)}
 
       <p style="${STYLES.section}">Today</p>
-      ${renderListHtml(data.needsYouToday)}
+      ${renderListHtml(data.needsYouToday.map((a) => a.label))}
 
       <a href="${esc(ctaUrl)}" style="${STYLES.cta}">Open Charles</a>
 
@@ -155,7 +155,7 @@ function renderActiveText(data: DailyBriefingData, ctaUrl: string): string {
   if (data.needsYouToday.length === 0) {
     lines.push('  Nothing here.');
   } else {
-    for (const a of data.needsYouToday) lines.push(`  - ${a}`);
+    for (const a of data.needsYouToday) lines.push(`  - ${a.label}`);
   }
   lines.push('', `Open Charles: ${ctaUrl}`, '', `${data.workspaceName} — stage: ${data.currentStage}`);
   return lines.join('\n');

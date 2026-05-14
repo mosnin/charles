@@ -13,7 +13,9 @@ function active(overrides: Partial<DailyBriefingData> = {}): DailyBriefingData {
     founderFirstName: 'Jane',
     workspaceName: 'Acme',
     yesterdayHighlights: ['Engineering completed 2 runs.', 'You approved 1 draft.'],
-    needsYouToday: ['Approve 3 drafts waiting for you.'],
+    needsYouToday: [
+      { label: 'Approve 3 drafts waiting for you.', href: '/s/acme/chat/approvals' },
+    ],
     pendingApprovalsCount: 3,
     openTasksCount: 0,
     currentStage: 'building',
@@ -90,7 +92,11 @@ describe('renderDailyBriefing — HTML body', () => {
 
   it('renders the Today action items', () => {
     const out = renderDailyBriefing(
-      active({ needsYouToday: ['Approve 3 drafts waiting for you.'] }),
+      active({
+        needsYouToday: [
+          { label: 'Approve 3 drafts waiting for you.', href: '/s/acme/chat/approvals' },
+        ],
+      }),
       'acme',
       NOW,
     );
