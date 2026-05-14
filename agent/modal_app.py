@@ -268,7 +268,7 @@ async def chat_turn(item: dict):
     from openai.types.shared import Reasoning
     from schemas import AgentSettings, Space
     from security.context import AgentContext
-    from chippi import make_chippi_agent
+    from manager.charles import CharlesManager
 
     agent_settings = AgentSettings.model_validate(sr.data)
     space = Space(id=spr.data["id"], slug=spr.data["slug"], name=spr.data["name"])
@@ -439,7 +439,11 @@ async def chat_turn(item: dict):
 
     async def event_stream():
         try:
-            chippi = make_chippi_agent(extra_tools=integration_tools)
+            manager = CharlesManager(
+                space_id=space_id,
+                run_id=conversation_id or f"chat-{uuid.uuid4()}",
+            )
+            charles = await manager.build_agent(extra_tools=integration_tools)
         except Exception as e:
             err = json.dumps({"type": "error", "message": f"agent build failed: {e}"})
             yield f"data: {err}\n\n"
@@ -447,7 +451,7 @@ async def chat_turn(item: dict):
 
         try:
             result = Runner.run_streamed(
-                chippi, input=input_items, context=ctx, run_config=run_config
+                charles, input=input_items, context=ctx, run_config=run_config
             )
             async for event in result.stream_events():
                 try:

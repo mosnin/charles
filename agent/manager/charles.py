@@ -480,12 +480,21 @@ class CharlesManager:
 
     # ── Agent builder ────────────────────────────────────────────────────────
 
-    async def build_agent(self) -> Agent:
-        """Build and return the Charles manager Agent instance."""
+    async def build_agent(self, extra_tools: list | None = None) -> Agent:
+        """Build and return the Charles manager Agent instance.
+
+        `extra_tools` lets the caller append integration tools loaded per
+        space (Gmail, Slack, HubSpot, etc. via Composio). The manager's own
+        founder-OS tools always come first so the model treats integrations
+        as supplemental.
+        """
         system_prompt = await self.load_system_prompt()
+        tools = self._get_tools()
+        if extra_tools:
+            tools = tools + extra_tools
         return Agent[None](
             name="Charles",
             model=settings.worker_model,
             instructions=system_prompt,
-            tools=self._get_tools(),
+            tools=tools,
         )
