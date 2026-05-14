@@ -46,6 +46,7 @@ import { DeptNode } from './dept-node';
 import { ChatDock } from './chat-dock';
 import { Sapling } from './sapling';
 import { StatusDot } from './status-dot';
+import { FirstMoveCard } from './first-move-card';
 import { ORBIT_ORDER, orbitPoint } from '@/lib/canvas/orbit';
 import type { DeptCounts } from '@/lib/canvas/dept-counts';
 import type { AuditEvent } from '@/lib/observability/audit-feed';
@@ -238,6 +239,14 @@ export function CanvasHome({
 
   const zoomPct = Math.round(zoom * 100);
 
+  // Day-one signal: nothing running or queued anywhere. The FirstMoveCard
+  // rides on this — it bridges the founder to Charles's welcome message and
+  // first task, then retires the moment Charles actually starts working.
+  const hasNoActivity = ORBIT_ORDER.every((d) => {
+    const c = countsFor(d);
+    return c.running === 0 && c.queued === 0;
+  });
+
   return (
     <div className="flex h-full w-full overflow-hidden bg-white">
       {/* ─── Desktop (md+): orbital canvas + right-docked chat ─────────── */}
@@ -416,6 +425,10 @@ export function CanvasHome({
             </div>
           </div>
         </div>
+
+        {/* Day-one bridge — points the founder at Charles's welcome message
+            and first task. Retires once Charles has work in flight. */}
+        {hasNoActivity && <FirstMoveCard slug={slug} variant="canvas" />}
       </section>
 
       {/* Desktop chat dock — hidden on mobile via its own md: classes. */}
@@ -459,6 +472,8 @@ export function CanvasHome({
               );
             })}
           </div>
+
+          {hasNoActivity && <FirstMoveCard slug={slug} variant="inline" />}
 
           {githubRepo && (
             <div className="text-center">
