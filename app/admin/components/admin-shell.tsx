@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Users,
   Building,
-  Mail,
   CreditCard,
   ScrollText,
   Megaphone,
@@ -39,7 +38,6 @@ const navSections = [
       { href: '/admin/users', label: 'Users', icon: Users, exact: false },
       { href: '/admin/spaces', label: 'Spaces', icon: Building, exact: false },
       { href: '/admin/billing', label: 'Billing', icon: CreditCard, exact: false },
-      { href: '/admin/invitations', label: 'Invitations', icon: Mail, exact: false },
     ],
   },
   {

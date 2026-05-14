@@ -157,23 +157,16 @@ export interface StagedMigration {
 /**
  * Stage a migration for founder review. DOES NOT EXECUTE DDL.
  *
- * Best-effort writes a row into a `StagedMigration` table on the platform's
- * own Supabase. If that table doesn't exist, this falls back to returning
- * the staged-migration descriptor without persistence — the agent surfaces
- * the SQL to the founder either way.
+ * Returns the staged-migration descriptor; the agent surfaces the SQL to the
+ * founder. Persistence of staged migrations into a platform-side table is
+ * deferred — the old `StagedMigration` table was dropped in the Charles
+ * cleanup. A future phase can re-introduce a Charles-shaped staging table if
+ * we want the migration history to survive a page refresh.
  */
 export async function supabaseStageMigration(
-  spaceId: string,
+  _spaceId: string,
   params: { name: string; sql: string },
 ): Promise<StagedMigration> {
-  try {
-    await supabase
-      .from('StagedMigration')
-      .insert({ spaceId, name: params.name, sql: params.sql });
-  } catch {
-    // Table may not exist yet; fall through. The string return still
-    // surfaces the migration to the founder.
-  }
   return {
     staged: true,
     name: params.name,

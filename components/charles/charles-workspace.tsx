@@ -7,10 +7,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ConversationSidebar } from '@/components/ai/conversation-sidebar';
 import { CharlesPromptBox, type MentionItem } from '@/components/ui/charles-prompt-box';
 import { Button } from '@/components/ui/button';
-import { History, X, AlertCircle, Mic, Settings, ArrowLeft, Play, Loader2, NotebookText, ListTodo, RotateCcw } from 'lucide-react';
+import { History, X, AlertCircle, Settings, ArrowLeft, Play, Loader2, NotebookText, ListTodo, RotateCcw } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { VoiceMode } from '@/components/ai/voice-mode';
 import { Transcript } from '@/components/ai/blocks/transcript';
 import { ThinkingIndicator } from '@/components/ai/blocks/thinking-indicator';
 import { useAgentTask, type UiMessage } from '@/components/ai/hooks/use-agent-task';
@@ -133,7 +132,6 @@ export function CharlesWorkspace({
     initialConversationId,
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [voiceOpen, setVoiceOpen] = useState(false);
   // Server-driven loading: pending during the soft-nav so we can show the
   // "One moment" placeholder instead of the previous conversation's
   // transcript flashing for a beat. `useTransition` is the natural fit —
@@ -785,7 +783,6 @@ export function CharlesWorkspace({
             placeholder="Message Charles — draft a follow-up, prep a tour, summarize your day…"
             onSend={handleSend}
             onMentionSearch={handleMentionSearch}
-            onVoiceStart={() => setVoiceOpen(true)}
             onAbort={abort}
             disabled={isStreaming || pendingApproval !== null || rateLimitSeconds > 0}
             isLoading={isStreaming}
@@ -863,20 +860,6 @@ export function CharlesWorkspace({
           aria-label="Open conversation history"
         >
           <History size={15} />
-        </button>
-        <button
-          type="button"
-          onClick={() => setVoiceOpen((v) => !v)}
-          className={cn(
-            'w-8 h-8 flex items-center justify-center rounded-lg transition-colors',
-            voiceOpen
-              ? 'bg-foreground text-background'
-              : 'text-muted-foreground/70 hover:text-foreground hover:bg-muted/60',
-          )}
-          title="Voice mode"
-          aria-label="Toggle voice mode"
-        >
-          <Mic size={15} />
         </button>
         <Link
           href={`/s/${slug}/chat/memory`}
@@ -1175,21 +1158,6 @@ export function CharlesWorkspace({
         )}
       </div>{/* end split panel container */}
 
-      <VoiceMode
-        open={voiceOpen}
-        onClose={() => setVoiceOpen(false)}
-        slug={slug}
-        onTranscript={(role, text) => {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `voice_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-              role,
-              blocks: [{ type: 'text', content: text }],
-            },
-          ]);
-        }}
-      />
     </div>
   );
 }

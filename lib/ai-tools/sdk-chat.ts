@@ -29,7 +29,7 @@ import {
   applyApprovalDecision,
   type ApprovalDecision,
 } from './sdk-bridge';
-import { buildPipelineAnalystAgent, buildContactResearcherAgent, buildPlannerAgent } from './sdk-skills';
+import { buildPlannerAgent } from './sdk-skills';
 import { buildSystemPrompt, buildPersonalizedSystemPrompt } from './system-prompt';
 import { ALL_TOOLS } from './tools';
 import type { ToolContext, ToolDefinition } from './types';
@@ -72,21 +72,12 @@ export function buildChatAgent(
   const domainTools = ALL_TOOLS.map((t: ToolDefinition) => toSdkTool(t, ctx));
 
   // Sub-agent skills attached as tools via the SDK's native `Agent.asTool()`.
-  const pipelineAnalyst = buildPipelineAnalystAgent(ctx, { model: opts.model });
-  const contactResearcher = buildContactResearcherAgent(ctx, { model: opts.model });
+  // The realtor-era `pipeline_analyst` / `contact_researcher` sub-agents were
+  // ripped out with their tools; only the planner survives until Charles
+  // grows its own department sub-agents on the TS side.
   const planner = buildPlannerAgent(ctx, { model: opts.model });
 
   const skillTools = [
-    pipelineAnalyst.asTool({
-      toolName: 'analyze_pipeline',
-      toolDescription:
-        'Analyze the pipeline for stuck deals, quiet hot persons, and overdue follow-ups.',
-    }),
-    contactResearcher.asTool({
-      toolName: 'research_person',
-      toolDescription:
-        'Research everything we know about a person and recommend the next action.',
-    }),
     planner.asTool({
       toolName: 'planner',
       toolDescription:

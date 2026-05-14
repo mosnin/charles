@@ -221,7 +221,10 @@ describe('POST /api/agent-templates/[id]/subagents', () => {
       postReq({
         name: 'X',
         role: 'research',
-        tools: ['find_person', 'frobnicate', 'send_email', 'bogus_tool'],
+        // recall_history is in the surviving catalog; the other two are not.
+        // (find_person / send_email and friends were ripped out in the
+        // Chippi → Charles cleanup along with their tables.)
+        tools: ['recall_history', 'frobnicate', 'bogus_tool'],
       }),
       parentCtx,
     );

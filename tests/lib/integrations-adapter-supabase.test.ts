@@ -186,18 +186,9 @@ describe('Supabase adapter — stageMigration', () => {
     expect(r.message).toMatch(/founder must apply/i);
     // No fetch — no DDL executed against the founder's project.
     expect(fetchMock).not.toHaveBeenCalled();
-    // Best-effort persistence to platform's own Supabase.
-    expect(insertMock).toHaveBeenCalledWith({
-      spaceId: 'space_1',
-      name: 'add_users_email_index',
-      sql: 'CREATE INDEX ON users(email)',
-    });
-  });
-
-  it('returns descriptor even when StagedMigration table insert throws', async () => {
-    insertMock.mockRejectedValue(new Error('relation "StagedMigration" does not exist'));
-    const r = await supabaseStageMigration('space_1', { name: 'm', sql: 'CREATE TABLE t(id int)' });
-    expect(r.staged).toBe(true);
-    expect(r.message).toMatch(/founder must apply/i);
+    // No platform-side persistence either: the StagedMigration table was
+    // dropped in the Chippi → Charles cleanup. Re-add persistence (and this
+    // assertion) when a Charles-shaped staging surface lands.
+    expect(insertMock).not.toHaveBeenCalled();
   });
 });

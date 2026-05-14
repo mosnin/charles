@@ -19,27 +19,6 @@
 
 import type { ToolDefinition } from '../types';
 
-// People
-import { findPersonTool } from './find-person';
-import { addPersonTool } from './add-person';
-import { setFollowupTool } from './set-followup';
-import { clearFollowupTool } from './clear-followup';
-import { markPersonHotTool } from './mark-person-hot';
-import { markPersonColdTool } from './mark-person-cold';
-import { archivePersonTool } from './archive-person';
-import { noteOnPersonTool } from './note-on-person';
-
-// Pipeline
-import { createDealTool } from './create-deal';
-import { noteOnDealTool } from './note-on-deal';
-import { addChecklistItemTool } from './add-checklist-item';
-
-// Properties
-import { findPropertyTool } from './find-property';
-
-// Communication
-import { sendEmailTool } from './send-email';
-
 // Memory
 import { recallHistoryTool } from './recall-history';
 import { readAttachmentTool } from './read-attachment';
@@ -50,29 +29,14 @@ import { createPlanTool } from './plan';
 /**
  * Domain tools only. The orchestrator's `delegate_to_subagent` tool is
  * intentionally NOT in this list — it gets added at the `registry` layer.
+ *
+ * NOTE: the realtor-era People/Pipeline/Properties/Communication tools were
+ * ripped out in the Chippi → Charles cleanup. They queried Contact/Deal/
+ * DealContact/DealStage/DealActivity/ContactActivity/Property — none of which
+ * survive in the Charles schema. Person/PipelineObject equivalents will be
+ * added in a later phase once the Charles agent runtime needs them.
  */
 export const ALL_TOOLS: ToolDefinition[] = [
-  // ── People ─────────────────────────────────────────────────────────────
-  findPersonTool as ToolDefinition,
-  addPersonTool as ToolDefinition,
-  setFollowupTool as ToolDefinition,
-  clearFollowupTool as ToolDefinition,
-  markPersonHotTool as ToolDefinition,
-  markPersonColdTool as ToolDefinition,
-  archivePersonTool as ToolDefinition,
-  noteOnPersonTool as ToolDefinition,
-
-  // ── Pipeline ───────────────────────────────────────────────────────────
-  createDealTool as ToolDefinition,
-  noteOnDealTool as ToolDefinition,
-  addChecklistItemTool as ToolDefinition,
-
-  // ── Properties ─────────────────────────────────────────────────────────
-  findPropertyTool as ToolDefinition,
-
-  // ── Communication ──────────────────────────────────────────────────────
-  sendEmailTool as ToolDefinition,
-
   // ── Memory ─────────────────────────────────────────────────────────────
   recallHistoryTool as ToolDefinition,
   readAttachmentTool as ToolDefinition,

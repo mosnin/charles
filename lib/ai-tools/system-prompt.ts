@@ -22,8 +22,6 @@
  */
 
 import type { ToolContext } from './types';
-import { buildPersonalizedSnapshot, renderSnapshot } from './personalized-prompt';
-import { logger } from '@/lib/logger';
 
 /** Inline Mission shape — mirrors the DB table written by the migration agent. */
 export interface Mission {
@@ -65,28 +63,17 @@ export function buildSystemPrompt(ctx: ToolContext, opts: BuildOptions = {}): st
 }
 
 /**
- * Personalized prompt — same baseline plus a snapshot block (connected apps,
- * workspace summary). Cached for 5 minutes per (space,user) so a multi-turn
- * session pays the snapshot cost once.
+ * Personalized prompt — kept as an async surface for callers that already
+ * await this. The realtor-era per-workspace snapshot (active deal count, hot
+ * person count, etc.) was ripped out with the Contact/Deal tables; the
+ * Charles equivalent will land in a later phase. For now this is a thin
+ * wrapper over `buildSystemPrompt`.
  */
 export async function buildPersonalizedSystemPrompt(
   ctx: ToolContext,
   opts: BuildOptions = {},
 ): Promise<string> {
-  let snapshotBlock = '';
-  try {
-    const snap = await buildPersonalizedSnapshot({
-      spaceId: ctx.space.id,
-      userId: ctx.userId,
-    });
-    snapshotBlock = renderSnapshot(snap);
-  } catch (err) {
-    logger.warn('[system-prompt] personalization fetch failed — using static prompt', {
-      spaceId: ctx.space.id,
-      err: err instanceof Error ? err.message : String(err),
-    });
-  }
-  return composePrompt(ctx, opts, snapshotBlock);
+  return composePrompt(ctx, opts, '');
 }
 
 /** Render the mission + core memory block prepended to the prompt. */

@@ -32,13 +32,13 @@ interface AuditLogClientProps {
 
 const ACTION_TYPES = ['CREATE', 'UPDATE', 'DELETE', 'ACCESS', 'LOGIN', 'LOGOUT', 'ADMIN_ACTION'] as const;
 const RESOURCE_TYPES = [
-  'Contact',
-  'Deal',
   'Space',
-  'Brokerage',
   'User',
-  'Tour',
-  'Invitation',
+  'Mission',
+  'AgentTask',
+  'Document',
+  'Team',
+  'TeamInvite',
   'Session',
   'AdminAction',
 ] as const;

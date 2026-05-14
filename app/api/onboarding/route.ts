@@ -384,14 +384,6 @@ export async function POST(req: NextRequest) {
       if (ownerError) throw ownerError;
       if (existingOwnerSpace) return NextResponse.json({ success: true, slug: existingOwnerSpace.slug });
 
-      const DEFAULT_STAGES = [
-        { name: 'New', color: '#94a3b8', position: 0 },
-        { name: 'Reviewing', color: '#60a5fa', position: 1 },
-        { name: 'Showing', color: '#a78bfa', position: 2 },
-        { name: 'Applied', color: '#f59e0b', position: 3 },
-        { name: 'Approved', color: '#22c55e', position: 4 },
-        { name: 'Declined', color: '#ef4444', position: 5 }
-      ];
 
       // Direct inserts instead of RPC — avoids UUID/TEXT type mismatch issues
       // and works without requiring the migration to be deployed first.
@@ -444,19 +436,9 @@ export async function POST(req: NextRequest) {
         // Space was created — don't fail the whole flow for settings
       }
 
-      // 3. Create default deal stages
-      const stageRows = DEFAULT_STAGES.map((stage) => ({
-        id: crypto.randomUUID(),
-        spaceId,
-        name: stage.name,
-        color: stage.color,
-        position: stage.position,
-      }));
-      const { error: stagesErr } = await supabase.from('DealStage').insert(stageRows);
-      if (stagesErr) {
-        console.error('[onboarding] DealStage insert failed:', stagesErr);
-        // Non-fatal — stages can be created later
-      }
+      // The realtor-era DealStage seed lived here in step 3. The DealStage
+      // table is gone with the rest of the realtor pipeline schema; Charles
+      // uses WorkspaceStage instead, which the migration seeds at signup.
 
       const newSpace = createdSpace as Space;
 

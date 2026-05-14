@@ -22,10 +22,6 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ToolCallBlock } from '@/lib/ai-tools/blocks';
-import { ContactsResult } from './tool-results/contacts-result';
-import { DealsResult } from './tool-results/deals-result';
-import { ToursResult } from './tool-results/tours-result';
-import { PropertiesResult } from './tool-results/properties-result';
 
 /** Per-tool icon map. Generic Wrench fallback keeps unknown tools readable. */
 const TOOL_ICONS: Record<string, typeof Users> = {
@@ -199,24 +195,10 @@ export function ToolCallBlockView({
   // hint on their handler return. When the result resolves successfully and
   // the data shape is one we know how to render, we show the rich card stack
   // BELOW the compact row by default (no expand-click needed).
-  const richResult: React.ReactNode = (() => {
-    if (status !== 'complete' || !block.result?.ok) return null;
-    const data = block.result.data as Record<string, unknown> | undefined;
-    if (!data) return null;
-    if (block.display === 'contacts' && Array.isArray((data as { contacts?: unknown[] }).contacts)) {
-      return <ContactsResult data={data as { contacts: never[] }} />;
-    }
-    if (block.display === 'deals' && Array.isArray((data as { deals?: unknown[] }).deals)) {
-      return <DealsResult data={data as { deals: never[] }} />;
-    }
-    if (block.display === 'tours' && Array.isArray((data as { tours?: unknown[] }).tours)) {
-      return <ToursResult data={data as { tours: never[] }} />;
-    }
-    if (block.display === 'properties' && Array.isArray((data as { properties?: unknown[] }).properties)) {
-      return <PropertiesResult data={data as { properties: never[] }} />;
-    }
-    return null;
-  })();
+  // Charles cleanup: realtor-era rich result cards (contacts/deals/tours/
+  // properties) were ripped out with the matching AI tools. Charles tools
+  // currently render via the compact pill + inline summary path.
+  const richResult: React.ReactNode = null;
 
   // Whether there is a rich display card below this pill.
   const hasRich = richResult !== null;
