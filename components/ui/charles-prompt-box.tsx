@@ -10,7 +10,6 @@ import {
   Briefcase,
   FileText,
   Paperclip,
-  Mic,
   Square,
   StopCircle,
   Plus,
@@ -34,7 +33,6 @@ interface CharlesPromptBoxProps {
   onSend?: (message: string, mentions: MentionItem[], attachmentIds?: string[]) => void;
   onMentionSearch?: (query: string) => Promise<MentionItem[]>;
   onAttach?: (files: File[]) => void;
-  onVoiceStart?: () => void;
   /** Called when the Send button has transformed into Stop (i.e. the
    *  parent is streaming). The parent is expected to abort the active
    *  stream. When omitted, the Send button stays disabled while loading
@@ -112,12 +110,6 @@ const MODE_META: Record<Exclude<Mode, null>, {
   },
 };
 
-function formatTime(seconds: number) {
-  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const s = Math.floor(seconds % 60).toString().padStart(2, '0');
-  return `${m}:${s}`;
-}
-
 export const CharlesPromptBox = React.forwardRef<HTMLTextAreaElement, CharlesPromptBoxProps>(
   function CharlesPromptBox(
     {
@@ -125,7 +117,6 @@ export const CharlesPromptBox = React.forwardRef<HTMLTextAreaElement, CharlesPro
       onSend,
       onMentionSearch,
       onAttach,
-      onVoiceStart,
       onAbort,
       disabled = false,
       isLoading = false,
@@ -148,10 +139,6 @@ export const CharlesPromptBox = React.forwardRef<HTMLTextAreaElement, CharlesPro
     const [attachError, setAttachError] = useState<string | null>(null);
     const localCounterRef = useRef(0);
 
-    const [isRecording, setIsRecording] = useState(false);
-    const [recordSeconds, setRecordSeconds] = useState(0);
-    const [, setVisualizerTick] = useState(0);
-
     const containerRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const mentionRef = useRef<HTMLDivElement>(null);
@@ -163,8 +150,6 @@ export const CharlesPromptBox = React.forwardRef<HTMLTextAreaElement, CharlesPro
     // contact-mention / file / image / draft-mode / search options).
     const plusMenuRef = useRef<HTMLDivElement>(null);
     const [plusMenuOpen, setPlusMenuOpen] = useState(false);
-    const recordTimerRef = useRef<number | null>(null);
-    const visualizerRafRef = useRef<number | null>(null);
 
     React.useImperativeHandle(ref, () => textareaRef.current as HTMLTextAreaElement, []);
 
@@ -174,12 +159,7 @@ export const CharlesPromptBox = React.forwardRef<HTMLTextAreaElement, CharlesPro
     const sendDisabled =
       disabled || isLoading || !hasContent || hasUploadingAttachments;
 
-    const activePlaceholder =
-      isRecording
-        ? ''
-        : mode
-          ? MODE_META[mode].placeholder
-          : placeholder;
+    const activePlaceholder = mode ? MODE_META[mode].placeholder : placeholder;
 
     // Auto-resize
     useEffect(() => {
@@ -279,31 +259,6 @@ export const CharlesPromptBox = React.forwardRef<HTMLTextAreaElement, CharlesPro
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-
-    // Recording timer + visualizer animation
-    useEffect(() => {
-      if (!isRecording) return;
-      setRecordSeconds(0);
-      const start = Date.now();
-      recordTimerRef.current = window.setInterval(() => {
-        setRecordSeconds(Math.floor((Date.now() - start) / 1000));
-      }, 250);
-      const tick = () => {
-        setVisualizerTick((t) => (t + 1) % 1_000_000);
-        visualizerRafRef.current = requestAnimationFrame(tick);
-      };
-      visualizerRafRef.current = requestAnimationFrame(tick);
-      return () => {
-        if (recordTimerRef.current) {
-          clearInterval(recordTimerRef.current);
-          recordTimerRef.current = null;
-        }
-        if (visualizerRafRef.current) {
-          cancelAnimationFrame(visualizerRafRef.current);
-          visualizerRafRef.current = null;
-        }
-      };
-    }, [isRecording]);
 
     function resetAttachments() {
       setAttachments((prev) => {
@@ -585,33 +540,10 @@ export const CharlesPromptBox = React.forwardRef<HTMLTextAreaElement, CharlesPro
       }
     }
 
-    function startRecording() {
-      if (disabled || isLoading) return;
-      // When the parent wires its own voice surface (the workspace mounts a
-      // dedicated VoiceMode dialog), defer to it entirely — the local
-      // recorder UI is a fallback for chat surfaces without one. Avoids
-      // having two simultaneous voice interfaces.
-      if (onVoiceStart) {
-        onVoiceStart();
-        return;
-      }
-      setIsRecording(true);
-    }
-
-    function stopRecording() {
-      const seconds = recordSeconds;
-      setIsRecording(false);
-      if (seconds > 0) {
-        onSend?.(`[Voice message - ${seconds}s]`, mentions);
-        setMentions([]);
-      }
-    }
-
     // Right-slot button. Priority order:
     //   streaming + onAbort  → live Stop (matches ChatGPT / Claude)
     //   streaming, no onAbort → disabled Stop placeholder
     //   has content          → Send (ArrowUp)
-    //   has voice mode       → Mic that opens voice mode (NOT dictation)
     //   else                 → inert Send slot for layout consistency
     function renderRightButton() {
       if (isLoading) {
@@ -680,33 +612,7 @@ export const CharlesPromptBox = React.forwardRef<HTMLTextAreaElement, CharlesPro
         );
       }
 
-      if (onVoiceStart) {
-        return (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={() => onVoiceStart()}
-                disabled={disabled}
-                aria-label="Start voice mode"
-                className={cn(
-                  'inline-flex items-center justify-center w-8 h-8 rounded-full',
-                  'bg-foreground/[0.06] text-muted-foreground/70 hover:text-foreground',
-                  'hover:bg-foreground/[0.08] transition-all duration-150 active:scale-[0.96]',
-                  disabled && 'cursor-not-allowed opacity-60',
-                )}
-              >
-                <Mic size={15} strokeWidth={2} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top" sideOffset={6}>
-              Voice mode
-            </TooltipContent>
-          </Tooltip>
-        );
-      }
-
-      // No mic, no content — show inert send slot for layout consistency
+      // No content — show inert send slot for layout consistency
       return (
         <button
           type="button"
@@ -901,59 +807,30 @@ export const CharlesPromptBox = React.forwardRef<HTMLTextAreaElement, CharlesPro
               </div>
             )}
 
-            {/* Recording panel OR textarea */}
-            {isRecording ? (
-              <div className="px-4 pt-4 pb-2">
-                <div className="flex items-center gap-3">
-                  <span className="relative inline-flex w-2 h-2">
-                    <span className="absolute inset-0 rounded-full bg-rose-500 animate-ping opacity-75" />
-                    <span className="relative inline-flex w-2 h-2 rounded-full bg-rose-500" />
-                  </span>
-                  <span className="text-[12px] tabular-nums text-muted-foreground">
-                    {formatTime(recordSeconds)}
-                  </span>
-                  <div className="flex-1 flex items-center gap-[2px] h-6 overflow-hidden">
-                    {Array.from({ length: 32 }).map((_, i) => {
-                      const heightPct =
-                        30 + Math.abs(Math.sin(Date.now() / 200 + i * 0.4)) * 70;
-                      return (
-                        <span
-                          key={i}
-                          aria-hidden
-                          className="w-0.5 rounded-full bg-foreground/40"
-                          style={{ height: `${heightPct}%` }}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <textarea
-                ref={textareaRef}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onPaste={handlePaste}
-                placeholder={activePlaceholder}
-                disabled={disabled}
-                rows={1}
-                spellCheck
-                className={cn(
-                  'w-full resize-none bg-transparent border-0 outline-none',
-                  'px-4 pt-3 pb-1 text-[14px] leading-relaxed text-foreground',
-                  'placeholder:text-muted-foreground/60',
-                  'disabled:cursor-not-allowed',
-                  '[&::-webkit-scrollbar]:w-1.5',
-                  '[&::-webkit-scrollbar-track]:bg-transparent',
-                  '[&::-webkit-scrollbar-thumb]:bg-foreground/10',
-                  '[&::-webkit-scrollbar-thumb]:rounded-full',
-                )}
-                style={{ maxHeight: MAX_HEIGHT_PX }}
-              />
-            )}
+            <textarea
+              ref={textareaRef}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+              placeholder={activePlaceholder}
+              disabled={disabled}
+              rows={1}
+              spellCheck
+              className={cn(
+                'w-full resize-none bg-transparent border-0 outline-none',
+                'px-4 pt-3 pb-1 text-[14px] leading-relaxed text-foreground',
+                'placeholder:text-muted-foreground/60',
+                'disabled:cursor-not-allowed',
+                '[&::-webkit-scrollbar]:w-1.5',
+                '[&::-webkit-scrollbar-track]:bg-transparent',
+                '[&::-webkit-scrollbar-thumb]:bg-foreground/10',
+                '[&::-webkit-scrollbar-thumb]:rounded-full',
+              )}
+              style={{ maxHeight: MAX_HEIGHT_PX }}
+            />
 
-            {/* Action row — Plus menu on the left, send/stop/voice on the
+            {/* Action row — Plus menu on the left, send/stop on the
                 right. The previous trio of @ / paperclip / draft was visually
                 loud for daily use; the Plus pattern matches Slack / iMessage /
                 ChatGPT and lets us add affordances later without crowding. */}
@@ -964,7 +841,7 @@ export const CharlesPromptBox = React.forwardRef<HTMLTextAreaElement, CharlesPro
                     <button
                       type="button"
                       onClick={() => setPlusMenuOpen((v) => !v)}
-                      disabled={disabled || isLoading || isRecording}
+                      disabled={disabled || isLoading}
                       aria-label="More actions"
                       aria-expanded={plusMenuOpen}
                       aria-haspopup="menu"

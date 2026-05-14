@@ -720,7 +720,7 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────
- * AI loader — used by voice-mode + any "Charles is generating" surface.
+ * AI loader — used by any "Charles is generating" surface.
  * Orange-themed (Charles brand-warm) variant of the rotating gradient + letter
  * pulse pattern. Box-shadow stops cycle through warm tones; letters fade and
  * scale slightly to add a typewriter-meets-breath feel.
@@ -748,7 +748,7 @@
 }
 
 /* Dark mode — slightly cooler, less-saturated stops so the ring doesn't bloom
-   against the near-black voice-mode backdrop. */
+   against a near-black backdrop. */
 @keyframes loader-rotate-dark {
   0% {
     transform: rotate(90deg);
