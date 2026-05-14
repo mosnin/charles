@@ -28,6 +28,7 @@ import {
   type FounderIdeaStage,
 } from '@/lib/workspace-templates/auto-pick';
 import { isWorkspaceTemplateSlug } from '@/lib/workspace-templates/catalog';
+import { buildFirstMessage } from '@/lib/onboarding/first-message';
 
 const FOUNDER_ROLES = [
   'product',
@@ -209,6 +210,61 @@ export async function POST(req: NextRequest) {
     appliedTemplateSlug = autoPickTemplateForStage(
       body.ideaStage as FounderIdeaStage | undefined,
     );
+  }
+
+  // ── 7b. Seed the welcome conversation + first task (best-effort) ──────────
+  // The first thing Charles says is the trust deposit. If any of this fails
+  // the user still completes onboarding — they just don't get the welcome
+  // message. Logged for the operator, silent for the founder.
+  try {
+    const { data: existing } = await supabase
+      .from('Conversation')
+      .select('id')
+      .eq('spaceId', space.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (!existing) {
+      const first = buildFirstMessage({
+        founderName: body.founderName?.trim() || null,
+        ideaStage: body.ideaStage as FounderIdeaStage | undefined,
+        companyName: body.companyName?.trim() || null,
+        oneLinePitch: body.oneLinePitch?.trim() || null,
+      });
+
+      const { data: convo, error: convoErr } = await supabase
+        .from('Conversation')
+        .insert({ spaceId: space.id, title: first.conversationTitle })
+        .select('id')
+        .single();
+
+      if (convoErr || !convo) {
+        console.warn('[onboarding/complete] welcome conversation insert failed', convoErr);
+      } else {
+        const { error: msgErr } = await supabase.from('Message').insert({
+          spaceId: space.id,
+          conversationId: convo.id,
+          role: 'assistant',
+          content: first.messageContent,
+        });
+        if (msgErr) console.warn('[onboarding/complete] welcome message insert failed', msgErr);
+
+        const { error: taskErr } = await supabase.from('Task').insert({
+          spaceId: space.id,
+          title: first.firstTaskTitle,
+          description: '',
+          status: 'open',
+          priority: 'normal',
+          assigneeKind: 'founder',
+          assigneeDept: null,
+          createdBy: 'agent',
+          createdByDept: 'manager',
+        });
+        if (taskErr) console.warn('[onboarding/complete] welcome task insert failed', taskErr);
+      }
+    }
+  } catch (err) {
+    console.warn('[onboarding/complete] welcome seed threw', err);
   }
 
   // ── 8. Mark onboarding complete ───────────────────────────────────────────
