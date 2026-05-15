@@ -1,5 +1,21 @@
 'use server';
 
+/**
+ * /s/[slug]/chat/approvals — the Approval Command Center.
+ *
+ * Where the founder makes the decisions Charles can't make alone. The
+ * entire trust model of "an AI cofounder that operates and asks
+ * permission" lives or dies in this surface. Each pending action gets a
+ * real card: risk chip up top, the tool in plain English, the goal that
+ * surfaced it, and an honest approve/reject. Reject expands to capture
+ * an optional reason — that signal is what keeps Charles from proposing
+ * the same thing again tomorrow.
+ *
+ * One column, ordered newest-first. No filters, no kanban, no bulk
+ * actions yet — those are friction that should be earned by use, not
+ * shipped speculatively.
+ */
+
 import { notFound, redirect } from 'next/navigation';
 import { auth } from '@clerk/nextjs/server';
 import Link from 'next/link';
@@ -7,6 +23,16 @@ import { ArrowLeft, Clock } from 'lucide-react';
 import { getSpaceFromSlug } from '@/lib/space';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
+import {
+  H1,
+  TITLE_FONT,
+  BODY_MUTED,
+  BODY,
+  CAPTION,
+  PAGE_RHYTHM,
+  READING_MAX,
+} from '@/lib/typography';
+import { getToolDisplay, type ApprovalRisk } from '@/lib/approvals/tool-display';
 import { ApprovalActions } from './approval-actions';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -37,11 +63,66 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function pendingActionLabel(metadata: Record<string, unknown> | null): string {
-  if (!metadata) return 'Action requires your approval';
+function pendingToolName(metadata: Record<string, unknown> | null): string | null {
+  if (!metadata) return null;
   const action = metadata['pendingAction'];
-  if (typeof action === 'string' && action.trim().length > 0) return action.trim();
-  return 'Action requires your approval';
+  return typeof action === 'string' && action.trim().length > 0 ? action.trim() : null;
+}
+
+function allRiskyTools(metadata: Record<string, unknown> | null): string[] {
+  if (!metadata) return [];
+  const list = metadata['allRiskyTools'];
+  if (!Array.isArray(list)) return [];
+  return list.filter((x): x is string => typeof x === 'string');
+}
+
+function truncate(s: string, max: number): string {
+  return s.length > max ? s.slice(0, max).trimEnd() + '…' : s;
+}
+
+function statusSentence(pending: number, highCount: number): string {
+  if (pending === 0) return 'Nothing waiting. Charles will ask before any risky action.';
+  if (pending === 1) {
+    return highCount === 1
+      ? '1 action is waiting · high risk.'
+      : '1 action is waiting · low risk.';
+  }
+  if (highCount === 0) {
+    return `${pending} actions are waiting · all low risk.`;
+  }
+  if (highCount === pending) {
+    return `${pending} actions are waiting · all high risk.`;
+  }
+  return `${pending} actions are waiting · ${highCount} high risk.`;
+}
+
+// ── Risk chip ─────────────────────────────────────────────────────────────────
+
+function RiskChip({ risk }: { risk: ApprovalRisk }) {
+  if (risk === 'high') {
+    return (
+      <span
+        className={cn(
+          'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium',
+          'text-red-700 bg-red-50 dark:text-red-400 dark:bg-red-500/15',
+        )}
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-red-500 dark:bg-red-400" />
+        High risk
+      </span>
+    );
+  }
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium',
+        'text-muted-foreground bg-muted',
+      )}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
+      Low risk
+    </span>
+  );
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -58,7 +139,7 @@ export default async function ApprovalsPage({
   const space = await getSpaceFromSlug(slug);
   if (!space) notFound();
 
-  // Verify the authenticated user owns this space.
+  // Owner gate.
   const { data: spaceOwner } = await supabase
     .from('User')
     .select('id')
@@ -97,76 +178,86 @@ export default async function ApprovalsPage({
   }
 
   const approvalList = (tasks ?? []) as ApprovalTask[];
-  const pendingCount = approvalList.length;
-  const statusSentence =
-    pendingCount === 0
-      ? 'Nothing waiting. Charles will ask before any risky action.'
-      : pendingCount === 1
-        ? '1 action is waiting for your decision.'
-        : `${pendingCount} actions are waiting for your decision.`;
+
+  // Compute risk counts once for the header sentence.
+  const displays = approvalList.map((t) => {
+    const tool = pendingToolName(t.metadata);
+    return tool ? getToolDisplay(tool) : { label: 'Action requires approval', risk: 'high' as ApprovalRisk };
+  });
+  const highCount = displays.filter((d) => d.risk === 'high').length;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-12">
-      {/* Header — three-line pattern per STYLESHEET.md */}
+    <div className={cn(PAGE_RHYTHM, READING_MAX)}>
+      {/* Header — three-line pattern, matches /tasks */}
       <header className="space-y-1.5">
         <Link
-          href={`/s/${slug}/chat/tasks`}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          href={`/s/${slug}`}
+          className={cn(CAPTION, 'inline-flex items-center gap-1 hover:text-foreground transition-colors')}
         >
-          <ArrowLeft size={12} /> Agent Tasks
+          <ArrowLeft size={12} /> Workspace
         </Link>
-        <h1
-          className="text-3xl tracking-tight text-foreground"
-          style={{ fontFamily: 'var(--font-title)' }}
-        >
-          Pending Approvals
+        <h1 className={H1} style={TITLE_FONT}>
+          Approvals
         </h1>
-        <p className="text-sm text-muted-foreground">{statusSentence}</p>
+        <p className={BODY_MUTED}>{statusSentence(approvalList.length, highCount)}</p>
       </header>
 
-      {/* Approval list */}
+      {/* List or empty state */}
       {approvalList.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 px-5 py-10 text-center">
-          <p className="text-sm text-foreground">No pending approvals.</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Charles will ask before any external write — sending a message, opening a PR, spending money.
+          <p className={BODY}>No pending approvals.</p>
+          <p className={cn(CAPTION, 'mt-1')}>
+            Charles will ask before any external write — sending a message, opening a PR, spending
+            money.
           </p>
         </div>
       ) : (
-        <ul className="divide-y divide-border/60">
-          {approvalList.map((task) => {
+        <ul className="space-y-3">
+          {approvalList.map((task, i) => {
+            const tool = pendingToolName(task.metadata);
+            const display = displays[i];
+            const queued = allRiskyTools(task.metadata);
+            const extraQueued = queued.length > 1 ? queued.length - 1 : 0;
             const goal = task.goalDescription ?? task.title;
-            const truncated = goal.length > 100 ? goal.slice(0, 100) + '…' : goal;
-            const actionLabel = pendingActionLabel(task.metadata);
-            const waitingTime = relativeTime(task.updatedAt ?? task.createdAt);
+            const goalText = truncate(goal, 220);
+            const waiting = relativeTime(task.updatedAt ?? task.createdAt);
 
             return (
-              <li key={task.id} className="py-4 space-y-3">
-                {/* Top row: status badge + goal */}
-                <div className="flex items-start gap-3">
-                  <div className="pt-0.5 flex-shrink-0">
-                    <span
-                      className={cn(
-                        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-                        'text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/15',
-                      )}
-                    >
-                      Waiting
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-0.5">
-                    <p className="text-sm text-foreground leading-snug">{truncated}</p>
-                    <p className="text-xs text-muted-foreground">{actionLabel}</p>
-                  </div>
+              <li
+                key={task.id}
+                className="rounded-xl border border-border bg-background px-5 py-4 space-y-3"
+              >
+                {/* Top row — risk chip + waiting time */}
+                <div className="flex items-center justify-between gap-3">
+                  <RiskChip risk={display.risk} />
+                  <span className={cn(CAPTION, 'inline-flex items-center gap-1 tabular-nums')}>
+                    <Clock size={11} className="flex-shrink-0" />
+                    Waiting {waiting}
+                  </span>
                 </div>
 
-                {/* Time waiting */}
-                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground tabular-nums pl-0.5">
-                  <Clock size={11} className="flex-shrink-0" />
-                  <span>Waiting {waitingTime}</span>
-                </div>
+                {/* What — tool label, the headline of the card */}
+                <p className={cn(BODY, 'font-medium leading-snug')}>{display.label}</p>
 
-                {/* Approve / Reject actions (client component) */}
+                {/* Why — the goal that surfaced this approval */}
+                {goalText && goalText !== display.label && (
+                  <p className={cn(BODY_MUTED, 'leading-snug')}>{goalText}</p>
+                )}
+
+                {/* Queue hint — when the model batched multiple risky calls */}
+                {extraQueued > 0 && (
+                  <p className={cn(CAPTION)}>
+                    {extraQueued} more {extraQueued === 1 ? 'action' : 'actions'} queued in this run.
+                    Approving advances them in order; rejecting cancels the batch.
+                  </p>
+                )}
+
+                {/* Hidden but useful for debugging: tool name in a tooltip-ish caption */}
+                {tool && process.env.NODE_ENV !== 'production' && (
+                  <p className={cn(CAPTION, 'font-mono opacity-50')}>{tool}</p>
+                )}
+
+                {/* Decision row */}
                 <ApprovalActions taskId={task.id} slug={slug} />
               </li>
             );
