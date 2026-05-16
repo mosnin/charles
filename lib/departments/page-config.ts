@@ -29,6 +29,13 @@ export interface ToolkitConnection {
   externalUrl: string;
   /** Filter category this provider's actions land under. */
   category: string;
+  /**
+   * True when the integration hasn't been wired into Charles yet — the
+   * tile renders as "Coming soon" and is non-clickable. Used today by
+   * Sales + Support to acknowledge the toolkits we'd connect next
+   * without pretending the connect flow exists yet.
+   */
+  comingSoon?: boolean;
 }
 
 export interface DepartmentPageConfig {
@@ -209,9 +216,11 @@ const OPS_FINANCE_CONFIG: DepartmentPageConfig = {
   ]),
 };
 
-// Sales has zero Python tools today — the dept page renders with no
-// connections, no live strip, and an empty feed. The pattern is uniform;
-// when tool packs land (Apollo / Clearbit / etc), this entry grows.
+// Sales has zero Python tools today. The toolkits below are tagged
+// `comingSoon` — they render as preview tiles on the connections strip
+// so the orbit's promise of a Sales department isn't an empty room.
+// When tool packs land, drop the flag and the same tile becomes a real
+// connect target.
 const SALES_CONFIG: DepartmentPageConfig = {
   filters: [
     { slug: 'enrich', label: 'Enrich' },
@@ -219,7 +228,29 @@ const SALES_CONFIG: DepartmentPageConfig = {
     { slug: 'outreach', label: 'Outreach' },
     { slug: 'campaigns', label: 'Campaigns' },
   ],
-  toolkits: [],
+  toolkits: [
+    {
+      toolkit: 'apollo',
+      label: 'Apollo',
+      externalUrl: 'https://app.apollo.io',
+      category: 'enrich',
+      comingSoon: true,
+    },
+    {
+      toolkit: 'clearbit',
+      label: 'Clearbit',
+      externalUrl: 'https://clearbit.com',
+      category: 'research',
+      comingSoon: true,
+    },
+    {
+      toolkit: 'hubspot',
+      label: 'HubSpot',
+      externalUrl: 'https://app.hubspot.com',
+      category: 'outreach',
+      comingSoon: true,
+    },
+  ],
   classify: makeClassifier([
     [/\benrich|apollo|clearbit|prospect data\b/, 'enrich'],
     [/\bresearch|company profile|background\b/, 'research'],
@@ -228,14 +259,23 @@ const SALES_CONFIG: DepartmentPageConfig = {
   ]),
 };
 
-// Support: same story as Sales. No tools yet; the dept page is honest
-// about it. When Intercom / Helpscout / etc. land, add them here.
+// Support: same shape as Sales. Intercom is the most modern customer-comms
+// provider founders reach for; tagging it comingSoon acknowledges the
+// surface without faking the connect flow.
 const SUPPORT_CONFIG: DepartmentPageConfig = {
   filters: [
     { slug: 'inbox', label: 'Inbox' },
     { slug: 'templates', label: 'Templates' },
   ],
-  toolkits: [],
+  toolkits: [
+    {
+      toolkit: 'intercom',
+      label: 'Intercom',
+      externalUrl: 'https://app.intercom.com',
+      category: 'inbox',
+      comingSoon: true,
+    },
+  ],
   classify: makeClassifier([
     [/\btemplate|macro|canned (reply|response)\b/, 'templates'],
     [/\bticket|inbox|customer (email|reply)|responded|reply\b/, 'inbox'],

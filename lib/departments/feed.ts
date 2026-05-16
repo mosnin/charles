@@ -36,7 +36,13 @@ export interface DepartmentFeedEntry {
   actor: AuditEvent['actor'];
 }
 
-export type ConnectionState = 'active' | 'expired' | 'revoked' | 'failed' | 'not_connected';
+export type ConnectionState =
+  | 'active'
+  | 'expired'
+  | 'revoked'
+  | 'failed'
+  | 'not_connected'
+  | 'coming_soon';
 
 export interface DepartmentConnection {
   toolkit: string;
@@ -100,6 +106,18 @@ async function loadConnections(
   }
 
   return toolkits.map((t) => {
+    // Coming-soon tiles never resolve to a live IntegrationConnection
+    // row; they render their own gray state.
+    if (t.comingSoon) {
+      return {
+        toolkit: t.toolkit,
+        label: t.label,
+        state: 'coming_soon' as ConnectionState,
+        externalUrl: t.externalUrl,
+        category: t.category,
+        lastUsedAt: null,
+      };
+    }
     const row = byToolkit.get(t.toolkit);
     return {
       toolkit: t.toolkit,

@@ -46,9 +46,20 @@ describe('getDepartmentPageConfig', () => {
     expect(c!.toolkits.map((t) => t.toolkit)).toEqual(['stripe']);
   });
 
-  it('returns Sales + Support with empty toolkit lists (no tools wired yet)', () => {
-    expect(getDepartmentPageConfig('sales')!.toolkits).toEqual([]);
-    expect(getDepartmentPageConfig('support')!.toolkits).toEqual([]);
+  it('returns Sales with coming-soon toolkit tiles (Apollo, Clearbit, HubSpot)', () => {
+    const s = getDepartmentPageConfig('sales');
+    expect(s).not.toBeNull();
+    expect(s!.toolkits.map((t) => t.toolkit).sort()).toEqual(
+      ['apollo', 'clearbit', 'hubspot'].sort(),
+    );
+    expect(s!.toolkits.every((t) => t.comingSoon === true)).toBe(true);
+  });
+
+  it('returns Support with Intercom as a coming-soon tile', () => {
+    const s = getDepartmentPageConfig('support');
+    expect(s).not.toBeNull();
+    expect(s!.toolkits.map((t) => t.toolkit)).toEqual(['intercom']);
+    expect(s!.toolkits[0].comingSoon).toBe(true);
   });
 });
 

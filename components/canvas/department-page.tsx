@@ -12,7 +12,7 @@
  */
 
 import Link from 'next/link';
-import { ArrowUpRight, Check, AlertTriangle, Plug } from 'lucide-react';
+import { ArrowUpRight, Check, AlertTriangle, Plug, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   H1,
@@ -69,6 +69,12 @@ function connectionDescriptor(state: ConnectionState): {
         className: 'text-muted-foreground bg-muted',
         Icon: Plug,
       };
+    case 'coming_soon':
+      return {
+        label: 'Coming soon',
+        className: 'text-muted-foreground bg-muted',
+        Icon: Sparkles,
+      };
     default:
       return {
         label: 'Not connected',
@@ -87,6 +93,55 @@ function ConnectionTile({
 }) {
   const { label, className, Icon } = connectionDescriptor(connection.state);
   const isConnected = connection.state === 'active';
+  const isComingSoon = connection.state === 'coming_soon';
+
+  const tileBody = (
+    <>
+      <div className="min-w-0">
+        <p
+          className={cn(
+            'text-sm font-medium',
+            isComingSoon ? 'text-muted-foreground' : 'text-foreground',
+          )}
+        >
+          {connection.label}
+        </p>
+        <p className={cn(CAPTION, 'mt-0.5 inline-flex items-center gap-1')}>
+          <span
+            className={cn(
+              'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium',
+              className,
+            )}
+          >
+            <Icon size={9} strokeWidth={2.5} />
+            {label}
+          </span>
+        </p>
+      </div>
+      {!isComingSoon && (
+        <ArrowUpRight
+          size={14}
+          className="shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+        />
+      )}
+    </>
+  );
+
+  // Coming-soon: render a non-link tile. The orbit's promise is honored
+  // visually without faking a connect flow that doesn't exist yet.
+  if (isComingSoon) {
+    return (
+      <div
+        className={cn(
+          'flex items-center justify-between gap-3 rounded-xl border border-dashed border-border/70',
+          'bg-muted/20 px-4 py-3',
+        )}
+      >
+        {tileBody}
+      </div>
+    );
+  }
+
   const href = isConnected ? connection.externalUrl : `/s/${spaceSlug}/integrations`;
   const externalProps = isConnected
     ? { target: '_blank' as const, rel: 'noopener noreferrer' as const }
@@ -101,24 +156,7 @@ function ConnectionTile({
         'bg-background px-4 py-3 transition-colors hover:bg-foreground/[0.02]',
       )}
     >
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-foreground">{connection.label}</p>
-        <p className={cn(CAPTION, 'mt-0.5 inline-flex items-center gap-1')}>
-          <span
-            className={cn(
-              'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium',
-              className,
-            )}
-          >
-            <Icon size={9} strokeWidth={2.5} />
-            {label}
-          </span>
-        </p>
-      </div>
-      <ArrowUpRight
-        size={14}
-        className="shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
-      />
+      {tileBody}
     </Link>
   );
 }
