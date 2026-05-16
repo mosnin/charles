@@ -104,9 +104,151 @@ const ENGINEERING_CONFIG: DepartmentPageConfig = {
   ]),
 };
 
+const MARKETING_CONFIG: DepartmentPageConfig = {
+  filters: [
+    { slug: 'campaigns', label: 'Campaigns' },
+    { slug: 'social', label: 'Social' },
+    { slug: 'images', label: 'Images' },
+    { slug: 'analytics', label: 'Analytics' },
+  ],
+  toolkits: [
+    {
+      toolkit: 'loops',
+      label: 'Loops',
+      externalUrl: 'https://app.loops.so',
+      category: 'campaigns',
+    },
+    {
+      toolkit: 'linkedin',
+      label: 'LinkedIn',
+      externalUrl: 'https://www.linkedin.com',
+      category: 'social',
+    },
+    {
+      toolkit: 'twitter',
+      label: 'Twitter',
+      externalUrl: 'https://twitter.com',
+      category: 'social',
+    },
+    {
+      toolkit: 'replicate',
+      label: 'Replicate',
+      externalUrl: 'https://replicate.com',
+      category: 'images',
+    },
+    {
+      toolkit: 'posthog',
+      label: 'PostHog',
+      externalUrl: 'https://app.posthog.com',
+      category: 'analytics',
+    },
+  ],
+  classify: makeClassifier([
+    // analytics BEFORE social so a "PostHog event for a LinkedIn post" reads
+    // as analytics rather than social — measurement first.
+    [/\bposthog|analytics|signup|conversion|funnel|metric\b/, 'analytics'],
+    [/\bimage|replicate|dall-e|openai image|generated (an? )?(image|asset|video)\b/, 'images'],
+    [/\blinkedin|twitter|x\.com|tweet|posted to|social\b/, 'social'],
+    [/\bcampaign|loops|broadcast|sequence|email blast|newsletter\b/, 'campaigns'],
+  ]),
+};
+
+const DESIGN_CONFIG: DepartmentPageConfig = {
+  filters: [
+    { slug: 'brand', label: 'Brand' },
+    { slug: 'assets', label: 'Assets' },
+    { slug: 'docs', label: 'Style docs' },
+  ],
+  toolkits: [
+    {
+      toolkit: 'replicate',
+      label: 'Replicate',
+      externalUrl: 'https://replicate.com',
+      category: 'assets',
+    },
+    {
+      toolkit: 'openai',
+      label: 'OpenAI images',
+      externalUrl: 'https://platform.openai.com',
+      category: 'assets',
+    },
+    {
+      toolkit: 'figma',
+      label: 'Figma',
+      externalUrl: 'https://www.figma.com',
+      category: 'brand',
+    },
+  ],
+  classify: makeClassifier([
+    // brand BEFORE assets so "generated a logo" routes to brand (logo is brand
+    // material), even though "generated" smells like assets.
+    [/\blogo|wordmark|brand kit|palette|colou?r|typeface|font\b/, 'brand'],
+    [/\bstyle (guide|doc)|design docs?|component library|spec\b/, 'docs'],
+    [/\bimage|asset|replicate|dall-e|openai image|generated|video\b/, 'assets'],
+  ]),
+};
+
+const OPS_FINANCE_CONFIG: DepartmentPageConfig = {
+  filters: [
+    { slug: 'revenue', label: 'Revenue' },
+    { slug: 'expenses', label: 'Expenses' },
+    { slug: 'runway', label: 'Runway' },
+  ],
+  toolkits: [
+    {
+      toolkit: 'stripe',
+      label: 'Stripe',
+      externalUrl: 'https://dashboard.stripe.com',
+      category: 'revenue',
+    },
+  ],
+  classify: makeClassifier([
+    [/\brunway|burn rate|cash (left|on hand|balance)|forecast\b/, 'runway'],
+    [/\bexpense|spend|paid (out|for|to)|cost\b/, 'expenses'],
+    [/\brevenue|stripe|charge|invoice|subscription|mrr|arr|payment\b/, 'revenue'],
+  ]),
+};
+
+// Sales has zero Python tools today — the dept page renders with no
+// connections, no live strip, and an empty feed. The pattern is uniform;
+// when tool packs land (Apollo / Clearbit / etc), this entry grows.
+const SALES_CONFIG: DepartmentPageConfig = {
+  filters: [
+    { slug: 'enrich', label: 'Enrich' },
+    { slug: 'research', label: 'Research' },
+    { slug: 'outreach', label: 'Outreach' },
+    { slug: 'campaigns', label: 'Campaigns' },
+  ],
+  toolkits: [],
+  classify: makeClassifier([
+    [/\benrich|apollo|clearbit|prospect data\b/, 'enrich'],
+    [/\bresearch|company profile|background\b/, 'research'],
+    [/\bcampaign|sequence|cadence\b/, 'campaigns'],
+    [/\boutreach|cold (email|reach)|follow.?up|sent (an )?email\b/, 'outreach'],
+  ]),
+};
+
+// Support: same story as Sales. No tools yet; the dept page is honest
+// about it. When Intercom / Helpscout / etc. land, add them here.
+const SUPPORT_CONFIG: DepartmentPageConfig = {
+  filters: [
+    { slug: 'inbox', label: 'Inbox' },
+    { slug: 'templates', label: 'Templates' },
+  ],
+  toolkits: [],
+  classify: makeClassifier([
+    [/\btemplate|macro|canned (reply|response)\b/, 'templates'],
+    [/\bticket|inbox|customer (email|reply)|responded|reply\b/, 'inbox'],
+  ]),
+};
+
 export const DEPARTMENT_PAGE_CONFIGS: Partial<Record<DepartmentSlug, DepartmentPageConfig>> = {
   engineering: ENGINEERING_CONFIG,
-  // Marketing / Design / Ops-Finance / Sales / Support land in phase 5.
+  marketing: MARKETING_CONFIG,
+  design: DESIGN_CONFIG,
+  ops_finance: OPS_FINANCE_CONFIG,
+  sales: SALES_CONFIG,
+  support: SUPPORT_CONFIG,
 };
 
 export function getDepartmentPageConfig(
@@ -116,4 +258,12 @@ export function getDepartmentPageConfig(
 }
 
 /** Internal helpers, exported for tests. */
-export const _internals = { makeClassifier, ENGINEERING_CONFIG };
+export const _internals = {
+  makeClassifier,
+  ENGINEERING_CONFIG,
+  MARKETING_CONFIG,
+  DESIGN_CONFIG,
+  OPS_FINANCE_CONFIG,
+  SALES_CONFIG,
+  SUPPORT_CONFIG,
+};

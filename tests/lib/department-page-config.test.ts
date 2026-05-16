@@ -26,9 +26,29 @@ describe('getDepartmentPageConfig', () => {
     );
   });
 
-  it('returns null for departments not yet on the template', () => {
-    expect(getDepartmentPageConfig('marketing')).toBeNull();
-    expect(getDepartmentPageConfig('sales')).toBeNull();
+  it('returns the Marketing config with all 5 toolkits', () => {
+    const c = getDepartmentPageConfig('marketing');
+    expect(c).not.toBeNull();
+    expect(c!.toolkits.map((t) => t.toolkit).sort()).toEqual(
+      ['linkedin', 'loops', 'posthog', 'replicate', 'twitter'].sort(),
+    );
+  });
+
+  it('returns the Design config with brand / assets / docs', () => {
+    const c = getDepartmentPageConfig('design');
+    expect(c).not.toBeNull();
+    expect(c!.filters.map((f) => f.slug)).toEqual(['brand', 'assets', 'docs']);
+  });
+
+  it('returns the Ops/Finance config with Stripe as its sole toolkit', () => {
+    const c = getDepartmentPageConfig('ops_finance');
+    expect(c).not.toBeNull();
+    expect(c!.toolkits.map((t) => t.toolkit)).toEqual(['stripe']);
+  });
+
+  it('returns Sales + Support with empty toolkit lists (no tools wired yet)', () => {
+    expect(getDepartmentPageConfig('sales')!.toolkits).toEqual([]);
+    expect(getDepartmentPageConfig('support')!.toolkits).toEqual([]);
   });
 });
 
@@ -70,8 +90,107 @@ describe('Engineering classifier', () => {
   });
 });
 
+describe('Marketing classifier', () => {
+  const m = _internals.MARKETING_CONFIG;
+
+  it('routes social platforms to social', () => {
+    expect(m.classify('Posted to LinkedIn')).toBe('social');
+    expect(m.classify('Tweet went out')).toBe('social');
+  });
+
+  it('routes image gen to images', () => {
+    expect(m.classify('Generated an image with Replicate')).toBe('images');
+    expect(m.classify('Generated a video for the launch')).toBe('images');
+  });
+
+  it('routes campaign / loops / broadcast language to campaigns', () => {
+    expect(m.classify('Sent a Loops campaign to 200 subscribers')).toBe('campaigns');
+    expect(m.classify('Scheduled an email broadcast')).toBe('campaigns');
+  });
+
+  it('routes PostHog / signups / metrics to analytics', () => {
+    expect(m.classify('Tracked signups in PostHog')).toBe('analytics');
+    expect(m.classify('Conversion rate climbed 4%')).toBe('analytics');
+  });
+
+  it('analytics wins over social when both appear', () => {
+    expect(m.classify('PostHog event for a LinkedIn post')).toBe('analytics');
+  });
+});
+
+describe('Design classifier', () => {
+  const d = _internals.DESIGN_CONFIG;
+
+  it('routes logo / palette / wordmark to brand', () => {
+    expect(d.classify('Generated a new logo concept')).toBe('brand');
+    expect(d.classify('Picked a new colour palette')).toBe('brand');
+  });
+
+  it('routes generic asset generation to assets', () => {
+    expect(d.classify('Generated an image for the hero')).toBe('assets');
+  });
+
+  it('routes style-doc work to docs', () => {
+    expect(d.classify('Updated the style guide')).toBe('docs');
+  });
+});
+
+describe('Ops/Finance classifier', () => {
+  const o = _internals.OPS_FINANCE_CONFIG;
+
+  it('routes revenue / stripe / charge / subscription to revenue', () => {
+    expect(o.classify('Stripe charge of $99 landed')).toBe('revenue');
+    expect(o.classify('MRR climbed to $4,200')).toBe('revenue');
+  });
+
+  it('routes expense / spend language to expenses', () => {
+    expect(o.classify('Paid for the OpenAI invoice')).toBe('expenses');
+  });
+
+  it('routes runway / burn / forecast to runway', () => {
+    expect(o.classify('Runway updated: 14 months at current burn')).toBe('runway');
+    expect(o.classify('Cash balance forecast')).toBe('runway');
+  });
+});
+
+describe('Sales classifier', () => {
+  const s = _internals.SALES_CONFIG;
+
+  it('routes outreach / follow-up / cold language to outreach', () => {
+    expect(s.classify('Sent an outreach email to Acme')).toBe('outreach');
+    expect(s.classify('Follow up scheduled')).toBe('outreach');
+  });
+
+  it('routes research / company profile to research', () => {
+    expect(s.classify('Pulled a company profile on Acme')).toBe('research');
+  });
+
+  it('routes enrich / apollo / clearbit to enrich', () => {
+    expect(s.classify('Enriched contact via Apollo')).toBe('enrich');
+  });
+});
+
+describe('Support classifier', () => {
+  const s = _internals.SUPPORT_CONFIG;
+
+  it('routes ticket / inbox / reply to inbox', () => {
+    expect(s.classify('Replied to a customer ticket')).toBe('inbox');
+  });
+
+  it('routes templates to templates', () => {
+    expect(s.classify('Created a canned reply template')).toBe('templates');
+  });
+});
+
 describe('DEPARTMENT_PAGE_CONFIGS coverage', () => {
-  it('only Engineering is wired for now (phase 5 adds the rest)', () => {
-    expect(Object.keys(DEPARTMENT_PAGE_CONFIGS)).toEqual(['engineering']);
+  it('every department slug has a page config wired (phase 5 complete)', () => {
+    expect(Object.keys(DEPARTMENT_PAGE_CONFIGS).sort()).toEqual([
+      'design',
+      'engineering',
+      'marketing',
+      'ops_finance',
+      'sales',
+      'support',
+    ]);
   });
 });
