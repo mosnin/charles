@@ -44,11 +44,12 @@ function indexFields(table: ExportedTable, name: string): string[] {
 }
 
 describe('Convex schema shape', () => {
-  it('defines exactly three tables', () => {
+  it('defines exactly four tables', () => {
     expect(Object.keys(schema.tables).sort()).toEqual([
       'canvasActivity',
       'liveMessages',
       'presence',
+      'realtimeTicks',
     ]);
   });
 
@@ -114,6 +115,25 @@ describe('Convex schema shape', () => {
     expect(indexNames(t)).toEqual(['by_space', 'by_space_dept']);
     expect(indexFields(t, 'by_space')).toEqual(['spaceId']);
     expect(indexFields(t, 'by_space_dept')).toEqual(['spaceId', 'department']);
+  });
+
+  it('realtimeTicks has TTL fields + an optional summary', () => {
+    const t = exportTable('realtimeTicks');
+    expect(fieldNames(t)).toEqual([
+      'createdAt',
+      'expiresAt',
+      'kind',
+      'spaceId',
+      'summary',
+    ]);
+    expect(t.documentType.value.summary.optional).toBe(true);
+  });
+
+  it('realtimeTicks has by_space and by_space_kind indexes', () => {
+    const t = exportTable('realtimeTicks');
+    expect(indexNames(t)).toEqual(['by_space', 'by_space_kind']);
+    expect(indexFields(t, 'by_space')).toEqual(['spaceId']);
+    expect(indexFields(t, 'by_space_kind')).toEqual(['spaceId', 'kind']);
   });
 
   it('every table has a spaceId field (the join key to Supabase)', () => {

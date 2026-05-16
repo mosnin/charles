@@ -366,7 +366,7 @@ async def run_agent_for_space(
             },
             agent_type="charles",
         )
-        # Persist the paused state so the Next.js poller can surface it.
+        # Persist the paused state so the Next.js surface can read it.
         if task_id:
             try:
                 db = await supabase()
@@ -382,6 +382,13 @@ async def run_agent_for_space(
                 ).eq("id", task_id).execute()
             except Exception as exc:
                 log.warning("approval_gate_db_update_failed", error=str(exc))
+        # Push a realtime tick so the approval command center refreshes
+        # without polling.
+        try:
+            from tools.streaming import publish_realtime_tick
+            await publish_realtime_tick(space.id, "approval", risky_tools[0])
+        except Exception as exc:
+            log.debug("approval_gate_tick_failed", error=str(exc))
         # Emit to Redis for real-time notification.
         try:
             if settings.kv_rest_api_url and settings.kv_rest_api_token:

@@ -1,10 +1,10 @@
 /**
  * Scheduled maintenance for the Convex live-state layer.
  *
- * Convex tables grow forever without a sweeper. These three crons keep
- * presence, canvasActivity, and liveMessages bounded. Each target
- * mutation caps its work so a single run fits inside the Convex
- * mutation timeout.
+ * Convex tables grow forever without a sweeper. These crons keep
+ * presence, canvasActivity, liveMessages, and realtimeTicks bounded.
+ * Each target mutation caps its work so a single run fits inside the
+ * Convex mutation timeout.
  */
 import { cronJobs } from 'convex/server';
 import { internal } from './_generated/api';
@@ -27,6 +27,12 @@ crons.interval(
   'prune old persisted live messages',
   { minutes: 60 },
   internal.liveMessagesServer.prunePersisted,
+);
+
+crons.interval(
+  'cleanup expired realtime ticks',
+  { minutes: 15 },
+  internal.realtimeTicks.cleanup,
 );
 
 export default crons;

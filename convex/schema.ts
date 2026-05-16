@@ -1,12 +1,13 @@
 /**
  * Convex schema for Charles' live-state layer.
  *
- * Three tables only. Each one models something ephemeral that needs to
- * fan out to every connected client in real time but does NOT need to
- * survive a session: presence (who's here right now), liveMessages
- * (chat in flight before it's audit-backfilled to Supabase), and
- * canvasActivity (transient "Engineering is building a prospect list"
- * status pings). Durable state stays in Supabase — see docs/CONVEX.md.
+ * Four tables, each modeling something ephemeral that needs to fan out to
+ * every connected client in real time but does NOT need to survive a
+ * session: presence (who's here right now), liveMessages (chat in flight
+ * before it's audit-backfilled to Supabase), canvasActivity (transient
+ * "Engineering is building a prospect list" status pings), and
+ * realtimeTicks (tiny "refresh me" signals for surfaces that aggregate
+ * Supabase state). Durable state stays in Supabase — see docs/CONVEX.md.
  */
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
@@ -63,4 +64,21 @@ export default defineSchema({
   })
     .index('by_space', ['spaceId'])
     .index('by_space_dept', ['spaceId', 'department']),
+
+  // Tiny "refresh me" signals. Surfaces that aggregate Supabase state
+  // (approvals queue, audit feed) subscribe to the most-recent tick per
+  // (spaceId, kind) and re-fetch their canonical data when it changes.
+  // The TICK itself carries no payload — keeping aggregation logic in
+  // one place trades a few extra refetches for not duplicating it into
+  // Convex. Rows TTL after five minutes; cleanup runs hourly.
+  realtimeTicks: defineTable({
+    spaceId: v.string(),
+    kind: v.union(v.literal('approval'), v.literal('audit')),
+    /** Free-form one-liner for debugging — never user-visible. */
+    summary: v.optional(v.string()),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index('by_space', ['spaceId'])
+    .index('by_space_kind', ['spaceId', 'kind']),
 });

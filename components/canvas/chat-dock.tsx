@@ -35,16 +35,20 @@ import type { AuditEvent } from '@/lib/observability/audit-feed';
 import { eventsToDockRows, type DockRow } from '@/lib/canvas/dock-feed';
 import { SubagentChip } from './subagent-chip';
 import { LibraryTab } from './library-tab';
+import { useOnRealtimeTick } from '@/lib/convex/use-realtime-ticks';
 
 const TABS = ['Home', 'Company', 'Charles', 'Tasks', 'Library'] as const;
 type Tab = (typeof TABS)[number];
 
 const STORAGE_KEY = 'charles:chat-dock:collapsed';
-const POLL_INTERVAL_MS = 30_000;
 
 interface Props {
   slug: string;
-  /** Server-rendered initial events. Refreshed in-place by the polling effect. */
+  /** Space id — required for the Convex realtime subscription that
+   *  replaced the polling timer. */
+  spaceId: string;
+  /** Server-rendered initial events. Refreshed in-place when a new
+   *  Convex audit tick arrives or the window regains focus. */
   initialAuditFeed: AuditEvent[];
   /**
    * "desktop" (default): hidden below md, 420px right-docked at md+.
@@ -53,7 +57,7 @@ interface Props {
   variant?: 'desktop' | 'mobile';
 }
 
-export function ChatDock({ slug, initialAuditFeed, variant = 'desktop' }: Props) {
+export function ChatDock({ slug, spaceId, initialAuditFeed, variant = 'desktop' }: Props) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState<boolean>(false);
   const isMobile = variant === 'mobile';
@@ -85,18 +89,27 @@ export function ChatDock({ slug, initialAuditFeed, variant = 'desktop' }: Props)
     }
   }, [slug]);
 
-  // Poll every 30s + on window focus. Cleared on unmount.
+  // Re-fetch on window focus as a safety net (Convex disconnects, sleep,
+  // unauthenticated state). The polling timer that used to live here is
+  // gone — live pushes come from `realtimeTicks` of kind=audit below.
   useEffect(() => {
     const onFocus = () => {
       void refresh();
     };
     window.addEventListener('focus', onFocus);
-    const id = window.setInterval(refresh, POLL_INTERVAL_MS);
     return () => {
       window.removeEventListener('focus', onFocus);
-      window.clearInterval(id);
     };
   }, [refresh]);
+
+  // Live push — Charles + the TS routes emit a 'audit' tick whenever any
+  // audit-feed source mutates (a delegation runs, a draft is created, a
+  // stage advances). The hook treats the first observed tick as baseline,
+  // so this doesn't fire on mount.
+  const onTick = useCallback(() => {
+    void refresh();
+  }, [refresh]);
+  useOnRealtimeTick(spaceId, 'audit', onTick);
 
   const rows = useMemo(() => eventsToDockRows(events), [events]);
 

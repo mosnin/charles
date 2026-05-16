@@ -441,7 +441,7 @@ export function CanvasHome({
       </section>
 
       {/* Desktop chat dock — hidden on mobile via its own md: classes. */}
-      <ChatDock slug={slug} initialAuditFeed={liveAuditFeed} />
+      <ChatDock slug={slug} spaceId={spaceId} initialAuditFeed={liveAuditFeed} />
 
       {/* ─── Mobile (< md): vertical stack ─────────────────────────────── */}
       <section
@@ -529,6 +529,7 @@ export function CanvasHome({
             <div className="flex-1 min-h-0">
               <ChatDock
                 slug={slug}
+                spaceId={spaceId}
                 initialAuditFeed={liveAuditFeed}
                 variant="mobile"
               />

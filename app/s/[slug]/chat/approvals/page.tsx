@@ -34,6 +34,7 @@ import {
 } from '@/lib/typography';
 import { getToolDisplay, type ApprovalRisk } from '@/lib/approvals/tool-display';
 import { ApprovalActions } from './approval-actions';
+import { RealtimeApprovalsRefresher } from './realtime-refresher';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -188,6 +189,10 @@ export default async function ApprovalsPage({
 
   return (
     <div className={cn(PAGE_RHYTHM, READING_MAX)}>
+      {/* Live signal — re-renders the server component when Charles pauses
+          a new run or another tab resolves an approval. */}
+      <RealtimeApprovalsRefresher spaceId={space.id} />
+
       {/* Header — three-line pattern, matches /tasks */}
       <header className="space-y-1.5">
         <Link

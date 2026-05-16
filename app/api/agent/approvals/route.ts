@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/api-auth';
 import { getSpaceForUser } from '@/lib/space';
 import { assertSpaceEnabled } from '@/lib/agent/kill-switch';
+import { emitRealtimeTick } from '@/lib/convex/server-emit-tick';
 
 // ── GET /api/agent/approvals ──────────────────────────────────────────────────
 // Returns all AgentTask rows in 'paused' status with a non-null
@@ -152,6 +153,14 @@ export async function POST(req: NextRequest) {
     console.error('[agent/approvals/POST] update error:', updateError);
     return NextResponse.json({ error: 'Failed to update task' }, { status: 500 });
   }
+
+  // Fan out the resolution to anyone watching the command center, so the
+  // resolved card disappears immediately across every open tab. Best-effort.
+  await emitRealtimeTick({
+    spaceId: space.id,
+    kind: 'approval',
+    summary: `${action}:${taskId}`,
+  });
 
   return NextResponse.json({ task: updated });
 }
