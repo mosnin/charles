@@ -109,11 +109,11 @@ function ConnectionTile({
         <p className={cn(CAPTION, 'mt-0.5 inline-flex items-center gap-1')}>
           <span
             className={cn(
-              'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium',
+              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
               className,
             )}
           >
-            <Icon size={9} strokeWidth={2.5} />
+            <Icon size={10} strokeWidth={2.5} />
             {label}
           </span>
         </p>

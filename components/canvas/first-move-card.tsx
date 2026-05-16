@@ -49,7 +49,7 @@ export function FirstMoveCard({ slug, variant = 'canvas' }: FirstMoveCardProps) 
       data-testid="first-move-card"
       data-no-pan
       className={cn(
-        'pointer-events-auto rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm',
+        'pointer-events-auto relative rounded-xl border border-border bg-background px-4 py-4',
         variant === 'canvas'
           ? 'absolute bottom-5 left-1/2 z-20 w-[340px] -translate-x-1/2'
           : 'w-full',
@@ -59,30 +59,30 @@ export function FirstMoveCard({ slug, variant = 'canvas' }: FirstMoveCardProps) 
         type="button"
         onClick={dismiss}
         aria-label="Dismiss"
-        className="absolute right-2.5 top-2.5 text-slate-300 transition-colors hover:text-slate-500"
+        className="absolute right-2 top-2 text-muted-foreground/50 transition-colors hover:text-muted-foreground"
       >
         <X size={14} />
       </button>
 
       <div className="flex items-center gap-2">
         <Sapling size={18} />
-        <p className="text-[13px] font-semibold text-slate-900">Charles is ready.</p>
+        <p className="text-sm font-semibold text-foreground">Charles is ready.</p>
       </div>
-      <p className="mt-1.5 text-[13px] leading-[1.5] text-slate-500">
+      <p className="mt-1 text-sm leading-[1.5] text-muted-foreground">
         He left you a note in the chat — and a first task to get started.
       </p>
 
       <div className="mt-3 flex items-center gap-4">
         <Link
           href={`/s/${slug}/chat`}
-          className="inline-flex items-center gap-1 text-[13px] font-medium text-slate-900 transition-colors hover:text-slate-600"
+          className="inline-flex items-center gap-1 text-sm font-medium text-foreground transition-colors hover:text-muted-foreground"
         >
           Open the chat
           <ArrowRight size={13} />
         </Link>
         <Link
           href={`/s/${slug}/tasks`}
-          className="text-[13px] font-medium text-slate-400 transition-colors hover:text-slate-600"
+          className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
           See the task
         </Link>

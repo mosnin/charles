@@ -52,7 +52,7 @@ export function DepartmentLiveStrip({ spaceId, deptSlug }: Props) {
           <li key={row.id} className="flex items-center gap-2">
             <span
               className={cn(
-                'inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums',
+                'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium tabular-nums',
                 row.kind === 'running'
                   ? 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400'
                   : 'bg-muted text-muted-foreground',
