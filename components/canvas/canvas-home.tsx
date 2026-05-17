@@ -48,6 +48,7 @@ import { Sapling } from './sapling';
 import { StatusDot } from './status-dot';
 import { FirstMoveCard } from './first-move-card';
 import { MorningBriefing } from './morning-briefing';
+import { ActivePlanIndicator } from './active-plan-indicator';
 import { ORBIT_ORDER, orbitPoint } from '@/lib/canvas/orbit';
 import type { DeptCounts } from '@/lib/canvas/dept-counts';
 import type { AuditEvent } from '@/lib/observability/audit-feed';
@@ -71,6 +72,15 @@ export interface CanvasHomeProps {
   initialAuditFeed: AuditEvent[];
   /** Daily briefing snapshot — null if it couldn't be built. */
   briefing: DailyBriefingData | null;
+  /** Plan currently in flight (status in planning/running/auditing),
+   *  null when nothing's active. Powers the canvas "Working on..."
+   *  pill that links to the live Plan View. */
+  activePlan: {
+    id: string;
+    goal: string;
+    totalSteps: number;
+    completedSteps: number;
+  } | null;
 }
 
 const ORBIT_RADIUS = 220;
@@ -92,6 +102,7 @@ export function CanvasHome({
   deptCounts,
   initialAuditFeed,
   briefing,
+  activePlan,
 }: CanvasHomeProps) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -299,6 +310,15 @@ export function CanvasHome({
           >
             Z {zoomPct}%
           </span>
+          {activePlan && (
+            <ActivePlanIndicator
+              slug={slug}
+              runId={activePlan.id}
+              goal={activePlan.goal}
+              completedSteps={activePlan.completedSteps}
+              totalSteps={activePlan.totalSteps}
+            />
+          )}
         </div>
 
         {/* Top-right controls (fixed) */}

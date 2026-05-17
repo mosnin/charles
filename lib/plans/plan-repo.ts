@@ -139,6 +139,69 @@ export async function listRecentPlans(
   return planRuns.map((r) => composePlanRun(r, []));
 }
 
+/**
+ * The most recent plan that's currently in flight for this space —
+ * status in (running, auditing, planning). Returns null when there's
+ * no active plan. Used by the canvas to show a "working on..."
+ * indicator that links to the live Plan View.
+ *
+ * Returns a lightweight shape (no member rows joined) — the indicator
+ * only needs goal + status + step counts. The detail page handles the
+ * full join.
+ */
+export async function loadActivePlan(
+  spaceId: string,
+): Promise<Pick<
+  PlanRun,
+  'id' | 'goal' | 'planSummary' | 'status' | 'totalSteps' | 'completedSteps' | 'createdAt'
+> | null> {
+  const { data, error } = await supabase
+    .from('SwarmRun')
+    .select(
+      'id, spaceId, goal, plan, status, overallSatisfied, verifierSummary, createdAt, completedAt',
+    )
+    .eq('spaceId', spaceId)
+    .in('status', ['planning', 'running', 'auditing'])
+    .not('plan', 'is', null)
+    .order('createdAt', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  const planJson = (data as SwarmRunRow).plan;
+  if (!planJson || !Array.isArray(planJson.steps) || planJson.steps.length === 0) {
+    return null;
+  }
+  // Reuse composePlanRun with an empty members[] so completedSteps
+  // counts off the synthesised statuses (all queued without member
+  // rows). That's wrong for an active run — but we'd need a second
+  // query for member statuses. For the indicator, totalSteps is the
+  // useful signal; completedSteps is approximate until the founder
+  // clicks through to the detail page.
+  //
+  // Quick fix: query member statuses for this run only.
+  const { data: memberRows } = await supabase
+    .from('SwarmMember')
+    .select('status, stepIndex')
+    .eq('swarmRunId', (data as SwarmRunRow).id)
+    .not('stepIndex', 'is', null);
+
+  const completedSteps = (memberRows ?? []).filter((m) => {
+    const s = (m as { status: string }).status;
+    return s === 'completed' || s === 'failed';
+  }).length;
+
+  return {
+    id: (data as SwarmRunRow).id,
+    goal: (data as SwarmRunRow).goal,
+    planSummary: planJson.summary ?? '',
+    status: ((data as SwarmRunRow).status as PlanRunStatus) ?? 'running',
+    totalSteps: planJson.steps.length,
+    completedSteps,
+    createdAt: (data as SwarmRunRow).createdAt,
+  };
+}
+
 /** Pure shaper: SwarmRun + SwarmMember[] → PlanRun. Exported for tests. */
 export function composePlanRun(
   run: SwarmRunRow,

@@ -14,6 +14,7 @@ import { getAllDepartmentAutonomy } from '@/lib/departments/autonomy';
 import { loadDeptCounts } from '@/lib/canvas/dept-counts';
 import { loadAuditFeed } from '@/lib/observability/audit-feed';
 import { buildDailyBriefing, type DailyBriefingData } from '@/lib/briefing/build-daily-briefing';
+import { loadActivePlan } from '@/lib/plans/plan-repo';
 import { CanvasHome } from '@/components/canvas/canvas-home';
 
 interface Mission {
@@ -43,6 +44,7 @@ export default async function SpacePage({
     deptCountsResult,
     auditFeedResult,
     briefingResult,
+    activePlanResult,
   ] = await Promise.allSettled([
     supabase
       .from('Mission')
@@ -59,6 +61,7 @@ export default async function SpacePage({
     loadDeptCounts(space.id),
     loadAuditFeed(space.id, { limit: 8 }),
     buildDailyBriefing(space.id),
+    loadActivePlan(space.id),
   ]);
 
   const mission: Mission | null =
@@ -101,6 +104,9 @@ export default async function SpacePage({
   const briefing: DailyBriefingData | null =
     briefingResult.status === 'fulfilled' ? briefingResult.value : null;
 
+  const activePlan =
+    activePlanResult.status === 'fulfilled' ? activePlanResult.value : null;
+
   const workspaceName = mission?.title?.trim().length
     ? mission!.title
     : space.name;
@@ -118,6 +124,7 @@ export default async function SpacePage({
         deptCounts={deptCounts}
         initialAuditFeed={initialAuditFeed}
         briefing={briefing}
+        activePlan={activePlan}
       />
     </div>
   );

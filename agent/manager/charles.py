@@ -633,6 +633,23 @@ class CharlesManager:
             """
             db = await supabase()
 
+            # Pull the slug once for the discoverability link at the
+            # bottom of the response. Best-effort — chat still works
+            # without the link.
+            space_slug: str | None = None
+            try:
+                slug_res = await (
+                    db.table("Space")
+                    .select("slug")
+                    .eq("id", space_id)
+                    .maybe_single()
+                    .execute()
+                )
+                if slug_res.data:
+                    space_slug = slug_res.data.get("slug")
+            except Exception:  # noqa: BLE001
+                pass
+
             # ── 1. Decompose ─────────────────────────────────────────
             try:
                 mission_block = ""
@@ -766,8 +783,10 @@ class CharlesManager:
             if plan_run_id:
                 # Surface the run id so the manager can mention it
                 # to the founder: "see the plan at /plans/<id>".
+                slug_for_url = space_slug or "<slug>"
                 formatted = (
-                    f"PLAN_RUN_ID: {plan_run_id} (view at /s/<slug>/plans/{plan_run_id})\n\n"
+                    f"PLAN_RUN_ID: {plan_run_id} "
+                    f"(view at /s/{slug_for_url}/plans/{plan_run_id})\n\n"
                     + formatted
                 )
             return formatted

@@ -76,6 +76,7 @@ beforeEach(() => {
     workspaceName: 'Acme',
     yesterdayHighlights: ['x'],
     needsYouToday: [{ label: 'y', href: '/s/acme/tasks' }],
+    comingUp: [],
     pendingApprovalsCount: 1,
     openTasksCount: 0,
     currentStage: 'building',

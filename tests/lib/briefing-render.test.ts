@@ -116,6 +116,50 @@ describe('renderDailyBriefing — HTML body', () => {
     expect(out.html).toContain('https://app.charles.dev/s/acme');
   });
 
+  it('renders the Coming up section in HTML when comingUp is non-empty', () => {
+    const out = renderDailyBriefing(
+      active({
+        comingUp: [
+          {
+            triggerId: 't_1',
+            runAt: '2026-05-14T14:00:00Z',
+            reason: 'Check whether PR #42 got merged',
+            source: 'agent',
+          },
+        ],
+      }),
+      'acme',
+      NOW,
+    );
+    expect(out.html).toContain('Coming up');
+    expect(out.html).toContain('Check whether PR #42 got merged');
+  });
+
+  it('renders the Coming up section in text when comingUp is non-empty', () => {
+    const out = renderDailyBriefing(
+      active({
+        comingUp: [
+          {
+            triggerId: 't_1',
+            runAt: '2026-05-14T14:00:00Z',
+            reason: 'Follow up with Acme if no reply',
+            source: 'agent',
+          },
+        ],
+      }),
+      'acme',
+      NOW,
+    );
+    expect(out.plainText).toContain('Coming up');
+    expect(out.plainText).toContain('Follow up with Acme');
+  });
+
+  it('suppresses the Coming up section when comingUp is empty', () => {
+    const out = renderDailyBriefing(active({ comingUp: [] }), 'acme', NOW);
+    expect(out.html).not.toContain('Coming up');
+    expect(out.plainText).not.toContain('Coming up');
+  });
+
   it('rest-day HTML mentions the rest-day lead line', () => {
     const out = renderDailyBriefing(restDay(), 'acme', NOW);
     expect(out.html).toContain('Nothing happened yesterday');

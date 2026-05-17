@@ -103,6 +103,16 @@ function renderRestDayHtml(data: DailyBriefingData, ctaUrl: string): string {
 
 function renderActiveHtml(data: DailyBriefingData, ctaUrl: string): string {
   const lead = `Here is where ${esc(data.workspaceName)} stands.`;
+  // "Coming up" is the founder-visible projection of Charles's calendar
+  // — scheduled wake-ups he set himself or the heartbeat queued. Mirrors
+  // the in-app component's section so the briefing-email channel
+  // doesn't strip away async work.
+  const comingUpBlock = data.comingUp.length
+    ? `
+      <p style="${STYLES.section}">Coming up</p>
+      ${renderUpcomingHtml(data.comingUp)}
+`
+    : '';
   return `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="${STYLES.body}">
@@ -116,13 +126,52 @@ function renderActiveHtml(data: DailyBriefingData, ctaUrl: string): string {
 
       <p style="${STYLES.section}">Today</p>
       ${renderListHtml(data.needsYouToday.map((a) => a.label))}
-
+${comingUpBlock}
       <a href="${esc(ctaUrl)}" style="${STYLES.cta}">Open Charles</a>
 
       <p style="${STYLES.footer}">${esc(data.workspaceName)} &middot; stage: ${esc(data.currentStage)}</p>
     </div>
   </div>
 </body></html>`;
+}
+
+/**
+ * Render the "Coming up" list — one row per scheduled trigger, time
+ * left-aligned + reason next to it. Mirrors the in-app component's
+ * formatUpcomingWhen logic (today → time only, tomorrow → "Tomorrow
+ * 9 AM", further out → date + time). Kept server-side here because
+ * the briefing renders to static HTML.
+ */
+function renderUpcomingHtml(items: DailyBriefingData['comingUp']): string {
+  const rows = items
+    .map(
+      (item) =>
+        `<li style="${STYLES.li}"><span style="font-variant-numeric:tabular-nums;color:#71717a;margin-right:8px;">${esc(formatUpcoming(item.runAt))}</span>${esc(item.reason)}</li>`,
+    )
+    .join('');
+  return `<ul style="${STYLES.ul}">${rows}</ul>`;
+}
+
+function formatUpcoming(iso: string, now: Date = new Date()): string {
+  const when = new Date(iso);
+  const sameDay =
+    when.getFullYear() === now.getFullYear() &&
+    when.getMonth() === now.getMonth() &&
+    when.getDate() === now.getDate();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  const isTomorrow =
+    when.getFullYear() === tomorrow.getFullYear() &&
+    when.getMonth() === tomorrow.getMonth() &&
+    when.getDate() === tomorrow.getDate();
+  const time = when.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  if (sameDay) return time;
+  if (isTomorrow) return `Tomorrow ${time}`;
+  const date = when.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `${date}, ${time}`;
 }
 
 function renderRestDayText(data: DailyBriefingData, ctaUrl: string): string {
@@ -156,6 +205,12 @@ function renderActiveText(data: DailyBriefingData, ctaUrl: string): string {
     lines.push('  Nothing here.');
   } else {
     for (const a of data.needsYouToday) lines.push(`  - ${a.label}`);
+  }
+  if (data.comingUp.length > 0) {
+    lines.push('', 'Coming up');
+    for (const item of data.comingUp) {
+      lines.push(`  - ${formatUpcoming(item.runAt)}  ${item.reason}`);
+    }
   }
   lines.push('', `Open Charles: ${ctaUrl}`, '', `${data.workspaceName} — stage: ${data.currentStage}`);
   return lines.join('\n');

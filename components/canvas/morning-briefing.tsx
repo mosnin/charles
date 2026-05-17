@@ -152,7 +152,16 @@ export function MorningBriefing({ slug, data, variant = 'canvas' }: MorningBrief
           surface stays quiet for new workspaces with nothing scheduled. */}
       {data.comingUp.length > 0 && (
         <div className="border-t border-border/60 px-5 py-4">
-          <p className={SECTION_LABEL}>Coming up</p>
+          <div className="flex items-baseline justify-between gap-3">
+            <p className={SECTION_LABEL}>Coming up</p>
+            <Link
+              href={`/s/${slug}/plans`}
+              onClick={markSeen}
+              className={cn(CAPTION, 'font-medium text-muted-foreground transition-colors hover:text-foreground')}
+            >
+              See all plans
+            </Link>
+          </div>
           <ul className="mt-2 space-y-1.5">
             {data.comingUp.map((item) => (
               <li
