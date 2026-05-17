@@ -10,12 +10,21 @@
 import { loadAuditFeed, type AuditEvent } from '@/lib/observability/audit-feed';
 import { supabase } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
+import { listUpcomingTriggersForSpace } from '@/lib/triggers/scheduled-trigger-repo';
 
 /** A single "needs you today" action item — a line plus where it goes. */
 export interface BriefingAction {
   label: string;
   /** Workspace-relative href to the surface that resolves the action. */
   href: string;
+}
+
+/** One row in the "Coming up" section — what Charles has on his calendar. */
+export interface BriefingUpcoming {
+  triggerId: string;
+  runAt: string;
+  reason: string;
+  source: 'agent' | 'heartbeat' | 'founder' | 'system';
 }
 
 export interface DailyBriefingData {
@@ -25,6 +34,8 @@ export interface DailyBriefingData {
   yesterdayHighlights: string[];
   /** Up to 3 one-line action items, each linking to its surface. */
   needsYouToday: BriefingAction[];
+  /** Next up to 5 scheduled wake-ups Charles has queued. */
+  comingUp: BriefingUpcoming[];
   pendingApprovalsCount: number;
   openTasksCount: number;
   currentStage: string;
@@ -34,6 +45,7 @@ export interface DailyBriefingData {
 
 const HIGHLIGHT_CAP = 5;
 const ACTION_CAP = 3;
+const UPCOMING_CAP = 5;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Audit event types that count as "interesting" for the yesterday section. */
@@ -274,13 +286,19 @@ export async function buildDailyBriefing(
 
   const yesterdayHighlights = summarizeHighlights(audit24h);
 
-  const [pendingApprovalsCount, pausedRunsCount, openTasksCount, currentStage] =
-    await Promise.all([
-      countPendingDrafts(spaceId),
-      countPausedRuns(spaceId),
-      countStalledTasks(spaceId, now),
-      getCurrentStage(spaceId),
-    ]);
+  const [
+    pendingApprovalsCount,
+    pausedRunsCount,
+    openTasksCount,
+    currentStage,
+    upcomingRows,
+  ] = await Promise.all([
+    countPendingDrafts(spaceId),
+    countPausedRuns(spaceId),
+    countStalledTasks(spaceId, now),
+    getCurrentStage(spaceId),
+    listUpcomingTriggersForSpace(spaceId, UPCOMING_CAP),
+  ]);
 
   const needsYouToday = buildActions(
     ctx.space.slug,
@@ -289,14 +307,27 @@ export async function buildDailyBriefing(
     openTasksCount,
   );
 
+  const comingUp: BriefingUpcoming[] = upcomingRows.map((r) => ({
+    triggerId: r.id,
+    runAt: r.runAt,
+    reason: r.reason,
+    source: r.source,
+  }));
+
+  // Rest-day excludes the calendar — having scheduled work doesn't count
+  // as "needs you", but it does count as "Charles is busy", so the
+  // briefing still has substance.
   const isRestDay =
-    yesterdayHighlights.length === 0 && needsYouToday.length === 0;
+    yesterdayHighlights.length === 0 &&
+    needsYouToday.length === 0 &&
+    comingUp.length === 0;
 
   return {
     founderFirstName: firstNameOf(ctx.owner.name),
     workspaceName: ctx.space.name,
     yesterdayHighlights,
     needsYouToday,
+    comingUp,
     pendingApprovalsCount,
     openTasksCount,
     currentStage,

@@ -148,6 +148,29 @@ export function MorningBriefing({ slug, data, variant = 'canvas' }: MorningBrief
         </section>
       </div>
 
+      {/* Coming up — Charles's calendar. Suppressed when empty so the
+          surface stays quiet for new workspaces with nothing scheduled. */}
+      {data.comingUp.length > 0 && (
+        <div className="border-t border-border/60 px-5 py-4">
+          <p className={SECTION_LABEL}>Coming up</p>
+          <ul className="mt-2 space-y-1.5">
+            {data.comingUp.map((item) => (
+              <li
+                key={item.triggerId}
+                className={cn(BODY, 'flex items-baseline gap-3 leading-snug')}
+              >
+                <span className={cn(CAPTION, 'shrink-0 tabular-nums')}>
+                  {formatUpcomingWhen(item.runAt)}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                  {item.reason}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Footer */}
       <div className="flex items-center justify-between border-t border-border/60 px-5 py-3">
         <p className={CAPTION}>
@@ -164,6 +187,31 @@ export function MorningBriefing({ slug, data, variant = 'canvas' }: MorningBrief
       </div>
     </div>
   );
+}
+
+/**
+ * Render a scheduled-wake timestamp as a tight human label. Today shows
+ * just the time ("2:30 PM"), tomorrow shows "Tomorrow 9 AM", further out
+ * shows the date ("May 22, 9 AM"). Keeps the calendar column scannable
+ * without parking it next to a full ISO string.
+ */
+function formatUpcomingWhen(iso: string, now: Date = new Date()): string {
+  const when = new Date(iso);
+  const sameDay =
+    when.getFullYear() === now.getFullYear() &&
+    when.getMonth() === now.getMonth() &&
+    when.getDate() === now.getDate();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  const isTomorrow =
+    when.getFullYear() === tomorrow.getFullYear() &&
+    when.getMonth() === tomorrow.getMonth() &&
+    when.getDate() === tomorrow.getDate();
+  const time = when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (sameDay) return time;
+  if (isTomorrow) return `Tomorrow ${time}`;
+  const date = when.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return `${date}, ${time}`;
 }
 
 /** Pure helpers, exported for tests. */

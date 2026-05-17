@@ -16,6 +16,7 @@ function active(overrides: Partial<DailyBriefingData> = {}): DailyBriefingData {
     needsYouToday: [
       { label: 'Approve 3 drafts waiting for you.', href: '/s/acme/chat/approvals' },
     ],
+    comingUp: [],
     pendingApprovalsCount: 3,
     openTasksCount: 0,
     currentStage: 'building',
@@ -30,6 +31,7 @@ function restDay(): DailyBriefingData {
     workspaceName: 'Acme',
     yesterdayHighlights: [],
     needsYouToday: [],
+    comingUp: [],
     pendingApprovalsCount: 0,
     openTasksCount: 0,
     currentStage: 'building',
