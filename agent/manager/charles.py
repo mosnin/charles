@@ -25,12 +25,89 @@ from departments import DEPARTMENT_REGISTRY
 from lib.cost_events import emit_cost_event
 from memory.layers import format_core_for_prompt, load_layers, set_core_slot
 from memory.store import save_memory, search_similar
+from planner import (
+    decompose_goal,
+    execute_plan,
+    verify_outcomes,
+)
+from planner.execute import PlanValidationError
 from stages import gates_for_stage
 from tools._scheduling import build_scheduling_tools
 
 DEPARTMENTS = list(DEPARTMENT_REGISTRY.keys())
 
 _MAX_DEPT_OUTPUT_CHARS = 2000
+
+
+def _format_plan_report(plan, report, verification, verify_error: str) -> str:
+    """Compose the plan_and_execute response from plan + execution +
+    verification. One string the manager surfaces to the founder.
+
+    Sections:
+      PLAN — goal + summary
+      STEPS — per-step status, output, verdict, follow-up
+      OVERALL — verifier's roll-up, follow-ups to schedule
+    """
+    lines: list[str] = []
+    lines.append(f"PLAN: {plan.goal}")
+    lines.append(f"Summary: {plan.summary}")
+    lines.append("")
+
+    # Index verifier verdicts by step_index for fast lookup.
+    verdicts: dict = {}
+    if verification is not None:
+        for sv in verification.steps:
+            sv_dict = sv if isinstance(sv, dict) else sv.model_dump()
+            verdicts[sv_dict["step_index"]] = sv_dict
+
+    lines.append("STEPS:")
+    for r in report.results:
+        step = plan.steps[r.step_index]
+        lines.append(
+            f"\n{r.step_index + 1}. [{step.department}] {step.task}"
+        )
+        lines.append(f"   Expected: {step.expected_outcome}")
+        lines.append(f"   Status: {r.status.value}")
+        body = r.output if r.status.value == "completed" else (r.error or "(no output)")
+        body_short = body if len(body) <= 800 else body[:800] + "...[truncated]"
+        lines.append(f"   Output: {body_short}")
+        v = verdicts.get(r.step_index)
+        if v:
+            tick = "✓" if v["satisfied"] else "✗"
+            lines.append(f"   Verdict: {tick} {v['reason']}")
+            if v.get("suggested_follow_up"):
+                lines.append(f"   Follow-up: {v['suggested_follow_up']}")
+
+    lines.append("")
+    if verification is not None:
+        overall = "satisfied" if verification.overall_satisfied else "not satisfied"
+        lines.append(f"OVERALL ({overall}): {verification.summary}")
+
+        # Surface any suggested follow-ups in a callable form so the
+        # manager can act on them with schedule_self_wake.
+        followups: list[str] = []
+        for sv in verification.steps:
+            sv_dict = sv if isinstance(sv, dict) else sv.model_dump()
+            if sv_dict.get("suggested_follow_up"):
+                followups.append(
+                    f"  - Step {sv_dict['step_index'] + 1}: "
+                    f"{sv_dict['suggested_follow_up']}"
+                )
+        if followups:
+            lines.append("")
+            lines.append(
+                "SUGGESTED FOLLOW-UPS — schedule via schedule_self_wake "
+                "if you want to close the loop:"
+            )
+            lines.extend(followups)
+    elif verify_error:
+        lines.append(
+            f"OVERALL: verification crashed ({verify_error}). "
+            "Execution finished; re-judge manually or re-run plan_and_execute "
+            "if outputs look off."
+        )
+
+    return "\n".join(lines)
 
 _CHARLES_INSTRUCTIONS_BASE = """You are Charles — the AI cofounder and manager for this company.
 
@@ -62,30 +139,42 @@ Your role is to coordinate six departments (Engineering, Sales, Marketing, Desig
 
 ## How to delegate
 
-You have two delegation tools:
+You have three delegation tools, ordered by scope:
 
 - `delegate_to_department(department, task, context?)` — one department,
-  inline. Use when there's a single thing to delegate, or when one
-  department's output feeds another's input (sequential dependency).
+  inline. Use when there's a single thing to delegate.
 
-- `delegate_to_team(team_json)` — multiple departments in parallel.
-  Use when several departments need to work independently on different
-  parts of the same goal. They run concurrently — none of them blocks
-  on the others.
+- `delegate_to_team(team_json)` — multiple departments in parallel,
+  one round. Use when 2-6 departments work independently on different
+  parts of the same step and none blocks the others.
 
-  Take the team route whenever you spot true parallelism. Example: a
-  launch where engineering ships the API, marketing writes the copy,
-  and design picks the hero image. Those are three independent tracks.
-  Running them as a team is meaningfully faster than serial delegation
-  and feels like a cofounder running a real team, not a single thread.
+- `plan_and_execute(goal)` — full pipeline: decompose, execute across
+  departments (parallel where possible), verify outcomes, surface any
+  follow-ups. Use this for multi-step goals where the structure isn't
+  obvious — "ship the pricing page," "do a launch campaign,"
+  "stand up customer support." This is the cofounder move: stop
+  manually choreographing, hand it a goal, get back a plan + the
+  results + a judged verdict on whether the goal was actually met.
 
-  Don't manufacture parallelism. If marketing needs the API URL to
-  write the copy, that's serial — delegate to engineering first, then
-  pass the URL to marketing.
+  After plan_and_execute returns, read the "SUGGESTED FOLLOW-UPS"
+  section. For each one worth holding (deploy verification, PR-merge
+  re-check, customer reply follow-up), call schedule_self_wake to
+  close the loop later. That's how you keep threads across runs.
 
-  Each team entry shape: {"department": "...", "task": "...", "context"?: "..."}.
-  Max 6 entries (one per department). Each department only once per
-  team — combine multiple tasks for the same department into one entry.
+### Which one to reach for
+- Single sentence, one department → delegate_to_department
+- Multi-department, one round, you've already decomposed → delegate_to_team
+- Multi-step or open goal, you haven't decomposed yet → plan_and_execute
+
+### What plan_and_execute is NOT for
+- Open-ended exploration ("what should we build?") — that's a chat, not a plan.
+- Asks for advice — read the room; the founder wants discussion, not execution.
+- Single-step tasks — overkill; the planner adds latency and tokens.
+
+### Don't manufacture parallelism
+If marketing needs the API URL to write copy, that's serial — let the
+planner encode it via depends_on, or do delegate_to_department in
+sequence yourself.
 
 ## Stage progression
 idea → initial → identity → building → selling → scaling
@@ -415,7 +504,104 @@ class CharlesManager:
             return "\n\n".join(lines)
 
         @function_tool
-        async def advance_stage(new_stage: str, reason: str = "") -> str:
+        async def plan_and_execute(goal: str) -> str:
+            """Decompose a goal, execute it across departments, verify outcomes.
+
+            The big-picture tool. Use this when the founder hands you
+            a goal that decomposes into multiple steps across multiple
+            departments — "ship the pricing page," "do a launch
+            campaign for v2," "spin up customer support." Plan and
+            Execute does all four things in one shot:
+
+              1. Decomposes the goal into 1-8 concrete steps, each
+                 with a department, expected outcome, and dependency
+                 graph (so independent steps run in parallel).
+              2. Executes the DAG — fires every ready step in
+                 parallel, awaits, finds newly-ready, repeats. A
+                 step's failure blocks only its dependents; the rest
+                 of the plan keeps running.
+              3. Verifies each step's actual output against its
+                 expected outcome via an LLM judge. Catches "I did
+                 the thing!" outputs that don't contain evidence.
+              4. For deferred outcomes (PR merge, deploy propagation,
+                 customer reply), the verifier suggests follow-up
+                 wake-ups you can schedule via `schedule_self_wake`.
+
+            Returns a structured text summary: the plan, every step's
+            terminal status + output, the verifier's per-step verdict,
+            and any suggested follow-ups. The summary is what you
+            speak back to the founder.
+
+            When NOT to use this:
+              - Single-step asks (just call delegate_to_department).
+              - Open-ended exploration ("what should we build next?")
+                — that's a conversation, not a plan.
+              - Asks where the founder is asking for advice rather
+                than execution — read the room.
+
+            goal: the goal in one or two sentences. Specific is good
+                  ("ship the /pricing page on charles.app, end-of-week"
+                  beats "do the pricing thing").
+            """
+            try:
+                # Pull mission so the planner can ground its steps in
+                # the real company. Best-effort — no mission still
+                # plans, just more generically.
+                mission_block = ""
+                try:
+                    db = await supabase()
+                    mission_res = await (
+                        db.table("Mission")
+                        .select("title, description, stage, oneLinePitch, targetCustomer")
+                        .eq("spaceId", space_id)
+                        .maybe_single()
+                        .execute()
+                    )
+                    m = mission_res.data
+                    if m:
+                        mission_block = (
+                            f"Mission: {m.get('title', '(not set)')}\n"
+                            f"Stage: {m.get('stage', 'idea')}\n"
+                            f"Description: {m.get('description', '(not set)')}\n"
+                            f"One-line pitch: {m.get('oneLinePitch', '(not set)')}\n"
+                            f"Target customer: {m.get('targetCustomer', '(not set)')}"
+                        )
+                except Exception:  # noqa: BLE001
+                    pass
+
+                plan = await decompose_goal(goal, mission_block=mission_block or None)
+            except Exception as exc:  # noqa: BLE001
+                return f"Plan decomposition failed: {exc}"
+
+            try:
+                async def runner_fn(step, idx: int) -> str:
+                    # Each plan step runs through the same shared helper
+                    # solo and team delegations use, so cost tracking,
+                    # SwarmMember bookkeeping, and output truncation all
+                    # behave identically. wave=3 distinguishes plan-driven
+                    # delegations from solo (wave=1) and team (wave=2).
+                    return await _run_one_dept(
+                        step.department, step.task, step.context, wave=3
+                    )
+
+                report = await execute_plan(plan, runner_fn)
+            except PlanValidationError as exc:
+                return f"Plan rejected (invalid DAG): {exc}"
+            except Exception as exc:  # noqa: BLE001
+                return f"Plan execution crashed: {exc}"
+
+            try:
+                verification = await verify_outcomes(plan, report)
+            except Exception as exc:  # noqa: BLE001
+                # If verification crashes we still want the founder to
+                # see the execution result. Don't lose work over a
+                # judge round-trip.
+                verification = None  # type: ignore[assignment]
+                verify_error = str(exc)
+            else:
+                verify_error = ""
+
+            return _format_plan_report(plan, report, verification, verify_error)
             """Advance the workspace to a new stage.
 
             Stages in order: idea, initial, identity, building, selling, scaling.
@@ -608,6 +794,7 @@ class CharlesManager:
             update_core_memory,
             delegate_to_department,
             delegate_to_team,
+            plan_and_execute,
             advance_stage,
             complete_stage_gate,
             list_stage_gates,
