@@ -3,6 +3,12 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
   plugins: [tsconfigPaths()],
+  esbuild: {
+    // tsconfig.json keeps `jsx: preserve` for Next; vitest uses esbuild
+    // directly, so opt into the automatic runtime here so component tests
+    // don't need to import React explicitly.
+    jsx: 'automatic',
+  },
   css: {
     // Prevent Vite from loading postcss.config.mjs (Tailwind v4 string-plugin
     // syntax is valid for Next.js but not for raw Vite / vitest).
@@ -10,7 +16,12 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['tests/**/*.test.ts', 'lib/**/__tests__/**/*.test.ts', 'app/**/__tests__/**/*.test.ts'],
+    include: [
+      'tests/**/*.test.ts',
+      'lib/**/__tests__/**/*.test.ts',
+      'app/**/__tests__/**/*.test.ts',
+      'components/**/__tests__/**/*.test.{ts,tsx}',
+    ],
     // Eval suite is gated by RUN_EVALS — exclude from the default
     // `pnpm test` so commits don't burn OpenAI tokens automatically.
     // Run via `pnpm eval` (which sets RUN_EVALS=1 and removes the

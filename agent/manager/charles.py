@@ -39,6 +39,71 @@ DEPARTMENTS = list(DEPARTMENT_REGISTRY.keys())
 _MAX_DEPT_OUTPUT_CHARS = 2000
 
 
+async def _mark_plan_run_failed(db, plan_run_id: str, error: str) -> None:
+    """Close out a SwarmRun row when planning or execution crashes.
+    Wrapped in try/except so bookkeeping failures don't bubble.
+    """
+    try:
+        await (
+            db.table("SwarmRun")
+            .update(
+                {
+                    "status": "failed",
+                    "completedAt": datetime.now(timezone.utc).isoformat(),
+                    "errorMessage": error[:2000],
+                }
+            )
+            .eq("id", plan_run_id)
+            .execute()
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
+async def _persist_verifier_verdicts(db, plan_run_id: str, verification) -> None:
+    """Write per-step verifier verdicts onto the matching SwarmMember
+    rows (joined by stepIndex), then close out the SwarmRun with the
+    overall verdict. Best-effort throughout — the chat surface
+    already has the formatted report, persistence is for the Plan View.
+    """
+    try:
+        # Per-step: update each SwarmMember by (swarmRunId, stepIndex).
+        for sv in verification.steps:
+            sv_dict = sv if isinstance(sv, dict) else sv.model_dump()
+            try:
+                await (
+                    db.table("SwarmMember")
+                    .update({"verifierVerdict": sv_dict})
+                    .eq("swarmRunId", plan_run_id)
+                    .eq("stepIndex", sv_dict["step_index"])
+                    .execute()
+                )
+            except Exception:  # noqa: BLE001
+                # One step's update failure shouldn't block others.
+                continue
+
+        # Overall: close the run with verifier roll-up.
+        await (
+            db.table("SwarmRun")
+            .update(
+                {
+                    "status": (
+                        "completed"
+                        if verification.overall_satisfied
+                        else "failed"
+                    ),
+                    "overallSatisfied": verification.overall_satisfied,
+                    "verifierSummary": verification.summary,
+                    "completedAt": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+            .eq("id", plan_run_id)
+            .execute()
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _format_plan_report(plan, report, verification, verify_error: str) -> str:
     """Compose the plan_and_execute response from plan + execution +
     verification. One string the manager surfaces to the founder.
@@ -290,26 +355,43 @@ class CharlesManager:
             task: str,
             context: str,
             wave: int,
-        ) -> str:
+            swarm_run_override: str | None = None,
+            step_index: int | None = None,
+        ) -> tuple[str, str | None]:
             """Run a single department delegation end-to-end.
 
-            Shared body for solo (`delegate_to_department`) and team
-            (`delegate_to_team`) delegation. Returns a `[dept] output`
-            string ready to surface to the manager. Never raises —
-            failures are returned as `[dept] Failed: <reason>` so the
-            team caller's asyncio.gather can keep its other branches
-            running unaffected.
+            Shared body for solo (`delegate_to_department`), team
+            (`delegate_to_team`), and plan-driven (`plan_and_execute`)
+            delegation. Returns (output_str, member_id_or_None). The
+            member_id is exposed so plan_and_execute can post the
+            verifier verdict back to the same SwarmMember row.
+
+            Solo/team callers discard the member_id; the string return
+            keeps the existing chat-surface contract intact.
+
+            Parameters
+            ----------
+            swarm_run_override:
+                When set (plan_and_execute case), the SwarmMember row's
+                swarmRunId is this value instead of self.run_id. Lets
+                plan execution group its steps under a fresh SwarmRun
+                with a proper Plan jsonb attached.
+            step_index:
+                When set, persisted on the SwarmMember row so the Plan
+                View can join SwarmRun.plan.steps[stepIndex] to the
+                member row. None for solo/team delegations.
             """
             cls = DEPARTMENT_REGISTRY.get(department)
             if cls is None:
                 return (
                     f"[{department}] Unknown department. "
-                    f"Choose from: {', '.join(DEPARTMENT_REGISTRY)}"
+                    f"Choose from: {', '.join(DEPARTMENT_REGISTRY)}",
+                    None,
                 )
 
             db = await supabase()
             member_row: dict[str, Any] = {
-                "swarmRunId": run_id,
+                "swarmRunId": swarm_run_override or run_id,
                 "name": f"Charles — {department.capitalize()}",
                 "role": department,
                 "task": task,
@@ -319,6 +401,8 @@ class CharlesManager:
             }
             if context:
                 member_row["systemPrompt"] = context
+            if step_index is not None:
+                member_row["stepIndex"] = step_index
 
             member_id: str | None = None
             try:
@@ -376,7 +460,7 @@ class CharlesManager:
 
                 if len(output) > _MAX_DEPT_OUTPUT_CHARS:
                     output = output[:_MAX_DEPT_OUTPUT_CHARS] + "...[truncated]"
-                return f"[{department}] {output}"
+                return f"[{department}] {output}", member_id
 
             except Exception as exc:
                 err = f"Error: {exc}"
@@ -394,7 +478,7 @@ class CharlesManager:
                         )
                     except Exception:  # noqa: BLE001
                         pass
-                return f"[{department}] Failed: {exc}"
+                return f"[{department}] Failed: {exc}", member_id
 
         @function_tool
         async def delegate_to_department(
@@ -414,7 +498,8 @@ class CharlesManager:
             task: clear description of what needs to be done
             context: optional extra context the department agent needs
             """
-            return await _run_one_dept(department, task, context, wave=1)
+            output, _ = await _run_one_dept(department, task, context, wave=1)
+            return output
 
         @function_tool
         async def delegate_to_team(team_json: str) -> str:
@@ -500,7 +585,10 @@ class CharlesManager:
                 if isinstance(result, BaseException):
                     lines.append(f"[{dept}] Failed: {result}")
                 else:
-                    lines.append(str(result))
+                    # _run_one_dept returns (output, member_id) — team
+                    # only needs the output string.
+                    output_str = result[0] if isinstance(result, tuple) else str(result)
+                    lines.append(output_str)
             return "\n\n".join(lines)
 
         @function_tool
@@ -543,13 +631,12 @@ class CharlesManager:
                   ("ship the /pricing page on charles.app, end-of-week"
                   beats "do the pricing thing").
             """
+            db = await supabase()
+
+            # ── 1. Decompose ─────────────────────────────────────────
             try:
-                # Pull mission so the planner can ground its steps in
-                # the real company. Best-effort — no mission still
-                # plans, just more generically.
                 mission_block = ""
                 try:
-                    db = await supabase()
                     mission_res = await (
                         db.table("Mission")
                         .select("title, description, stage, oneLinePitch, targetCustomer")
@@ -573,6 +660,36 @@ class CharlesManager:
             except Exception as exc:  # noqa: BLE001
                 return f"Plan decomposition failed: {exc}"
 
+            # ── 2. Persist SwarmRun root ─────────────────────────────
+            # The Plan View reads from this row: the plan jsonb holds
+            # the structured Plan (steps[], expected_outcome, depends_on,
+            # etc.), and SwarmMember rows linked by stepIndex provide
+            # per-step status + output + verifier verdict.
+            #
+            # Best-effort — if the insert fails (FK constraint, schema
+            # drift, missing SwarmRun parent type), the plan still
+            # executes but won't show up in the Plan View. The chat
+            # surface still gets the formatted report.
+            plan_run_id: str | None = None
+            try:
+                run_insert = await (
+                    db.table("SwarmRun")
+                    .insert(
+                        {
+                            "spaceId": space_id,
+                            "goal": goal,
+                            "plan": plan.model_dump(mode="json"),
+                            "status": "running",
+                        }
+                    )
+                    .execute()
+                )
+                if run_insert.data:
+                    plan_run_id = run_insert.data[0]["id"]
+            except Exception:  # noqa: BLE001
+                pass
+
+            # ── 3. Execute (DAG walker) ──────────────────────────────
             try:
                 async def runner_fn(step, idx: int) -> str:
                     # Each plan step runs through the same shared helper
@@ -580,28 +697,83 @@ class CharlesManager:
                     # SwarmMember bookkeeping, and output truncation all
                     # behave identically. wave=3 distinguishes plan-driven
                     # delegations from solo (wave=1) and team (wave=2).
-                    return await _run_one_dept(
-                        step.department, step.task, step.context, wave=3
+                    # swarm_run_override + step_index land the row in
+                    # the Plan View's read path.
+                    output, _member_id = await _run_one_dept(
+                        step.department,
+                        step.task,
+                        step.context,
+                        wave=3,
+                        swarm_run_override=plan_run_id,
+                        step_index=idx,
                     )
+                    return output
 
                 report = await execute_plan(plan, runner_fn)
             except PlanValidationError as exc:
+                if plan_run_id:
+                    await _mark_plan_run_failed(db, plan_run_id, str(exc))
                 return f"Plan rejected (invalid DAG): {exc}"
             except Exception as exc:  # noqa: BLE001
+                if plan_run_id:
+                    await _mark_plan_run_failed(db, plan_run_id, str(exc))
                 return f"Plan execution crashed: {exc}"
 
+            # ── 4. Verify ────────────────────────────────────────────
             try:
+                if plan_run_id:
+                    await (
+                        db.table("SwarmRun")
+                        .update({"status": "auditing"})
+                        .eq("id", plan_run_id)
+                        .execute()
+                    )
                 verification = await verify_outcomes(plan, report)
             except Exception as exc:  # noqa: BLE001
-                # If verification crashes we still want the founder to
-                # see the execution result. Don't lose work over a
-                # judge round-trip.
                 verification = None  # type: ignore[assignment]
                 verify_error = str(exc)
             else:
                 verify_error = ""
 
-            return _format_plan_report(plan, report, verification, verify_error)
+            # ── 5. Persist verifier verdicts ─────────────────────────
+            if plan_run_id and verification is not None:
+                await _persist_verifier_verdicts(
+                    db, plan_run_id, verification
+                )
+            elif plan_run_id:
+                # Verifier crashed — still close the run so the UI
+                # doesn't show it stuck in 'auditing'.
+                await (
+                    db.table("SwarmRun")
+                    .update(
+                        {
+                            "status": (
+                                "completed" if report.all_succeeded else "failed"
+                            ),
+                            "completedAt": datetime.now(timezone.utc).isoformat(),
+                            "errorMessage": (
+                                f"verifier crashed: {verify_error}"
+                                if verify_error
+                                else None
+                            ),
+                        }
+                    )
+                    .eq("id", plan_run_id)
+                    .execute()
+                )
+
+            formatted = _format_plan_report(plan, report, verification, verify_error)
+            if plan_run_id:
+                # Surface the run id so the manager can mention it
+                # to the founder: "see the plan at /plans/<id>".
+                formatted = (
+                    f"PLAN_RUN_ID: {plan_run_id} (view at /s/<slug>/plans/{plan_run_id})\n\n"
+                    + formatted
+                )
+            return formatted
+
+        @function_tool
+        async def advance_stage(new_stage: str, reason: str = "") -> str:
             """Advance the workspace to a new stage.
 
             Stages in order: idea, initial, identity, building, selling, scaling.
