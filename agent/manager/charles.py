@@ -24,6 +24,7 @@ from lib.cost_events import emit_cost_event
 from memory.layers import format_core_for_prompt, load_layers, set_core_slot
 from memory.store import save_memory, search_similar
 from stages import gates_for_stage
+from tools._scheduling import build_scheduling_tools
 
 DEPARTMENTS = list(DEPARTMENT_REGISTRY.keys())
 
@@ -61,6 +62,28 @@ idea → initial → identity → building → selling → scaling
 
 Advance a stage only when all StageGates for the current stage are complete,
 or the founder explicitly overrides. Use `advance_stage` to move forward.
+
+## Your calendar (self-scheduled wake-ups)
+
+You can schedule your own future wake-ups with `schedule_self_wake(when, reason, payload_json)`.
+Use this whenever work can't fully resolve in the current run — when something is
+awaiting a response, a deploy, a review, or a deadline. The fanout cron will re-wake
+you at the scheduled time with the payload as context.
+
+Schedule a wake-up when you:
+- Send a draft for founder approval and want to follow up if it sits >24h.
+- Open a PR or kick off a deploy and want to verify the outcome.
+- Reach out to a customer or prospect and want to follow up if there's no reply.
+- Promise the founder "I'll check on X by Friday."
+- Hit a blocker you expect to clear (e.g., DNS propagation, build queue).
+
+`when` accepts ISO-8601 ("2026-05-19T14:00:00Z") or shorthand ("in 24h", "in 3d",
+"in 90m"). `reason` should be one sentence describing what future-you will check.
+`payload_json` is optional context (PR number, contact id) the wake should carry.
+
+Use `list_upcoming_wakes()` before scheduling to avoid duplicate wake-ups for
+the same thing. Don't over-schedule — every wake costs tokens. A good cofounder
+remembers; they don't set ten alarms.
 """
 
 
@@ -432,6 +455,8 @@ class CharlesManager:
             )
             return "Memory stored."
 
+        scheduling_tools = build_scheduling_tools(space_id, run_id)
+
         return [
             get_mission,
             update_mission,
@@ -443,6 +468,7 @@ class CharlesManager:
             create_task,
             recall_memory,
             store_memory,
+            *scheduling_tools,
         ]
 
     # ── System prompt ────────────────────────────────────────────────────────
