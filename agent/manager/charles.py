@@ -12,6 +12,8 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
+import json
 from datetime import datetime, timezone
 from typing import Any
 
@@ -36,7 +38,8 @@ Your role is to coordinate six departments (Engineering, Sales, Marketing, Desig
 
 ## Your responsibilities
 - Own the company mission and roadmap
-- Delegate work to the right departments using `delegate_to_department`
+- Delegate work to the right departments using `delegate_to_department` (solo)
+  or `delegate_to_team` (multiple departments in parallel)
 - Track stage progression (idea → initial → identity → building → selling → scaling)
 - Request founder approval for any risky or external action before executing
 - Update core memory as you learn more about the company
@@ -56,6 +59,33 @@ Your role is to coordinate six departments (Engineering, Sales, Marketing, Desig
 - design: logo, brand assets, UI
 - support: inbox, helpdesk, customer comms
 - ops_finance: Stripe, expenses, reporting
+
+## How to delegate
+
+You have two delegation tools:
+
+- `delegate_to_department(department, task, context?)` — one department,
+  inline. Use when there's a single thing to delegate, or when one
+  department's output feeds another's input (sequential dependency).
+
+- `delegate_to_team(team_json)` — multiple departments in parallel.
+  Use when several departments need to work independently on different
+  parts of the same goal. They run concurrently — none of them blocks
+  on the others.
+
+  Take the team route whenever you spot true parallelism. Example: a
+  launch where engineering ships the API, marketing writes the copy,
+  and design picks the hero image. Those are three independent tracks.
+  Running them as a team is meaningfully faster than serial delegation
+  and feels like a cofounder running a real team, not a single thread.
+
+  Don't manufacture parallelism. If marketing needs the API URL to
+  write the copy, that's serial — delegate to engineering first, then
+  pass the URL to marketing.
+
+  Each team entry shape: {"department": "...", "task": "...", "context"?: "..."}.
+  Max 6 entries (one per department). Each department only once per
+  team — combine multiple tasks for the same department into one entry.
 
 ## Stage progression
 idea → initial → identity → building → selling → scaling
@@ -166,22 +196,25 @@ class CharlesManager:
             await set_core_slot(space_id, slot, value)
             return f"Core memory updated: {slot}"
 
-        @function_tool
-        async def delegate_to_department(
+        async def _run_one_dept(
             department: str,
             task: str,
-            context: str = "",
+            context: str,
+            wave: int,
         ) -> str:
-            """Delegate a task to a department agent and run it inline.
+            """Run a single department delegation end-to-end.
 
-            department: one of engineering, sales, marketing, design, support, ops_finance
-            task: clear description of what needs to be done
-            context: optional extra context the department agent needs
+            Shared body for solo (`delegate_to_department`) and team
+            (`delegate_to_team`) delegation. Returns a `[dept] output`
+            string ready to surface to the manager. Never raises —
+            failures are returned as `[dept] Failed: <reason>` so the
+            team caller's asyncio.gather can keep its other branches
+            running unaffected.
             """
             cls = DEPARTMENT_REGISTRY.get(department)
             if cls is None:
                 return (
-                    f"Unknown department '{department}'. "
+                    f"[{department}] Unknown department. "
                     f"Choose from: {', '.join(DEPARTMENT_REGISTRY)}"
                 )
 
@@ -191,19 +224,24 @@ class CharlesManager:
                 "name": f"Charles — {department.capitalize()}",
                 "role": department,
                 "task": task,
-                "wave": 1,
+                "wave": wave,
                 "status": "running",
                 "startedAt": datetime.now(timezone.utc).isoformat(),
             }
             if context:
                 member_row["systemPrompt"] = context
 
-            insert_res = await (
-                db.table("SwarmMember")
-                .insert(member_row)
-                .execute()
-            )
-            member_id = insert_res.data[0]["id"] if insert_res.data else None
+            member_id: str | None = None
+            try:
+                insert_res = await (
+                    db.table("SwarmMember").insert(member_row).execute()
+                )
+                if insert_res.data:
+                    member_id = insert_res.data[0]["id"]
+            except Exception:  # noqa: BLE001
+                # SwarmMember insert is bookkeeping — don't let a missing
+                # SwarmRun parent FK or schema drift block a real delegation.
+                pass
 
             try:
                 dept_agent = await cls(space_id=space_id).build_agent()
@@ -211,17 +249,15 @@ class CharlesManager:
                 result = await Runner.run(dept_agent, message, max_turns=12)
                 output = result.final_output or "No output produced."
 
-                # Record cost for this delegation. Best-effort; the helper
-                # swallows its own exceptions, but we still wrap in try/except
-                # so any *attribute*-extraction failure here can't bubble.
+                # Cost tracking — best-effort, never blocks delegation.
                 try:
                     usage = getattr(result, "usage", None)
-                    tokens_in = int(getattr(usage, "input_tokens", 0) or 0) if usage else 0
-                    tokens_out = int(getattr(usage, "output_tokens", 0) or 0) if usage else 0
-                    # If the SDK gave us no usage object, fall back to an
-                    # estimate based on a typical turn shape (~2000 in / 500
-                    # out per turn) so the dashboard still shows directional
-                    # spend. Tune the constants once we have real data.
+                    tokens_in = (
+                        int(getattr(usage, "input_tokens", 0) or 0) if usage else 0
+                    )
+                    tokens_out = (
+                        int(getattr(usage, "output_tokens", 0) or 0) if usage else 0
+                    )
                     if not usage:
                         turns = len(getattr(result, "raw_responses", []) or []) or 1
                         tokens_in = turns * 2000
@@ -235,7 +271,6 @@ class CharlesManager:
                         run_id=run_id,
                     )
                 except Exception:  # noqa: BLE001
-                    # A cost-event failure must never break a delegation.
                     pass
 
                 if member_id:
@@ -257,17 +292,127 @@ class CharlesManager:
             except Exception as exc:
                 err = f"Error: {exc}"
                 if member_id:
-                    await (
-                        db.table("SwarmMember")
-                        .update({
-                            "status": "failed",
-                            "output": err,
-                            "completedAt": datetime.now(timezone.utc).isoformat(),
-                        })
-                        .eq("id", member_id)
-                        .execute()
+                    try:
+                        await (
+                            db.table("SwarmMember")
+                            .update({
+                                "status": "failed",
+                                "output": err,
+                                "completedAt": datetime.now(timezone.utc).isoformat(),
+                            })
+                            .eq("id", member_id)
+                            .execute()
+                        )
+                    except Exception:  # noqa: BLE001
+                        pass
+                return f"[{department}] Failed: {exc}"
+
+        @function_tool
+        async def delegate_to_department(
+            department: str,
+            task: str,
+            context: str = "",
+        ) -> str:
+            """Delegate one task to one department, inline.
+
+            Use this when there's a single department to delegate to, or
+            when one department's output is needed before another can
+            start. For multiple independent departments running side-by-
+            side, use `delegate_to_team` instead — it runs them in
+            parallel.
+
+            department: one of engineering, sales, marketing, design, support, ops_finance
+            task: clear description of what needs to be done
+            context: optional extra context the department agent needs
+            """
+            return await _run_one_dept(department, task, context, wave=1)
+
+        @function_tool
+        async def delegate_to_team(team_json: str) -> str:
+            """Delegate work to multiple departments in parallel.
+
+            Use this when several departments need to work independently
+            on different parts of the same goal. Example: engineering
+            spins up the API, marketing writes the launch copy, design
+            ships the logo — none of them block on the others, so they
+            run as a team.
+
+            team_json: a JSON array of objects, each with:
+              - department: engineering | sales | marketing | design | support | ops_finance
+              - task: what that department should do (clear, scoped, one sentence)
+              - context: optional extra context the department needs
+
+            Example:
+              [
+                {"department": "engineering", "task": "Open a PR adding /pricing route"},
+                {"department": "marketing", "task": "Draft 3 headlines for the pricing page"},
+                {"department": "design", "task": "Pick a hero image from our brand assets"}
+              ]
+
+            All departments run concurrently. Each result is returned
+            labeled with the department name. A failure in one branch
+            does not affect the others — you get a "[dept] Failed: ..."
+            line for the failed one and full output for the rest.
+
+            Cap: 6 departments per team (one per department). For larger
+            scopes, run sequential teams rather than one big one.
+            """
+            try:
+                team = json.loads(team_json)
+            except json.JSONDecodeError as exc:
+                return f"team_json is not valid JSON: {exc}"
+            if not isinstance(team, list) or not team:
+                return "team_json must be a non-empty JSON array."
+            if len(team) > len(DEPARTMENT_REGISTRY):
+                return (
+                    f"Team size {len(team)} exceeds max "
+                    f"{len(DEPARTMENT_REGISTRY)} (one per department)."
+                )
+
+            validated: list[tuple[str, str, str]] = []
+            seen_depts: set[str] = set()
+            for i, entry in enumerate(team):
+                if not isinstance(entry, dict):
+                    return f"Entry {i} is not an object."
+                dept = entry.get("department")
+                task = entry.get("task")
+                context = entry.get("context", "")
+                if dept not in DEPARTMENT_REGISTRY:
+                    return (
+                        f"Entry {i}: unknown department '{dept}'. "
+                        f"Choose from: {', '.join(DEPARTMENT_REGISTRY)}"
                     )
-                return f"Department '{department}' failed: {exc}"
+                if dept in seen_depts:
+                    return (
+                        f"Entry {i}: department '{dept}' appears twice. "
+                        "Combine the tasks into one entry instead."
+                    )
+                seen_depts.add(dept)
+                if not isinstance(task, str) or not task.strip():
+                    return f"Entry {i}: task is required (non-empty string)."
+                if not isinstance(context, str):
+                    return f"Entry {i}: context must be a string if provided."
+                validated.append((dept, task.strip(), context))
+
+            # Run in parallel. return_exceptions=True so one branch's
+            # crash can't cancel its teammates — each is wrapped to
+            # return a string regardless, but defence-in-depth.
+            results = await asyncio.gather(
+                *(_run_one_dept(d, t, c, wave=2) for (d, t, c) in validated),
+                return_exceptions=True,
+            )
+
+            lines = [
+                f"Team delegation complete ({len(validated)} "
+                f"department{'' if len(validated) == 1 else 's'}, "
+                "ran in parallel):"
+            ]
+            for (dept, _task, _ctx), result in zip(validated, results):
+                if isinstance(result, BaseException):
+                    lines.append(f"[{dept}] Failed: {result}")
+                else:
+                    lines.append(str(result))
+            return "\n\n".join(lines)
 
         @function_tool
         async def advance_stage(new_stage: str, reason: str = "") -> str:
@@ -462,6 +607,7 @@ class CharlesManager:
             update_mission,
             update_core_memory,
             delegate_to_department,
+            delegate_to_team,
             advance_stage,
             complete_stage_gate,
             list_stage_gates,
