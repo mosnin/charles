@@ -46,14 +46,13 @@ import { DeptNode } from './dept-node';
 import { ChatDock } from './chat-dock';
 import { Sapling } from './sapling';
 import { StatusDot } from './status-dot';
-import { FirstMoveCard } from './first-move-card';
 import { MorningBriefing } from './morning-briefing';
 import { ActivePlanIndicator } from './active-plan-indicator';
 import { ORBIT_ORDER, orbitPoint } from '@/lib/canvas/orbit';
 import type { DeptCounts } from '@/lib/canvas/dept-counts';
-import type { AuditEvent } from '@/lib/observability/audit-feed';
+import type { MessageBlock } from '@/lib/ai-tools/blocks';
 import type { DailyBriefingData } from '@/lib/briefing/build-daily-briefing';
-import { subscribeToDeptActivity, subscribeToAuditFeed } from '@/lib/canvas/realtime';
+import { subscribeToDeptActivity } from '@/lib/canvas/realtime';
 import { useCanvasActivity } from '@/lib/convex/use-canvas-activity';
 import { usePresence } from '@/lib/convex/use-presence';
 import { LiveCursorsOverlay } from './live-cursors-overlay';
@@ -68,8 +67,10 @@ export interface CanvasHomeProps {
   githubRepo: string | null;
   /** Per-dept running/queued/idle counts. All six depts present. */
   deptCounts: Record<DepartmentSlug, DeptCounts>;
-  /** Initial audit feed for the chat dock home tab. */
-  initialAuditFeed: AuditEvent[];
+  /** Most-recent conversation id for the dock's hydrated transcript. */
+  initialConversationId: string | null;
+  /** Messages for `initialConversationId`, in chronological order. */
+  initialMessages: { role: 'user' | 'assistant'; content: string; blocks?: MessageBlock[] | null }[];
   /** Daily briefing snapshot — null if it couldn't be built. */
   briefing: DailyBriefingData | null;
   /** Plan currently in flight (status in planning/running/auditing),
@@ -100,7 +101,8 @@ export function CanvasHome({
   autonomyBySlug,
   githubRepo,
   deptCounts,
-  initialAuditFeed,
+  initialConversationId,
+  initialMessages,
   briefing,
   activePlan,
 }: CanvasHomeProps) {
@@ -108,7 +110,6 @@ export function CanvasHome({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [liveDeptCounts, setLiveDeptCounts] = useState(deptCounts);
-  const [liveAuditFeed, setLiveAuditFeed] = useState(initialAuditFeed);
   const canvasRootRef = useRef<HTMLDivElement | null>(null);
 
   // Live cursors on canvas-home. Deferred in Wave 2A — now wired. Cursor
@@ -173,17 +174,6 @@ export function CanvasHome({
     }
   }, [slug]);
 
-  const refreshAuditFeed = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/space/${slug}/audit-feed?limit=8`, { cache: 'no-store' });
-      if (!res.ok) return;
-      const data = (await res.json()) as AuditEvent[];
-      if (Array.isArray(data)) setLiveAuditFeed(data);
-    } catch {
-      // Same — polling fallback handles it.
-    }
-  }, [slug]);
-
   // Realtime subscriptions + polling fallback. The unsubscribe is a no-op
   // if the browser client couldn't initialize, in which case polling alone
   // keeps things fresh.
@@ -191,19 +181,14 @@ export function CanvasHome({
     const unsubDept = subscribeToDeptActivity(slug, () => {
       void refreshDeptCounts();
     });
-    const unsubAudit = subscribeToAuditFeed(slug, () => {
-      void refreshAuditFeed();
-    });
     const pollId = window.setInterval(() => {
       void refreshDeptCounts();
-      void refreshAuditFeed();
     }, 30_000);
     return () => {
       unsubDept();
-      unsubAudit();
       window.clearInterval(pollId);
     };
-  }, [slug, refreshDeptCounts, refreshAuditFeed]);
+  }, [slug, refreshDeptCounts]);
 
   const onPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
     // Only left-button drags pan the canvas.
@@ -254,14 +239,6 @@ export function CanvasHome({
   );
 
   const zoomPct = Math.round(zoom * 100);
-
-  // Day-one signal: nothing running or queued anywhere. The FirstMoveCard
-  // rides on this — it bridges the founder to Charles's welcome message and
-  // first task, then retires the moment Charles actually starts working.
-  const hasNoActivity = ORBIT_ORDER.every((d) => {
-    const c = countsFor(d);
-    return c.running === 0 && c.queued === 0;
-  });
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-white">
@@ -451,17 +428,17 @@ export function CanvasHome({
           </div>
         </div>
 
-        {/* Day-one bridge — points the founder at Charles's welcome message
-            and first task. Retires once Charles has work in flight. */}
-        {hasNoActivity && <FirstMoveCard slug={slug} variant="canvas" />}
-
         {/* Daily briefing — what happened overnight. Self-suppresses on a
             rest day and once seen today. */}
         {briefing && <MorningBriefing slug={slug} data={briefing} variant="canvas" />}
       </section>
 
       {/* Desktop chat dock — hidden on mobile via its own md: classes. */}
-      <ChatDock slug={slug} spaceId={spaceId} initialAuditFeed={liveAuditFeed} />
+      <ChatDock
+        slug={slug}
+        initialConversationId={initialConversationId}
+        initialMessages={initialMessages}
+      />
 
       {/* ─── Mobile (< md): vertical stack ─────────────────────────────── */}
       <section
@@ -503,8 +480,6 @@ export function CanvasHome({
           </div>
 
           {briefing && <MorningBriefing slug={slug} data={briefing} variant="inline" />}
-
-          {hasNoActivity && <FirstMoveCard slug={slug} variant="inline" />}
 
           {githubRepo && (
             <div className="text-center">
@@ -549,8 +524,8 @@ export function CanvasHome({
             <div className="flex-1 min-h-0">
               <ChatDock
                 slug={slug}
-                spaceId={spaceId}
-                initialAuditFeed={liveAuditFeed}
+                initialConversationId={initialConversationId}
+                initialMessages={initialMessages}
                 variant="mobile"
               />
             </div>
