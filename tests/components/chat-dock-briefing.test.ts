@@ -50,14 +50,29 @@ describe('composeBriefingMessage', () => {
     );
     expect(out).toBeTruthy();
     if (!out) throw new Error('null');
-    expect(out).toContain('While you were away:');
-    expect(out).toContain('What needs you today:');
+    expect(out).toContain('Yesterday:');
+    expect(out).toContain('Waiting for you:');
     expect(out).not.toMatch(/^[•\-*]/m);
     expect(out).not.toMatch(/!/);
   });
 
+  it('puts each highlight on its own line so they do not read as a run-on', () => {
+    const out = composeBriefingMessage(
+      makeBriefing({
+        yesterdayHighlights: [
+          'You approved 1 draft.',
+          'engineering completed 2 runs.',
+          'design shipped the new dashboard.',
+        ],
+      }),
+    );
+    if (!out) throw new Error('null');
+    expect(out).toContain('Yesterday:\nYou approved 1 draft.\nengineering completed 2 runs.\ndesign shipped the new dashboard.');
+  });
+
   it('when nothing is interesting and nothing waits, invites instead of reporting', () => {
     const out = composeBriefingMessage(makeBriefing());
-    expect(out).toContain("Nothing on your plate");
+    expect(out).toContain("Nothing's queued for you");
+    expect(out).toContain("Tell me what we're working on");
   });
 });

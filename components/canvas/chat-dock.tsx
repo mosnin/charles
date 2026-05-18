@@ -598,15 +598,17 @@ export function composeBriefingMessage(data: DailyBriefingData): string | null {
   const paragraphs: string[] = [greeting];
 
   if (data.yesterdayHighlights.length > 0) {
-    const recap = data.yesterdayHighlights.join(' ');
-    paragraphs.push(`While you were away: ${recap}`);
+    // Soft line breaks (single \n) so each highlight lands on its own
+    // line in the rendered message — sentence-shaped strings joined
+    // with spaces read as a run-on wall.
+    paragraphs.push(`Yesterday:\n${data.yesterdayHighlights.join('\n')}`);
   }
 
   if (data.needsYouToday.length > 0) {
-    const actions = data.needsYouToday.map((a) => a.label).join(' ');
-    paragraphs.push(`What needs you today: ${actions}`);
+    const lines = data.needsYouToday.map((a) => a.label).join('\n');
+    paragraphs.push(`Waiting for you:\n${lines}`);
   } else if (data.pendingApprovalsCount === 0 && data.openTasksCount === 0) {
-    paragraphs.push("Nothing on your plate this morning. Tell me what we're chasing today.");
+    paragraphs.push("Nothing's queued for you this morning. Tell me what we're working on.");
   }
 
   if (paragraphs.length === 1) return null;
