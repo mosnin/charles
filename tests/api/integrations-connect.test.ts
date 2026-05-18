@@ -3,8 +3,8 @@
  * the catalog but don't have a Composio toolkit (or custom adapter) for
  * yet. The bar:
  *
- *   - For each placeholder slug (Follow-up Boss, Compass, BoomTown, kvCORE,
- *     Real Geeks), the connect route must return 501 with a body that
+ *   - For each placeholder slug (GitLab, Vercel, Supabase, Sentry,
+ *     Lemon Squeezy), the connect route must return 501 with a body that
  *     names the app explicitly. Generic strings rot the moment we add a
  *     fifth placeholder.
  *   - The Composio SDK must NOT be touched on this path (we never want to
@@ -49,7 +49,7 @@ const { findActiveMock, revokeMock, insertConnectionMock } = vi.hoisted(() => ({
     id: 'row_1',
     spaceId: 'space_1',
     userId: 'user_clerk_1',
-    toolkit: 'gmail',
+    toolkit: 'slack',
     composioConnectionId: 'pending_conn_1',
     status: 'active',
     label: null,
@@ -111,9 +111,9 @@ function makeRequest(toolkit: string) {
 }
 
 describe('POST /api/integrations/connect/[toolkit] — coming-soon slugs', () => {
-  // The four new placeholders plus the original Follow-up Boss. If a future
-  // PR adds a sixth, this loop will exercise it automatically.
-  const PLACEHOLDERS = ['follow_up_boss', 'compass', 'boomtown', 'kvcore', 'real_geeks'];
+  // Charles coming-soon placeholders. If a future PR adds more, extend this
+  // array and the loop will exercise them automatically.
+  const PLACEHOLDERS = ['gitlab', 'vercel', 'supabase', 'sentry', 'lemonsqueezy'];
 
   it('the COMING_SOON_TOOLKITS set covers every placeholder slug we promise', () => {
     for (const slug of PLACEHOLDERS) {
@@ -131,7 +131,7 @@ describe('POST /api/integrations/connect/[toolkit] — coming-soon slugs', () =>
 
     const body = (await res.json()) as { error: string };
     // The error must name the human-readable app, not the slug — this is
-    // what the realtor sees in the UI when something slips through.
+    // what the founder sees in the UI when something slips through.
     expect(body.error).toContain(app!.name);
     expect(body.error.toLowerCase()).toContain('in progress');
   });
@@ -155,7 +155,7 @@ describe('POST /api/integrations/connect/[toolkit] — auth + space gates', () =
   it('returns 401 when unauthenticated and never touches Composio', async () => {
     const unauth = NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     mockRequireAuth.mockResolvedValue(unauth);
-    const { req, params } = makeRequest('gmail');
+    const { req, params } = makeRequest('slack');
     const res = await POST(req, { params });
     expect(res).toBe(unauth);
     expect(res.status).toBe(401);
@@ -164,7 +164,7 @@ describe('POST /api/integrations/connect/[toolkit] — auth + space gates', () =
 
   it('returns 403 when the caller has no space (after auth + toolkit checks pass)', async () => {
     mockGetSpaceForUser.mockResolvedValue(null);
-    const { req, params } = makeRequest('gmail');
+    const { req, params } = makeRequest('slack');
     const res = await POST(req, { params });
     expect(res.status).toBe(403);
     expect(initiateMock).not.toHaveBeenCalled();
@@ -174,19 +174,19 @@ describe('POST /api/integrations/connect/[toolkit] — auth + space gates', () =
 describe('POST /api/integrations/connect/[toolkit] — Composio failure', () => {
   it('returns 502 when initiateConnection throws — and the body shows the app name, not the vendor error', async () => {
     initiateMock.mockRejectedValue(new Error('composio 5xx internal'));
-    const { req, params } = makeRequest('gmail');
+    const { req, params } = makeRequest('slack');
     const res = await POST(req, { params });
     const body = (await res.json()) as { error: string };
     expect(res.status).toBe(502);
-    expect(body.error).toContain('Gmail');
-    // Vendor error must not bleed into the realtor-facing message.
+    expect(body.error).toContain('Slack');
+    // Vendor error must not bleed into the founder-facing message.
     expect(body.error).not.toContain('composio 5xx');
   });
 });
 
 describe('POST /api/integrations/connect/[toolkit] — happy path + reconnect', () => {
   it('returns { redirectUrl, connectionId, toolkit } on success', async () => {
-    const { req, params } = makeRequest('gmail');
+    const { req, params } = makeRequest('slack');
     const res = await POST(req, { params });
     const body = await res.json();
 
@@ -194,26 +194,26 @@ describe('POST /api/integrations/connect/[toolkit] — happy path + reconnect', 
     expect(body).toEqual({
       redirectUrl: 'https://composio.example/oauth/start/abc',
       connectionId: 'composio_pending_1',
-      toolkit: 'gmail',
+      toolkit: 'slack',
     });
-    // entityId must be the realtor's Clerk userId — that's the Composio
+    // entityId must be the founder's Clerk userId — that's the Composio
     // identity boundary. Using the DB user id or space id would scramble
-    // who-owns-what across the brokerage.
+    // who-owns-what across the workspace.
     expect(initiateMock).toHaveBeenCalledTimes(1);
     expect(initiateMock).toHaveBeenCalledWith(
-      expect.objectContaining({ entityId: 'user_clerk_123', toolkit: 'gmail' }),
+      expect.objectContaining({ entityId: 'user_clerk_123', toolkit: 'slack' }),
     );
   });
 
   it('reconnect: revokes the existing active row BEFORE calling initiate', async () => {
     // Order matters: the DB has a unique-active index per (space, user,
-    // toolkit). If initiate runs first and the realtor completes OAuth,
+    // toolkit). If initiate runs first and the founder completes OAuth,
     // the callback's insert collides with the existing active row.
     const existing = {
       id: 'old_conn',
       spaceId: 's_1',
       userId: 'user_clerk_123',
-      toolkit: 'gmail',
+      toolkit: 'slack',
       composioConnectionId: 'composio_old',
       status: 'active' as const,
       label: null,
@@ -233,7 +233,7 @@ describe('POST /api/integrations/connect/[toolkit] — happy path + reconnect', 
       return { redirectUrl: 'https://composio.example/oauth/start/abc', id: 'composio_pending_1' };
     });
 
-    const { req, params } = makeRequest('gmail');
+    const { req, params } = makeRequest('slack');
     const res = await POST(req, { params });
 
     expect(res.status).toBe(200);
@@ -244,7 +244,7 @@ describe('POST /api/integrations/connect/[toolkit] — happy path + reconnect', 
 
   it('no existing row: skips revoke (don\'t pay vendor delete latency on first connect)', async () => {
     findActiveMock.mockResolvedValue(null);
-    const { req, params } = makeRequest('gmail');
+    const { req, params } = makeRequest('slack');
     await POST(req, { params });
     expect(revokeMock).not.toHaveBeenCalled();
     expect(initiateMock).toHaveBeenCalledTimes(1);
@@ -252,13 +252,13 @@ describe('POST /api/integrations/connect/[toolkit] — happy path + reconnect', 
 
   it('passes the configured callback URL to Composio when NEXT_PUBLIC_APP_URL is set', async () => {
     const original = process.env.NEXT_PUBLIC_APP_URL;
-    process.env.NEXT_PUBLIC_APP_URL = 'https://app.chippi.test/';
+    process.env.NEXT_PUBLIC_APP_URL = 'https://app.charles.test/';
     try {
-      const { req, params } = makeRequest('gmail');
+      const { req, params } = makeRequest('slack');
       await POST(req, { params });
       expect(initiateMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          callbackUrl: 'https://app.chippi.test/integrations/callback',
+          callbackUrl: 'https://app.charles.test/integrations/callback',
         }),
       );
     } finally {

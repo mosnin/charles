@@ -1,159 +1,99 @@
-# Chippi
+# Charles
 
-Agentic operating system for realtors and brokerages.
-
----
-
-## What is Chippi?
-
-Chippi is an agentic operating system for realtors and brokerages. It combines always-on AI agent workflows, lead intake, qualification, follow-up orchestration, and brokerage coordination into a single operational platform.
-
-### Key features
-
-- **Public intake forms** — Custom-branded application pages for prospects to submit rental applications
-- **AI lead scoring** — Automatic lead qualification using GPT-4o-mini with score, tier (hot/warm/cold), and actionable summaries
-- **CRM pipeline** — Kanban-style deal management with customizable stages, drag-and-drop, and contact linking
-- **Tour scheduling** — Public booking page, calendar integration, automated confirmations/reminders
-- **Brokerage management** — Multi-user team dashboards, invite system, performance tracking across realtors
-- **AI agent** — Agent runtime with tool-use over the realtor operating system (read-only tools auto-run; mutating tools — email, SMS, deal/stage changes, tours — require per-call user approval). Delegates research questions to read-only sub-agents so profile lookups don't bloat the orchestrator's context. See `lib/ai-tools/tools/index.ts` for the tool registry and `lib/ai-tools/skills/*` for the sub-agents.
-- **Always-on background activation** — Incoming CRM events are queued in Redis and immediately attempt a Modal webhook fire (`POST /api/agent/trigger`) so per-realtor agents can react in near real-time with queue-based fallback if Modal is unavailable. Immediate fire policy is configurable with `AGENT_IMMEDIATE_EVENTS` (`all` by default, or comma-separated event names; invalid values fail safe to `all`).
-- **Trigger operations runbook** — Operational endpoints, env vars, alerting, and replay workflow are documented in `docs/AGENT_TRIGGER_OPERATIONS.md`.
-- **Brokerage tier** — Multi-agent organisation with per-seat billing: brokerage membership + role tiers (`broker_owner`, `broker_admin`, `realtor_member`) in `lib/permissions.ts`; lead routing across agents (`lib/brokerage-routing.ts`); commission ledger (`lib/commissions.ts`); Stripe-backed seat subscriptions (`lib/brokerage-seats.ts`, `app/api/billing/*`)
-- **Notifications** — Email (Resend) and SMS (Telnyx) notifications for leads, tours, deals, and follow-ups
-- **Analytics** — Weekly trends, conversion funnels, and team performance metrics
-
-### Who it's for
-
-- **Solo realtors** handling leasing and rental leads
-- **Small teams** and brokerages managing multiple realtors
-- **Broker-only users** overseeing team performance without a personal workspace
+Your AI cofounder. One manager agent. Six departments. From idea to revenue without hiring.
 
 ---
 
-## Tech stack
+## What it is
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 15 (App Router) |
-| Language | TypeScript |
-| UI | React 19, Tailwind CSS 4, shadcn/ui components |
-| Auth | Clerk |
-| Database | PostgreSQL via Supabase |
-| AI | OpenAI (scoring + embeddings + assistant) |
-| Vector search | Supabase pgvector |
-| Email | Resend |
-| SMS | Telnyx |
-| Cache | Upstash Redis |
-| Deployment | Vercel |
+Charles is a manager agent that runs an entire company. The founder talks to one agent. That agent holds the mission, the roadmap, and the current stage of the company, and delegates work across engineering, sales, marketing, design, support, and Ops/Finance.
+
+It is not a chatbot, not a wrapper over a model, not a no-code builder. It is a coordination layer over specialist agents, each with their own tools and skills, each accountable to the same founder.
+
+It remembers what matters. It asks before it spends, ships, or speaks on your behalf. The founder stays in the chair.
 
 ---
 
-## Project structure
+## How it works
 
 ```
-app/                    # Next.js App Router pages, layouts, API routes
-  (auth)/               # Sign-in, sign-up, login pages
-  s/[slug]/             # Workspace pages (dashboard, leads, contacts, deals, tours, settings)
-  broker/               # Brokerage management pages
-  setup/                # Onboarding and workspace creation
-  api/                  # API routes (contacts, deals, tours, onboarding, AI, etc.)
-components/             # UI and feature components
-  ui/                   # Base shadcn/ui components
-  dashboard/            # Dashboard widgets (header, sidebar, notification center)
-  deals/                # Kanban board, deal forms
-  broker/               # Brokerage-specific components
-  auth/                 # Auth page layout, onboarding flow
-lib/                    # Core business logic
-  email.ts              # Resend email templates (leads, deals, invitations, digests)
-  tour-emails.ts        # Tour confirmation, reminder, follow-up emails
-  sms.ts                # Telnyx SMS integration
-  notify.ts             # Unified notification dispatcher (email + SMS)
-  lead-scoring.ts       # AI lead scoring via OpenAI
-  ai.ts                 # AI assistant with provider fallback
-  supabase.ts           # Supabase client
-  permissions.ts        # Auth helpers and broker context
-supabase/
-  schema.sql            # Database schema and migrations
-docs/framework/         # Design system documentation (tokens, components, archetypes)
+Founder (chat)
+  └── Charles (manager agent)
+        ├── Mission · Roadmap · Stage
+        ├── Core memory  ·  Long-term memory
+        └── Departments (handoff)
+              ├── Engineering   →  GitHub · Supabase · Vercel
+              ├── Sales          →  CRM · outbound email
+              ├── Marketing     →  copy · image/video · social
+              ├── Design        →  logo · landing · brand
+              ├── Support        →  inbox · helpdesk
+              └── Ops/Finance   →  Stripe · expenses · reporting
+
+Every external write goes through an approval gate.
 ```
+
+The company moves through six stages, in order: `Idea → Initial → Identity → Building → Selling → Scaling`. Each stage has exit gates Charles enforces. The founder can override.
+
+Memory is layered: working (per-turn scratchpad), core (~20 persistent slots, always injected), long-term (pgvector recall on demand).
+
+Autonomy is per-department and configurable: `observe`, `ask`, `auto-low`, `autonomous`. The default is `ask`.
+
+See `PRODUCT_SCOPE.md` for the canonical definition. See `ROADMAP.md` for what's shipping.
 
 ---
 
-## Getting started
+## Stack
 
-### Prerequisites
+- Next.js 15 (App Router, Turbopack)
+- React 19
+- TypeScript 5.8
+- Clerk auth
+- Supabase (Postgres + pgvector)
+- Upstash Redis
+- Modal (Python agent runtime)
+- OpenAI Agents SDK
+- Stripe
+- Resend
+- Telnyx
+- Composio
+- MCP
 
-- Node.js 18+
-- pnpm
-- Supabase project (or PostgreSQL database)
-- Clerk account for authentication
+---
 
-### Environment setup
-
-Copy `.env.example` to `.env.local` and fill in your credentials:
-
-```bash
-cp .env.example .env.local
-```
-
-Required variables:
-- `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` — Supabase connection
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` + `CLERK_SECRET_KEY` — Clerk auth
-- `OPENAI_API_KEY` — Lead scoring and embeddings
-
-Optional:
-- `RESEND_API_KEY` + `RESEND_FROM_EMAIL` — Email notifications
-- `TELNYX_API_KEY` + `TELNYX_FROM_NUMBER` — SMS notifications
-See [ENVIRONMENT.md](./ENVIRONMENT.md) for the full reference.
-
-### Install and run
+## Run locally
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-### Database setup
+Copy `.env.example` to `.env.local` and fill in credentials. See `ENVIRONMENT.md` for the full variable reference. At minimum you need Clerk, Supabase, and a model provider key to boot the app.
 
-1. Create a Supabase project
-2. Enable the pgvector extension (Database > Extensions > search "vector")
-3. Run `supabase/schema.sql` in the SQL editor
+Database setup: create a Supabase project, enable the `pgvector` extension, and run the migrations in `supabase/`.
 
-### Build for production
+The agent runtime runs on Modal. See `agent/README.md` (in the `agent/` directory) for deploying the Python runtime.
 
-```bash
-pnpm build
-pnpm start
+---
+
+## Repo layout
+
+```
+agent/         Python / Modal agent runtime (manager + departments)
+app/           Next.js routes, pages, API handlers
+components/    React UI components
+lib/           Shared TypeScript: auth, billing, memory, approvals, tools
+plugins/       Plug-in slash-command packs and skill bundles
+supabase/      SQL schema and migrations
+docs/          Architecture notes, design system, internal references
 ```
 
 ---
 
-## Core workflows
+## Contributing
 
-1. **Realtor signs up** via Clerk and completes onboarding (or skips to set up later)
-2. **Workspace created** with a custom slug and public intake link
-3. **Prospects submit** rental applications through the public intake form
-4. **Leads are scored** automatically by AI and saved as contacts
-5. **Realtor manages** leads, contacts, deals, and tours from the workspace dashboard
-6. **Notifications sent** via email and/or SMS based on workspace preferences
-7. **Brokers** can invite realtors, track team performance, and manage the brokerage
+Operating rules for humans and agents working in this repo live in `AGENTS.md` and `CLAUDE.md`. Read both before opening a PR. Protected systems (auth, billing, RLS, approval gating, kill switch, audit log, cost tracker) are non-negotiable — see `PRODUCT_SCOPE.md` for the list.
 
----
-
-## Environment reference
-
-See [ENVIRONMENT.md](./ENVIRONMENT.md) for a detailed breakdown of all environment variables, services, and per-workspace configuration.
-
----
-
-## Design system
-
-The design system documentation lives in `docs/framework/` and covers:
-- Design tokens (colors, spacing, typography, motion)
-- Component specs (cards, tables, forms, modals, etc.)
-- Screen archetypes (dashboard, analytics, table index, detail, settings)
-- Dashboard archetypes (queue, pipeline, analytics, admin overview)
-- Responsive breakpoints and mobile behavior
+UI work must follow `STYLESHEET.md`. Workflow scope and boundaries are in `WORKFLOW_BOUNDARIES.md`.
 
 ---
 

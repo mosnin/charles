@@ -53,12 +53,12 @@ export async function POST(req: NextRequest) {
   }
 
   // Generate API key (for direct Bearer auth)
-  const rawKey = `chippi_${crypto.randomBytes(24).toString('hex')}`;
+  const rawKey = `chs_${crypto.randomBytes(24).toString('hex')}`;
   const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
   const keyPrefix = rawKey.slice(0, 12) + '...';
 
   // Generate OAuth client credentials (for Claude MCP connector)
-  const clientId = `chippi_${crypto.randomBytes(16).toString('hex')}`;
+  const clientId = `chs_${crypto.randomBytes(16).toString('hex')}`;
   const clientSecret = `cs_${crypto.randomBytes(32).toString('hex')}`;
   const clientSecretHash = crypto.createHash('sha256').update(clientSecret).digest('hex');
 
@@ -78,13 +78,21 @@ export async function POST(req: NextRequest) {
   if (error)
     return NextResponse.json({ error: 'Failed to create API key' }, { status: 500 });
 
+  const appUrl = (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.APP_URL ||
+    (process.env.NEXT_PUBLIC_ROOT_DOMAIN
+      ? `https://${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`
+      : 'https://app.charles.dev')
+  ).replace(/\/$/, '');
+
   return NextResponse.json({
     ...data,
     key: rawKey,
     clientId,
     clientSecret,
-    tokenUrl: 'https://my.usechippi.com/api/mcp/oauth/token',
-    mcpUrl: 'https://my.usechippi.com/api/mcp',
+    tokenUrl: `${appUrl}/api/mcp/oauth/token`,
+    mcpUrl: `${appUrl}/api/mcp`,
   }, { status: 201 });
 }
 

@@ -14,7 +14,6 @@ import {
   Building2,
   Calendar,
   Hash,
-  PhoneIncoming,
   Users,
   CreditCard,
   ShieldBan,
@@ -41,7 +40,7 @@ export async function generateMetadata({
     .maybeSingle();
   const user = rows as { name: string | null; email: string } | null;
   return {
-    title: `${user?.name || user?.email || 'User'} — Admin — Chippi`,
+    title: `${user?.name || user?.email || 'User'} — Admin — Charles`,
   };
 }
 
@@ -173,69 +172,38 @@ export default async function AdminUserDetailPage({
   if (spaceError) throw spaceError;
   const spaceRow = spaceData as (Space & Record<string, unknown>) | null;
 
-  // Fetch settings + counts if space exists
+  // Fetch settings + Charles-shape counts if space exists. The realtor-era
+  // Contact / Deal / DealStage counts are gone with their tables; once the
+  // founder-facing roll-ups exist (missions, agent tasks, etc.) wire them
+  // here so the admin row has something to read at a glance.
   let settings: SpaceSetting | null = null;
-  let contactCount = 0, dealCount = 0, stageCount = 0;
+  let missionCount = 0, taskCount = 0;
   if (spaceRow) {
-    const [settingsRes, contactCountRes, dealCountRes, stageCountRes] = await Promise.all([
+    const [settingsRes, missionCountRes, taskCountRes] = await Promise.all([
       supabase
         .from('SpaceSetting')
-        .select(
-          'id, spaceId, phoneNumber, businessName, timezone, notifications, smsNotifications, notifyNewLeads, notifyTourBookings, notifyNewDeals, notifyFollowUps',
-        )
+        .select('id, spaceId, phoneNumber, businessName, timezone, notifications, smsNotifications')
         .eq('spaceId', spaceRow.id)
         .maybeSingle(),
-      supabase.from('Contact').select('*', { count: 'exact', head: true }).eq('spaceId', spaceRow.id),
-      supabase.from('Deal').select('*', { count: 'exact', head: true }).eq('spaceId', spaceRow.id),
-      supabase.from('DealStage').select('*', { count: 'exact', head: true }).eq('spaceId', spaceRow.id),
+      supabase.from('Mission').select('*', { count: 'exact', head: true }).eq('spaceId', spaceRow.id),
+      supabase.from('AgentTask').select('*', { count: 'exact', head: true }).eq('spaceId', spaceRow.id),
     ]);
     settings = (settingsRes.data as SpaceSetting) ?? null;
-    contactCount = contactCountRes.count ?? 0;
-    dealCount = dealCountRes.count ?? 0;
-    stageCount = stageCountRes.count ?? 0;
+    missionCount = missionCountRes.count ?? 0;
+    taskCount = taskCountRes.count ?? 0;
   }
 
   const space = spaceRow
     ? {
         ...spaceRow,
         settings,
-        _count: { contacts: contactCount, deals: dealCount, stages: stageCount },
+        _count: { missions: missionCount, tasks: taskCount },
       }
     : null;
 
   const fullUser = { ...user, space };
   const onboarding = getOnboardingStatus(fullUser);
   const intakeUrl = fullUser.space ? buildIntakeUrl(fullUser.space.slug) : null;
-
-  // Recent leads for this space
-  let recentLeads: {
-    id: string;
-    name: string;
-    phone: string | null;
-    createdAt: string;
-    scoringStatus: string;
-    scoreLabel: string | null;
-  }[] = [];
-  let failedLeads = 0;
-  if (fullUser.space) {
-    const [leadRows, failedCount] = await Promise.all([
-      supabase
-        .from('Contact')
-        .select('id, name, phone, createdAt, scoringStatus, scoreLabel')
-        .eq('spaceId', fullUser.space.id)
-        .contains('tags', ['application-link'])
-        .order('createdAt', { ascending: false })
-        .limit(8),
-      supabase
-        .from('Contact')
-        .select('*', { count: 'exact', head: true })
-        .eq('spaceId', fullUser.space.id)
-        .eq('scoringStatus', 'failed'),
-    ]);
-    if (leadRows.error) throw leadRows.error;
-    recentLeads = (leadRows.data ?? []) as typeof recentLeads;
-    failedLeads = failedCount.count ?? 0;
-  }
 
   const subStatus = (fullUser.space as any)?.stripeSubscriptionStatus ?? null;
   const periodEnd = (fullUser.space as any)?.stripePeriodEnd ?? null;
@@ -384,22 +352,13 @@ export default async function AdminUserDetailPage({
                     <p className="text-xs text-muted-foreground">Usage</p>
                     <div className="flex flex-wrap gap-3 mt-1">
                       <span className="text-sm">
-                        <strong>{fullUser.space._count.contacts}</strong>{' '}
-                        <span className="text-muted-foreground">contacts</span>
+                        <strong>{fullUser.space._count.missions}</strong>{' '}
+                        <span className="text-muted-foreground">missions</span>
                       </span>
                       <span className="text-sm">
-                        <strong>{fullUser.space._count.deals}</strong>{' '}
-                        <span className="text-muted-foreground">deals</span>
+                        <strong>{fullUser.space._count.tasks}</strong>{' '}
+                        <span className="text-muted-foreground">tasks</span>
                       </span>
-                      <span className="text-sm">
-                        <strong>{fullUser.space._count.stages}</strong>{' '}
-                        <span className="text-muted-foreground">stages</span>
-                      </span>
-                      {failedLeads > 0 && (
-                        <span className="text-sm text-amber-600 dark:text-amber-400">
-                          <strong>{failedLeads}</strong> failed scoring
-                        </span>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -420,85 +379,6 @@ export default async function AdminUserDetailPage({
           )}
         </div>
       </div>
-
-      {/* Recent leads table */}
-      {fullUser.space && (
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-            Recent Leads
-          </p>
-          {recentLeads.length === 0 ? (
-            <Card>
-              <CardContent className="px-5 py-8 text-center">
-                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center mx-auto mb-3">
-                  <PhoneIncoming size={18} className="text-muted-foreground" />
-                </div>
-                <p className="text-sm text-muted-foreground">No leads yet.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="rounded-xl border border-border overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/40">
-                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">
-                      Phone
-                    </th>
-                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      Score
-                    </th>
-                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">
-                      Date
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border bg-card">
-                  {recentLeads.map((lead) => (
-                    <tr key={lead.id}>
-                      <td className="px-4 py-3 font-medium">{lead.name}</td>
-                      <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
-                        {lead.phone || '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        {lead.scoringStatus === 'scored' && lead.scoreLabel ? (
-                          <span
-                            className={cn(
-                              'text-[10px] font-semibold rounded-full px-2 py-0.5',
-                              lead.scoreLabel === 'hot'
-                                ? 'text-red-700 bg-red-50 dark:text-red-400 dark:bg-red-500/15'
-                                : lead.scoreLabel === 'warm'
-                                  ? 'text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/15'
-                                  : lead.scoreLabel === 'cold'
-                                    ? 'text-blue-700 bg-blue-50 dark:text-blue-400 dark:bg-blue-500/15'
-                                    : 'text-slate-600 bg-slate-100 dark:text-slate-400 dark:bg-slate-500/15',
-                            )}
-                          >
-                            {lead.scoreLabel}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">
-                            {lead.scoringStatus === 'failed' ? 'unscored' : lead.scoringStatus}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell whitespace-nowrap">
-                        {new Date(lead.createdAt).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Admin actions */}
       <UserActions

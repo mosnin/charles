@@ -1,220 +1,113 @@
 # WORKFLOW_BOUNDARIES.md
 
-Workflow separation guide to prevent accidental cross-system coupling.
-
-This document defines clear boundaries between each major workflow in Chippi. AI agents and contributors must respect these boundaries when making changes.
+What an AI agent is and is NOT allowed to do inside this repository and at runtime, without explicit user approval.
 
 ---
 
-## 1. High-level boundary map
+## Why this file exists
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                        AUTH                              │
-│  Clerk session + middleware route protection             │
-│  Boundary: identity/session only, no business state     │
-└──────────────────────┬──────────────────────────────────┘
-                       │
-          ┌────────────┼────────────┐
-          ▼            ▼            ▼
-┌─────────────┐ ┌───────────┐ ┌──────────────┐
-│ ONBOARDING  │ │  PUBLIC    │ │   CRM        │
-│             │ │  INTAKE    │ │   WORKSPACE  │
-│ User setup  │ │            │ │              │
-│ + workspace │ │ Lead       │ │ Leads view   │
-│ activation  │ │ ingestion  │ │ Contacts     │
-│             │ │            │ │ Deals        │
-│             │ │     │      │ │ AI assistant │
-│             │ │     ▼      │ │ Settings     │
-│             │ │ ┌────────┐ │ │              │
-│             │ │ │SCORING │ │ │              │
-│             │ │ └────────┘ │ │              │
-└─────────────┘ └───────────┘ └──────────────┘
-                                     │
-                              ┌──────┘
-                              ▼
-                       ┌─────────────┐
-                       │   BILLING   │
-                       │ (not yet    │
-                       │ implemented)│
-                       └─────────────┘
-```
+Charles delegates real power to agents — they write code, send messages, charge cards, deploy, and act on a founder's behalf. Delegated power without explicit boundaries is how things go sideways. This file is the contract: what an agent may do freely, what requires the approval gate, what is forbidden without an explicit instruction from the founder, and how the kill-switch and audit trail are honored. Every agent (manager Charles, department agents, ad-hoc coding agents like Claude Code or Codex) operates under these rules.
 
 ---
 
-## 2. Auth boundary
+## Always-allowed actions
 
-| Attribute | Detail |
-|---|---|
-| **Purpose** | Protect user and workspace access via identity and session |
-| **Trigger** | Any route/API request requiring authentication |
-| **Source of truth** | Clerk user/session + `middleware.ts` route matchers |
-| **Key files** | `middleware.ts`, `app/(auth)/*` |
-| **Can change** | Sign-in state, session validity, guarded access paths |
-| **Must never change** | Business workflow states (onboarding, contacts, scoring) as side effect of auth operations |
+These never require approval. They are local, reversible, and have no external side effects.
 
-### Route protection rules (from middleware)
-
-| Pattern | Protection |
-|---|---|
-| `/dashboard(.*)` | Protected — requires auth |
-| `/s/(.*)` | Protected — requires auth |
-| `/onboarding(.*)` | Protected — requires auth |
-| `/`, `/sign-in`, `/sign-up`, `/admin` | Public |
-| `/apply/*` | Public (not in middleware matcher — prospect-facing) |
-| `/legal/*` | Public |
+- Reading any file in the repo.
+- Running typecheck (`pnpm typecheck`), lint (`pnpm lint`), and the local test suite (`pnpm test`, `pnpm test:contract`).
+- Querying the local dev database for read-only inspection.
+- Generating drafts (code, copy, emails, plans, designs) that are written to the draft store (`AgentDraft`) and not auto-sent or auto-merged.
+- Updating in-repo documentation files (`*.md`) and proposing changes via PR.
+- Searching long-term memory (`AgentMemory` via pgvector) and reading from core memory (`CoreMemory`).
+- Recording working-memory scratchpad entries (`ExecutionStep.scratchpad`).
+- Emitting `TelemetryEvent` rows for observability.
 
 ---
 
-## 3. Onboarding boundary
+## Allowed-with-default-approval actions
 
-| Attribute | Detail |
-|---|---|
-| **Purpose** | Activate user and workspace; generate intake link |
-| **Trigger** | Authenticated user enters onboarding flow |
-| **Source of truth** | `User.onboardingCurrentStep`, `User.onboardingCompletedAt`, `Space` creation |
-| **Key files** | `app/onboarding/*`, `app/api/onboarding/route.ts` |
-| **Key records** | `User` (onboarding fields), `Space`, `SpaceSetting`, default `DealStage` rows |
-| **Can change** | Onboarding progress/completion, workspace setup data, user profile fields |
-| **Must never change** | Application submission records, Contact scoring outputs, CRM pipeline state |
+These run through the approval gate. The agent prepares the action, opens an `AgentPausedRun`, emits a `permission_required` SSE event, and waits for the founder's approval before executing. A founder can raise a department to `autonomous` to skip the gate for that department's scope; until they do, default is approval-required.
 
-### Onboarding actions (POST /api/onboarding)
-
-| Action | What it does | What it must not do |
-|---|---|---|
-| `start` | Sets step to 1, marks started | Touch contacts or deals |
-| `save_step` | Persists current step number | Touch contacts or deals |
-| `save_profile` | Updates user name + SpaceSetting phone/business | Touch contacts or scoring |
-| `create_space` | Creates Space + SpaceSetting + default stages | Touch existing contacts |
-| `save_notifications` | Updates notification preferences | Touch scoring or contacts |
-| `complete` | Sets `onboardingCompletedAt` + step 7 | Touch contacts, scoring, or pipeline |
-| `check_slug` | Checks slug availability | Write anything |
-
-### Onboarding completion semantics
-
-- Completion is marked by `User.onboardingCompletedAt` being non-null
-- `app/dashboard/page.tsx` and `app/s/[slug]/layout.tsx` both check this field
-- Legacy accounts with space but no completion timestamp are auto-healed (completion set retroactively)
+- Any external write: API calls to third parties (Composio, MCP, custom adapters) that mutate state.
+- Code commits to a tracked branch and PR merges into `main`.
+- Sending email (Resend), SMS or voice (Telnyx), or any outbound message to a real person.
+- Posting to social channels or any public surface.
+- Charging cards or issuing refunds via Stripe.
+- Deploying to production (Vercel, Modal, or any other target).
+- Creating, transferring, or modifying domains and DNS.
+- Creating or rotating integration credentials and API keys.
+- Writing to Core Memory (`CoreMemory`) — see Memory boundaries.
+- Spawning a sub-agent run that itself can take any of the above actions.
 
 ---
 
-## 4. Application flow boundary
+## Never-allowed-without-explicit-user-instruction actions
 
-| Attribute | Detail |
-|---|---|
-| **Purpose** | Capture structured prospect applications via public intake form |
-| **Trigger** | Public form submission at `/apply/[slug]` |
-| **Source of truth** | `Contact` record created under the target `Space` |
-| **Key files** | `app/apply/[slug]/*`, `app/api/public/apply/route.ts` |
-| **Key records** | `Contact` (with tags `['application-link', 'new-lead']`, type `QUALIFICATION`) |
-| **Can change** | Contact creation, intake metadata, scoring status fields on Contact |
-| **Must never change** | `User.onboardingCompletedAt`, `Space` configuration, `DealStage` definitions |
+These require a direct, in-session instruction from the founder. An agent may not take them based on inferred intent, prior context, or a stale instruction.
 
-### Application submission rules
-
-- No auth required (public endpoint)
-- Required fields: `slug`, `name`, `phone`
-- Deduplication: same name + normalized phone within 2-minute window
-- Contact created with `scoringStatus: 'pending'` then updated after scoring
-- Timeline and notes are combined into the `notes` field as `Timeline: X\nnotes`
-- Budget stored as `preferences` field
+- Disabling or weakening Clerk auth, the auth middleware, or RLS policies.
+- Disabling or bypassing the approval gate (`AgentPausedRun` / `AgentDraft` / `permission_required` SSE).
+- Disabling the kill-switch or removing kill-switch checks.
+- Force-pushing to `main` or any protected branch.
+- Deleting branches, tags, or releases.
+- Dropping tables, truncating tables, or running destructive migrations outside the expand-contract path.
+- Modifying or rotating Stripe webhook secrets, Clerk webhook secrets, or other webhook signing keys.
+- Granting new OAuth scopes to an existing integration or installing a new integration that requests broader scopes than the prior version.
+- Training on founder or user data, or sending founder/user data to any third party not already in `ENVIRONMENT.md`.
+- Exfiltrating data outside the configured stack (no ad-hoc uploads, no "for backup" copies to external services).
+- Bypassing the prompt sanitizer on either input or output paths.
+- Removing audit log entries or cost-tracker entries.
+- Editing committed migrations in place (write a new migration instead).
 
 ---
 
-## 5. Scoring boundary
+## Department autonomy levels
 
-| Attribute | Detail |
-|---|---|
-| **Purpose** | Provide explainable lead triage metadata |
-| **Trigger** | Called after Contact creation in `/api/public/apply` |
-| **Source of truth** | Score fields on `Contact` record |
-| **Key files** | `lib/lead-scoring.ts` |
-| **Key fields** | `Contact.leadScore`, `Contact.scoreLabel`, `Contact.scoreSummary`, `Contact.scoringStatus` |
-| **Can change** | Scoring-related fields on the specific Contact being scored |
-| **Must never change** | Onboarding state, unrelated Contact records, CRM pipeline state, DealStage definitions, prompt text (without explicit instruction) |
+Each of the six departments (Engineering, Sales, Marketing, Design, Support, Ops/Finance) runs at one of four autonomy levels. The founder sets the level per department. The level governs what triggers the approval gate.
 
-### Scoring isolation rules
+- **observe** — Agent may read and propose. No drafts are created automatically; no external action is taken. Every proposal surfaces as a notification.
+- **ask** — Agent may read, propose, and prepare drafts. Every external write opens the approval gate before executing. This is the safe default.
+- **auto-low** — Agent may execute low-impact actions autonomously (defined per department, capped by cost and blast radius). Anything above the cap opens the approval gate.
+- **autonomous** — Agent may execute any action in its scope without per-action approval. Always-forbidden actions above still require explicit instruction. Telemetry, audit, cost-tracker, and kill-switch still apply.
 
-1. Scoring operates on a single Contact at a time
-2. Scoring failure must not prevent Contact persistence
-3. Scoring must not create or modify Deals, DealStages, or Messages
-4. Scoring logic must not be modified as a side effect of other changes
-5. Score thresholds (hot 75-100, warm 45-74, cold 0-44) are part of the prompt contract
+Defaults at install:
 
----
+- Engineering — `ask`
+- Sales — `ask`
+- Marketing — `ask`
+- Ops/Finance — `ask`
+- Support — `auto-low`
+- Design — `auto-low`
 
-## 6. CRM boundary
-
-| Attribute | Detail |
-|---|---|
-| **Purpose** | Triage and follow-up operations for the authenticated realtor |
-| **Trigger** | Authenticated workspace usage at `/s/[slug]/*` |
-| **Source of truth** | `Contact`, `Deal`, `DealStage`, `DealContact`, `Message` records |
-| **Key files** | `app/s/[slug]/*`, `app/api/contacts/*`, `app/api/deals/*`, `app/api/stages/*`, `app/api/ai/task/route.ts`, `app/api/ai/task/approve/[requestId]/route.ts` |
-| **Can change** | CRM records, pipeline ordering, deal stage assignments, contact lifecycle type, messages |
-| **Must never change** | Scoring prompt/contract, onboarding state, public intake form behavior, model configuration |
-
-### CRM sub-workflows
-
-| Sub-workflow | Purpose | Key operations |
-|---|---|---|
-| Leads view | Show intake-sourced leads, clear unread badges | Read contacts with `application-link` tag, remove `new-lead` tag |
-| Contacts | Full CRUD for all contacts | Create, read, update, delete contacts; search/filter |
-| Deals | Kanban pipeline management | Create/update/delete deals; drag/reorder; stage assignment |
-| AI assistant | Chat with CRM context | Stream responses, persist messages, optional RAG enrichment |
-| Settings | Workspace configuration | Update space name, notification prefs, AI keys, billing settings |
+Founders can raise or lower any department at any time. Lowering takes effect immediately; raising requires a confirmation step.
 
 ---
 
-## 7. Billing boundary
+## Memory boundaries
 
-| Attribute | Detail |
-|---|---|
-| **Purpose** | Billing preferences and settings (current visible scope) |
-| **Trigger** | Settings page updates |
-| **Source of truth** | `SpaceSetting.billingSettings` (string field) |
-| **Key files** | `app/s/[slug]/settings/*`, `app/api/spaces/route.ts` |
-| **Can change** | Billing settings field value |
-| **Must never change** | Auth state, onboarding state, scoring logic, CRM core records, contact data |
-| **Status** | Stripe workflow **not confirmed** in current codebase. Field and UI exist but no payment processing. |
+Charles uses three memory layers. Each has different write rules.
 
-### Billing implementation notes
+- **Working memory** (`ExecutionStep.scratchpad`) — per-turn, ephemeral, agent-writable. Wiped at run end. No PII rules beyond the sanitizer.
+- **Core memory** (`CoreMemory`, ~20 slots, always injected verbatim into the agent's context) — high-signal facts about the founder, the company, and active priorities. Agents may propose writes; writes require approval unless the founder has set Core memory to autonomous. Agents may not write into core memory: personal PII (SSN, government ID, home address) without explicit founder consent; third-party secrets, API keys, or credentials; founder bank, card, or financial-account numbers; raw user data belonging to the founder's customers. Anything sensitive that needs to influence behavior should live behind a reference, not in the slot itself.
+- **Long-term memory** (`AgentMemory`, pgvector) — agent-writable for run summaries, learned patterns, and recall snippets. Same content prohibitions as core memory. Sanitizer runs on every write.
 
-- When billing is implemented, it must not gate existing CRM functionality without explicit product decision
-- Billing state must not be coupled to onboarding completion
-- Billing failures must not affect lead ingestion or scoring
+If an agent is about to write something to memory and is unsure whether it crosses a line, the answer is don't — pause and ask.
 
 ---
 
-## 8. Critical separation rule
+## Kill-switch
 
-### Onboarding completion and application submission are separate states
-
-They must **never** share generic completion logic.
-
-| Concept | Scope | Source of truth | What it means |
-|---|---|---|---|
-| Onboarding completion | User/workspace activation | `User.onboardingCompletedAt` | The realtor has set up their workspace and is ready to use the CRM |
-| Application submission | Prospect/lead ingestion | `Contact` record with intake tags | A prospective renter has submitted their information |
-
-These two events:
-- Happen to different actors (realtor vs prospect)
-- Are stored on different models (User vs Contact)
-- Serve different purposes (activation vs ingestion)
-- Must never share a boolean, timestamp, or status field
-
-**Any change that blends these states requires explicit product and technical approval.**
+Every agent run must check the `kill-switch` table at the start of each step and abort cleanly if a kill flag is set for that scope (global, founder, department, or run). The check is a single read against an indexed table; there is no excuse to skip it. On abort, the agent writes a final `TelemetryEvent` with the abort reason, marks the run as `killed`, and releases any approval-gate locks. No external action is taken on a killed run, even one mid-flight.
 
 ---
 
-## 9. Cross-boundary rules for agents
+## Audit and cost
 
-When working on a task:
+Every external action — every approval-gated write, every third-party call, every send, every charge, every deploy — produces a `TelemetryEvent` row (who, what, when, scope, outcome) and a `cost-tracker` entry (tokens, dollars, vendor). Non-negotiable. Telemetry and cost-tracker calls are not optional, not debug-only, and not behind a feature flag. An action that cannot be audited and costed cannot ship.
 
-1. **Identify** which workflow boundary the task falls within
-2. **Stay** within that boundary. If the task requires crossing boundaries, flag it explicitly.
-3. **Do not** modify scoring as a side effect of CRM changes
-4. **Do not** modify onboarding as a side effect of intake changes
-5. **Do not** modify auth as a side effect of any business logic change
-6. **Do not** couple billing to any other workflow without explicit instruction
-7. **Test** boundary integrity after changes using the checklist in `TESTING.md` section 5
+---
+
+## Escalation
+
+When in doubt, pause. The default move is to open an `AgentPausedRun`, emit a `permission_required` SSE event with a tight summary of the proposed action and its blast radius, and wait. The founder either approves, rejects, or rewrites the action. Acting without approval when the gate exists is worse than missing the window — the gate is the product. If the agent is unable to open the gate (infrastructure failure), it must abort the run rather than proceed unattended.

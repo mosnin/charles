@@ -1,149 +1,163 @@
 # ENVIRONMENT.md
 
-Configuration and external service reference for Chippi. Based on actual repository code.
+Configuration and external-service reference for Charles. Based on actual
+repository code — every variable below is read somewhere in `app/`, `lib/`,
+`middleware.ts`, or `agent/`.
+
+Charles runs as two deployed pieces:
+
+- **The Next.js app** (Vercel) — web UI, API routes, onboarding, workspace.
+- **The agent runtime** (Modal) — `agent/modal_app.py`, where `CharlesManager`
+  actually runs chat turns and autonomous work.
+
+They share secrets. A variable needed by the agent must be set in **both**
+Vercel env **and** the Modal `charles-secrets` secret.
 
 ---
 
-## 1. Environment variables
+## 1. Tier 0 — the app will not boot without these
 
-All variables found or inferable from code usage:
-
-| Variable | Used by | What it powers | Criticality | Failure symptom if missing |
-|---|---|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | `lib/supabase.ts` | Supabase project endpoint for all DB operations | **Critical** | All DB operations fail; app crashes on any data access |
-| `SUPABASE_SERVICE_ROLE_KEY` | `lib/supabase.ts` | Server-side Supabase service role (bypasses RLS) | **Critical** | All DB operations fail |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk SDK (client-side) | Auth UI components (sign-in, sign-up) | **Critical** | Auth pages fail to render; sign-in/sign-up broken |
-| `CLERK_SECRET_KEY` | Clerk SDK (server-side) | Server-side auth verification, middleware | **Critical** | All protected routes fail; API auth returns errors |
-| `OPENAI_API_KEY` | `lib/lead-scoring.ts`, `lib/embeddings.ts`, `lib/ai.ts` | Lead scoring, text embeddings, AI assistant | **High** | Scoring fails (fallback to unscored); embeddings and vector sync fail; assistant returns error message |
-| `KV_REST_API_URL` | `lib/redis.ts` | Upstash Redis endpoint | **Medium** | Legacy admin path and slug metadata fail |
-| `KV_REST_API_TOKEN` | `lib/redis.ts` | Upstash Redis authentication | **Medium** | Same as `KV_REST_API_URL` |
-| `NEXT_PUBLIC_ROOT_DOMAIN` | `lib/utils.ts` | Public URL/domain construction for intake links | **Medium** | Falls back to `workflowrouting.com` (prod) or `localhost:3000` (dev); intake link URLs may be wrong if not set correctly |
-| `NEXT_PUBLIC_APP_URL` | `lib/email.ts` | Base URL for links in notification emails (e.g. `https://app.yourdomain.com`) | **Medium** | Email links fall back to `https://app.yourdomain.com` placeholder |
-| `RESEND_API_KEY` | `lib/email.ts`, `lib/tour-emails.ts` | Resend API key for sending all transactional emails (leads, tours, invitations) | **Medium** | Email notifications silently skipped; leads still saved normally |
-| `RESEND_FROM_EMAIL` | `lib/email.ts`, `lib/tour-emails.ts` | Sender address for notification emails (must be verified in Resend) | **Medium** | Falls back to `notifications@updates.yourdomain.com`; must be set to a verified domain |
-| `TELNYX_API_KEY` | `lib/sms.ts` | Telnyx API key for SMS notifications and the `send_sms` AI tool | **Medium** | SMS notifications silently skipped; `send_sms` tool returns an error |
-| `TELNYX_FROM_NUMBER` | `lib/sms.ts` | Telnyx phone number to send SMS from (E.164 format, validated `^\+\d{10,15}$`) | **Medium** | SMS notifications silently skipped |
-| `STRIPE_PRICE_STARTER` | `app/api/billing/checkout/route.ts` | Stripe price ID for the Starter brokerage plan | **Medium** | Starter plan checkout cannot be created |
-| `STRIPE_PRICE_TEAM` | `app/api/billing/checkout/route.ts` | Stripe price ID for the Team brokerage plan | **Medium** | Team plan checkout cannot be created |
-| `STRIPE_PRICE_ENTERPRISE` | `app/api/billing/checkout/route.ts` | Stripe price ID for the Enterprise brokerage plan | **Medium** | Enterprise plan checkout cannot be created |
-| `COMPOSIO_API_KEY` | `lib/integrations/composio.ts`, `agent/integrations.py` | Composio API key for loading the realtor's connected toolkits (Gmail, Slack, HubSpot, etc.) into the chat agent AND autonomous runs | **High (when integrations used)** | Connections show "Connected" in /settings but Chippi can't see them as tools. **Must be set in BOTH Vercel env AND the Modal `chippi-secrets` secret** so chat (Modal) and the Next.js callback both work. |
-| `NODE_ENV` | `lib/utils.ts` | Protocol selection (http vs https) | **Auto-set** | Set automatically by Next.js; do not override manually |
-
-### Clerk-specific variables
-
-Clerk requires additional environment variables that are standard for `@clerk/nextjs`. These are not explicitly referenced in application code but are required by the SDK:
-
-| Variable | Notes |
-|---|---|
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Required for client-side Clerk components |
-| `CLERK_SECRET_KEY` | Required for server-side auth verification |
-| `NEXT_PUBLIC_CLERK_SIGN_IN_URL` | Optional; defaults to `/sign-in` |
-| `NEXT_PUBLIC_CLERK_SIGN_UP_URL` | Optional; defaults to `/sign-up` |
-| `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL` | Optional; defaults to `/dashboard` |
-| `NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL` | Optional; defaults to `/dashboard` |
-
----
-
-## 2. What each service powers
-
-| Service | Role in Chippi | Key integration files |
+| Variable | Used by | Notes |
 |---|---|---|
-| **Clerk** | Authentication, session management, route protection | `middleware.ts`, `app/(auth)/*`, all API routes using `auth()` |
-| **Supabase** | Source-of-truth for all app data (users, spaces, contacts, deals, stages, messages, embeddings) | `lib/supabase.ts`, `supabase/schema.sql` |
-| **OpenAI** | Lead scoring (gpt-4o-mini), text embeddings (text-embedding-3-small), AI assistant primary provider | `lib/lead-scoring.ts`, `lib/embeddings.ts`, `lib/ai.ts` |
-| **Supabase pgvector** | Vector storage and similarity search for RAG-enriched AI assistant context, scoped per workspace | `lib/zilliz.ts`, `lib/vectorize.ts`, `supabase/schema.sql` (`DocumentEmbedding` table + `match_documents` RPC) |
-| **Resend** | Transactional email — sends lead notifications, tour confirmations/reminders/follow-ups, brokerage invitations, follow-up digests, and CRM emails | `lib/email.ts`, `lib/tour-emails.ts`, `app/api/public/apply/route.ts` |
-| **Telnyx** | SMS notifications — sends text messages to workspace owners for new leads, tour bookings, and deals (opt-in per workspace via settings) | `lib/sms.ts`, `lib/notify.ts` |
-| **Upstash Redis** | Rate limiting (`lib/rate-limit.ts`), pending-approval state for the AI agent (`lib/ai-tools/pending-approvals.ts`), legacy slug metadata + admin dashboard | `lib/redis.ts`, `lib/rate-limit.ts`, `lib/ai-tools/pending-approvals.ts`, `lib/slugs.ts`, `app/actions.ts` |
-| **Stripe** | Brokerage seat-based billing checkout/portal/webhook | `lib/stripe.ts`, `app/api/billing/checkout/route.ts`, `app/api/billing/portal/route.ts`, `app/api/billing/cancel/route.ts` |
-| **Vercel** | Deployment target, analytics, speed insights | `@vercel/analytics`, `@vercel/speed-insights` packages |
+| `NEXT_PUBLIC_SUPABASE_URL` | `lib/supabase.ts`, `agent/config.py` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client Supabase | Project API keys → `anon` `public` |
+| `SUPABASE_SERVICE_ROLE_KEY` | server Supabase, `agent/config.py` | Bypasses RLS — never ship to client. Mark **Sensitive** in Vercel |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk SDK (client) | Auth UI won't render without it |
+| `CLERK_SECRET_KEY` | Clerk SDK (server), `middleware.ts` | Server auth + route protection. **Sensitive** |
+| `CLERK_WEBHOOK_SECRET` | `app/api/webhooks/clerk` | Signing secret for the Clerk → Charles user-sync webhook. **Sensitive** |
 
 ---
 
-## 3. Critical vs optional variables
+## 2. Tier 1 — the agent runtime
 
-### Must have for app to function
+Charles's chat, autonomous runs, and swarm all live on Modal. Without these
+the workspace renders but the agent does nothing.
 
-| Variable | Why |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | No data access without it |
-| `SUPABASE_SERVICE_ROLE_KEY` | No data access without it |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Auth UI won't render |
-| `CLERK_SECRET_KEY` | Server auth fails |
-
-### Must have for core features
-
-| Variable | Why |
-|---|---|
-| `OPENAI_API_KEY` | Lead scoring, embeddings, and AI assistant all require it. Vector sync requires embeddings. |
-
-### Nice to have / optional
-
-| Variable | Why |
-|---|---|
-| `KV_REST_API_URL` + `KV_REST_API_TOKEN` | Legacy admin path. Core CRM works without it. |
-| `NEXT_PUBLIC_ROOT_DOMAIN` | Falls back to defaults. Set for correct intake link URLs. |
-| `NEXT_PUBLIC_APP_URL` | For correct contact links in notification emails. |
-| `RESEND_API_KEY` + `RESEND_FROM_EMAIL` | Required for lead notification emails. Notifications are silently skipped if unset. |
-| `TELNYX_API_KEY` + `TELNYX_FROM_NUMBER` | Required for SMS notifications and the `send_sms` AI tool. SMS silently skipped if unset. Users must enable SMS in workspace settings. |
-| `STRIPE_PRICE_STARTER` / `STRIPE_PRICE_TEAM` / `STRIPE_PRICE_ENTERPRISE` | Required to initiate brokerage checkout sessions at each tier. Billing flow fails without the tier's price ID. |
-
----
-
-## 4. Local vs production notes
-
-| Aspect | Local (development) | Production |
+| Variable | Used by | Notes |
 |---|---|---|
-| Protocol | `http` (derived from `NODE_ENV`) | `https` |
-| Default domain | `localhost:3000` | `workflowrouting.com` |
-| Build pipeline | `pnpm dev` (Turbopack) | `pnpm build` (`next build`) |
-| TS/ESLint errors | Visible in dev | Ignored during build (`next.config.ts`) |
+| `OPENAI_API_KEY` | `lib/embeddings.ts`, `agent/config.py` | Model inference + embeddings. **Sensitive** |
+| `MODAL_CHAT_URL` | `app/api/ai/task` | The `chat_turn` endpoint from `modal deploy agent/modal_app.py` |
+| `MODAL_SWARM_URL` | `app/api/swarm/*` | The `run-swarm` endpoint |
+| `MODAL_WEBHOOK_URL` | agent trigger path | The `run_now_webhook` endpoint |
+| `MODAL_BRIDGE_URL` | `app/api/agent-bridge/*` | Bridge base URL |
+| `MODAL_BRIDGE_URL_DELEGATE` | `app/api/agent-bridge/delegate` | `bridge-delegate` endpoint |
+| `MODAL_BRIDGE_URL_ADVANCE_STAGE` | `app/api/agent-bridge/advance-stage` | `bridge-advance-stage` endpoint |
+| `MODAL_BRIDGE_URL_GET_MISSION` | `app/api/agent-bridge/get-mission` | `bridge-get-mission` endpoint |
+| `MODAL_BRIDGE_URL_UPDATE_CORE_MEMORY` | `app/api/agent-bridge/update-core-memory` | `bridge-update-core-memory` endpoint |
+| `MODAL_BRIDGE_SECRET` | bridge auth | Shared secret. `openssl rand -hex 32`. **Sensitive** |
+| `AGENT_INTERNAL_SECRET` | `app/api/agent/*`, `agent/config.py` | Shared secret for cross-system calls. `openssl rand -hex 32`. **Sensitive** |
+| `ENCRYPTION_KEY` | stored-credential encryption | `openssl rand -hex 32`. **Sensitive** |
+| `NEXT_PUBLIC_CONVEX_URL` | live-state client | From `npx convex deploy` |
+| `CONVEX_DEPLOYMENT` | Convex CLI | From `npx convex deploy` |
+| `CONVEX_SERVICE_SECRET` | privileged Convex mutations | `openssl rand -hex 32`. **Sensitive** |
+| `CONVEX_SERVICE_JWT` | Convex service auth | `openssl rand -hex 32`. **Sensitive** |
+| `DATABASE_URL` | `agent/config.py` (Modal only) | Direct Postgres URL for async bulk reads. Supabase → Settings → Database → Connection string. **Sensitive** |
 
-### `.env` files
-
-All `.env*` files are gitignored. Create a `.env.local` file locally with the required variables.
-
----
-
-## 5. Third-party services map
-
-| Service | Present in code | Package | Status |
-|---|---|---|---|
-| Clerk | Yes | `@clerk/nextjs@^7.0.1` | Core auth, fully integrated |
-| Supabase | Yes | `@supabase/supabase-js@^2.99.1` | Core database, fully integrated |
-| OpenAI | Yes | `openai@^6.26.0` | Scoring + embeddings + assistant, fully integrated |
-| Supabase pgvector | Yes (via Supabase) | Built into `@supabase/supabase-js` | Vector search for AI RAG context, optional |
-| Upstash Redis | Yes | `@upstash/redis@^1.34.9` | Legacy metadata path |
-| Vercel | Yes (packages) | `@vercel/analytics@^1.5.0`, `@vercel/speed-insights@^1.2.0` | Deployment target |
-| Resend | Yes | `resend@^4.8.0` | All transactional emails (leads, tours, invitations, digests), fully integrated |
-| Telnyx | Yes | `telnyx@^6.26.0` | SMS notifications for leads, tours, and deals, plus the `send_sms` AI tool |
-| Stripe | Yes | `stripe@^20.4.1` | Brokerage seat-based billing (checkout, portal, cancel). Requires `STRIPE_PRICE_STARTER` / `STRIPE_PRICE_TEAM` / `STRIPE_PRICE_ENTERPRISE` <!-- TODO: verify full list of Stripe secrets (webhook secret, API key) — not inspected in this pass --> |
+The agent models default to `gpt-5-mini` (`agent/config.py`). Override with
+`orchestrator_model` / `worker_model` in `charles-secrets` only if you want a
+different model.
 
 ---
 
-## 6. Per-workspace configuration
+## 3. Tier 2 — feature-specific (app boots without them; the feature doesn't)
 
-The `SpaceSetting` model stores per-workspace configuration:
+| Variable | Powers | Failure if missing |
+|---|---|---|
+| `KV_REST_API_URL` + `KV_REST_API_TOKEN` | Upstash Redis: rate limiting, pending-approval state, token budgets | Rate limiting + agent approval gating break |
+| `COMPOSIO_API_KEY` | Loading a founder's connected toolkits as agent tools | Integrations show "connected" but aren't usable as tools. Must be in **both** Vercel and `charles-secrets` |
+| `CRON_SECRET` | Authorizing Vercel cron endpoints | Cron jobs return 401 |
+| `MCP_JWT_SECRET` | MCP server auth | MCP key issuance / OAuth fails |
+| `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` + `STRIPE_PRICE_ID` | Billing checkout / portal / webhook | Billing flow fails. Skip entirely if v1 has no paid plan |
+| `RESEND_API_KEY` + `RESEND_FROM_EMAIL` (or `FROM_EMAIL`) | Transactional + admin-broadcast email | Emails silently skipped |
+| `POSTHOG_API_KEY` + `POSTHOG_HOST` + `POSTHOG_PROJECT_ID` | Workspace analytics page | Analytics page shows no data |
+| `NEXT_PUBLIC_APP_URL` / `APP_URL` | Link construction in emails + agent → API calls | Falls back to `http://localhost:3000` |
+| `NEXT_PUBLIC_ROOT_DOMAIN` | Public URL/domain construction | Falls back to a default domain |
+| `LOG_LEVEL` | Server log verbosity | Defaults to `info` |
+| `CHARLES_CHAT_RUNTIME` | Set to `ts` to use the in-process TS chat fallback instead of Modal | Defaults to Modal — leave unset in production |
 
-| Field | Purpose |
-|---|---|
-| `aiPersonalization` | AI personalization preferences (tone, style) |
-| `billingSettings` | Billing preferences (string, not yet functional) |
-| `phoneNumber` | Realtor's phone number |
-| `businessName` | Business or brand name |
-| `intakePageTitle` | Title shown on public intake form |
-| `intakePageIntro` | Intro text on public intake form |
-| `notifications` | Email notification preference (boolean) |
-| `smsNotifications` | SMS notification preference (boolean, default false) |
-| `myConnections` | Partner connections / default submission status (JSON string) |
+### Agent-trigger tuning knobs (optional, sane defaults)
+
+`AGENT_IMMEDIATE_EVENTS`, `AGENT_TRIGGER_DEDUPE_WINDOW_S`,
+`AGENT_TRIGGER_OPS_ENABLED`, `AGENT_TRIGGER_OPS_SECRET`,
+`CRON_PAUSED_RUNS_DISABLED` — leave unset unless you're tuning the
+autonomous trigger pipeline.
 
 ---
 
-## 7. Supabase setup checklist
+## 4. Tier 3 — department integration adapters
 
-Before the vector search features work, run the following in the Supabase SQL Editor:
+Each Charles department agent can call out to third-party tools. These are
+only needed if you want that department's tools live. All read in
+`lib/integrations/adapters/*`.
 
-1. **Enable pgvector extension**: Dashboard → Database → Extensions → search "vector" → enable
-2. **Run `supabase/schema.sql`**: Creates all tables including `DocumentEmbedding`, the HNSW index, and the `match_documents` RPC function
-3. The AI assistant will automatically embed and index contacts/deals as they are created or updated
-4. Use `POST /api/vectorize/sync` (with `{ slug }` payload) to back-fill existing records
+| Variable | Department | Tool |
+|---|---|---|
+| `GITHUB_TOKEN` | Engineering | GitHub repo / PR actions |
+| `CLOUDFLARE_API_TOKEN` | Engineering | DNS management |
+| `VERCEL_TOKEN` | Engineering | Deploy actions |
+| `LINKEDIN_ACCESS_TOKEN` | Marketing | LinkedIn posting |
+| `TWITTER_BEARER_TOKEN` | Marketing | Twitter/X posting |
+| `LOOPS_API_KEY` | Marketing | Loops email campaigns |
+| `REPLICATE_API_TOKEN` | Design | Image generation |
+| `SUPABASE_TARGET_URL` + `SUPABASE_TARGET_SERVICE_KEY` | Engineering | Operating on a *founder's own* Supabase project (not Charles's DB) |
+
+---
+
+## 5. The Modal `charles-secrets` secret
+
+`agent/modal_app.py` loads a single Modal secret named `charles-secrets`.
+It must contain everything `agent/config.py` reads plus anything the agent
+tools touch:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `DATABASE_URL`
+- `OPENAI_API_KEY`
+- `KV_REST_API_URL` + `KV_REST_API_TOKEN`
+- `NEXT_PUBLIC_APP_URL`
+- `AGENT_INTERNAL_SECRET`
+- `MODAL_BRIDGE_SECRET`
+- `ENCRYPTION_KEY`
+- `NEXT_PUBLIC_CONVEX_URL` + `CONVEX_SERVICE_SECRET`
+- `COMPOSIO_API_KEY` (if integrations are in use)
+- Any Tier 3 adapter tokens for departments you've enabled
+
+---
+
+## 6. Local vs production
+
+| Aspect | Local | Production |
+|---|---|---|
+| Protocol | `http` (from `NODE_ENV`) | `https` |
+| Build | `pnpm dev` (Turbopack) | `pnpm build` |
+| Agent runtime | Modal (or `CHARLES_CHAT_RUNTIME=ts` fallback) | Modal |
+| `.env` files | `.env.local`, gitignored | Vercel env + Modal `charles-secrets` |
+
+---
+
+## 7. Third-party services map
+
+| Service | Role in Charles | Package |
+|---|---|---|
+| **Clerk** | Auth, sessions, route protection | `@clerk/nextjs` |
+| **Supabase** | Source-of-truth DB + pgvector + file storage | `@supabase/supabase-js` |
+| **OpenAI** | Model inference + embeddings | `openai` |
+| **Modal** | The agent runtime — `CharlesManager`, departments, swarm | (Python, `agent/`) |
+| **Convex** | Live state — presence, live messages, canvas activity | `convex` |
+| **Upstash Redis** | Rate limiting, pending-approval state, token budgets | `@upstash/redis` |
+| **Composio** | Loading a founder's connected toolkits as agent tools | `@composio/*` |
+| **Stripe** | Billing (optional for v1) | `stripe` |
+| **Resend** | Transactional + broadcast email | `resend` |
+| **Vercel** | Hosting + analytics | `@vercel/*` |
+
+---
+
+## 8. Supabase setup checklist
+
+1. **Create the project** — pick a region near your Vercel region.
+2. **Enable pgvector** — Dashboard → Database → Extensions → enable `vector`.
+3. **Apply the schema** — `npx supabase link --project-ref <ref>` then
+   `npx supabase db push`. The whole schema is one file:
+   `supabase/migrations/00000000000000_charles_baseline.sql` — every table,
+   RLS policy, index, and RPC, including `DocumentEmbedding` + `match_documents`.
+4. Charles embeds and indexes workspace content automatically as it's created.

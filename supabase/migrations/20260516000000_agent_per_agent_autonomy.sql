@@ -1,2 +1,0 @@
-ALTER TABLE "AgentSettings"
-  ADD COLUMN IF NOT EXISTS "perAgentAutonomy" JSONB NOT NULL DEFAULT '{}';

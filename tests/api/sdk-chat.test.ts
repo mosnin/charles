@@ -3,10 +3,10 @@
  * branch.
  *
  * The bar:
- *   - When CHIPPI_CHAT_RUNTIME is unset/empty/anything-other-than-ts,
+ *   - When CHARLES_CHAT_RUNTIME is unset/empty/anything-other-than-ts,
  *     the route MUST proxy to Modal (existing path) — verifying we
  *     didn't break the chat by adding the new code path.
- *   - When CHIPPI_CHAT_RUNTIME=ts, the route MUST call the new TS
+ *   - When CHARLES_CHAT_RUNTIME=ts, the route MUST call the new TS
  *     streamer instead of touching Modal.
  *   - Auth + space resolution + user-message persistence happen on
  *     BOTH paths, so we don't write them twice.
@@ -101,7 +101,7 @@ import { saveUserMessage } from '@/lib/ai-tools/persistence';
 
 const mockedSaveUser = vi.mocked(saveUserMessage);
 
-const ORIGINAL_RUNTIME = process.env.CHIPPI_CHAT_RUNTIME;
+const ORIGINAL_RUNTIME = process.env.CHARLES_CHAT_RUNTIME;
 const ORIGINAL_MODAL_URL = process.env.MODAL_CHAT_URL;
 const ORIGINAL_SECRET = process.env.AGENT_INTERNAL_SECRET;
 
@@ -110,7 +110,7 @@ beforeEach(() => {
   // Restore the saveUserMessage mock implementation after clearAllMocks.
   mockedSaveUser.mockResolvedValue({ messageId: 'msg_user_1' });
   // Default to unset — every test sets explicitly.
-  delete process.env.CHIPPI_CHAT_RUNTIME;
+  delete process.env.CHARLES_CHAT_RUNTIME;
   process.env.MODAL_CHAT_URL = 'https://modal.example/chat';
   process.env.AGENT_INTERNAL_SECRET = 'shh';
   globalThis.fetch = fetchMock as unknown as typeof fetch;
@@ -123,8 +123,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  if (ORIGINAL_RUNTIME === undefined) delete process.env.CHIPPI_CHAT_RUNTIME;
-  else process.env.CHIPPI_CHAT_RUNTIME = ORIGINAL_RUNTIME;
+  if (ORIGINAL_RUNTIME === undefined) delete process.env.CHARLES_CHAT_RUNTIME;
+  else process.env.CHARLES_CHAT_RUNTIME = ORIGINAL_RUNTIME;
   if (ORIGINAL_MODAL_URL === undefined) delete process.env.MODAL_CHAT_URL;
   else process.env.MODAL_CHAT_URL = ORIGINAL_MODAL_URL;
   if (ORIGINAL_SECRET === undefined) delete process.env.AGENT_INTERNAL_SECRET;
@@ -161,8 +161,8 @@ describe('POST /api/ai/task — input validation', () => {
 });
 
 describe('POST /api/ai/task — runtime branch (default = modal)', () => {
-  it('routes to Modal when CHIPPI_CHAT_RUNTIME is unset', async () => {
-    delete process.env.CHIPPI_CHAT_RUNTIME;
+  it('routes to Modal when CHARLES_CHAT_RUNTIME is unset', async () => {
+    delete process.env.CHARLES_CHAT_RUNTIME;
     process.env.MODAL_CHAT_URL = 'https://modal.example/chat';
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
@@ -173,21 +173,21 @@ describe('POST /api/ai/task — runtime branch (default = modal)', () => {
 
   it('routes to Modal for any value other than the exact string "ts"', async () => {
     process.env.MODAL_CHAT_URL = 'https://modal.example/chat';
-    process.env.CHIPPI_CHAT_RUNTIME = 'TS'; // wrong case → still modal
+    process.env.CHARLES_CHAT_RUNTIME = 'TS'; // wrong case → still modal
     await POST(makeRequest());
     expect(fetchMock).toHaveBeenCalled();
     expect(tsStreamMock).not.toHaveBeenCalled();
 
     fetchMock.mockClear();
     tsStreamMock.mockClear();
-    process.env.CHIPPI_CHAT_RUNTIME = 'modal';
+    process.env.CHARLES_CHAT_RUNTIME = 'modal';
     await POST(makeRequest());
     expect(fetchMock).toHaveBeenCalled();
     expect(tsStreamMock).not.toHaveBeenCalled();
   });
 
   it('returns 503 when MODAL_CHAT_URL is not configured', async () => {
-    delete process.env.CHIPPI_CHAT_RUNTIME;
+    delete process.env.CHARLES_CHAT_RUNTIME;
     delete process.env.MODAL_CHAT_URL;
     const res = await POST(makeRequest());
     expect(res.status).toBe(503);
@@ -196,9 +196,9 @@ describe('POST /api/ai/task — runtime branch (default = modal)', () => {
   });
 });
 
-describe('POST /api/ai/task — runtime branch (CHIPPI_CHAT_RUNTIME=ts opt-in)', () => {
-  it('routes to streamTsChatTurn when the realtor opts in with CHIPPI_CHAT_RUNTIME=ts', async () => {
-    process.env.CHIPPI_CHAT_RUNTIME = 'ts';
+describe('POST /api/ai/task — runtime branch (CHARLES_CHAT_RUNTIME=ts opt-in)', () => {
+  it('routes to streamTsChatTurn when the realtor opts in with CHARLES_CHAT_RUNTIME=ts', async () => {
+    process.env.CHARLES_CHAT_RUNTIME = 'ts';
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
     expect(tsStreamMock).toHaveBeenCalledTimes(1);
@@ -206,7 +206,7 @@ describe('POST /api/ai/task — runtime branch (CHIPPI_CHAT_RUNTIME=ts opt-in)',
   });
 
   it('still saves the user message before branching (shared persistence)', async () => {
-    process.env.CHIPPI_CHAT_RUNTIME = 'ts';
+    process.env.CHARLES_CHAT_RUNTIME = 'ts';
     await POST(makeRequest({ message: 'find Jane' }));
     expect(mockedSaveUser).toHaveBeenCalledWith(
       expect.objectContaining({ content: 'find Jane' }),
@@ -214,7 +214,7 @@ describe('POST /api/ai/task — runtime branch (CHIPPI_CHAT_RUNTIME=ts opt-in)',
   });
 
   it('passes ctx + conversationId + userMessage to the streamer', async () => {
-    process.env.CHIPPI_CHAT_RUNTIME = 'ts';
+    process.env.CHARLES_CHAT_RUNTIME = 'ts';
     await POST(makeRequest({ message: 'hi' }));
     const call = tsStreamMock.mock.calls[0]?.[0] as unknown as {
       ctx: { space: { slug: string } };

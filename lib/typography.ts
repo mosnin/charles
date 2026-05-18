@@ -1,5 +1,5 @@
 /**
- * Chippi typography + spacing scale.
+ * Charles typography + spacing scale.
  *
  * Single source of truth for every page's visual hierarchy. Agents and
  * components import from here so the eye lands on the same thing on every
@@ -100,3 +100,32 @@ export const GHOST_PILL =
 /** Quiet text link — "Edit", "Cancel" inline within a row. */
 export const QUIET_LINK =
   'text-sm text-muted-foreground hover:text-foreground transition-colors duration-150';
+
+/* ─── Canvas typography (cofounder.co-style) ───────────────────────────────
+ *
+ * These extend the base scale for canvas surfaces only — the home dept-orbit,
+ * the stages kanban, landing-page rendering. Serif (Newsreader) is loaded
+ * via next/font and exposed as `font-serif`. Mono (JetBrains Mono) is
+ * exposed as `font-mono`. Do NOT use these in chrome/settings/billing —
+ * those stay on the system stack per STYLESHEET.md.
+ */
+
+/** Serif display heading — for canvas centerpieces, mission title, hero text. */
+export const SERIF_DISPLAY =
+  'font-serif font-medium text-[28px] leading-tight tracking-tight';
+
+/** Smaller serif — for card titles on canvas, dept names. */
+export const SERIF_CARD = 'font-serif font-medium text-base';
+
+/** Monospace chip text — for stage labels, status pills. */
+export const MONO_CHIP =
+  'font-mono text-[11px] uppercase tracking-wide';
+
+/** Monospace meta — durations, IDs, small bookkeeping. */
+export const MONO_META = 'font-mono text-[10px] text-muted-foreground';
+
+/** Inline-style helper for places that need style={SERIF_FONT_STYLE}
+ *  (e.g. SSR-injected markup where Tailwind classes won't apply). */
+export const SERIF_FONT_STYLE = {
+  fontFamily: 'var(--font-serif), Newsreader, Georgia, serif',
+} as const;

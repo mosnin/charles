@@ -1,0 +1,35 @@
+{
+  "id": "competitor-watch",
+  "name": "Competitor Watch",
+  "version": "0.1.0",
+  "author": "Charles team",
+  "description": "Scout a named competitor, pull what we already know about people connected to them, and surface pricing or positioning shifts from prior conversations.",
+  "slashCommands": [
+    {
+      "name": "scout",
+      "description": "Research a named competitor using prior history and known contacts.",
+      "prompt": "Scout the competitor named \"{{competitor}}\". Steps: (1) recall_history for any prior mentions, decks, articles, or notes referencing this competitor; (2) find_person to surface anyone in the founder's network who has worked at, with, or against this competitor; (3) synthesise a one-page brief covering: what they sell, who they sell to, their pricing posture if known, and any signals from our network. Be specific. Cite the sources you pulled.",
+      "args": [
+        {
+          "name": "competitor",
+          "description": "The competitor name to scout.",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "skills": [
+    {
+      "name": "competitor_news",
+      "description": "Pulls every prior mention of a competitor from history and ranks by recency.",
+      "instructions": "You surface what we already know about a given competitor. Use recall_history to find every prior note, message, or summary mentioning them. Group by theme (product, pricing, hiring, fundraising, customer wins). Order each group by recency. Do not speculate beyond what's in the source notes.",
+      "tools": ["recall_history"]
+    },
+    {
+      "name": "pricing_diff",
+      "description": "Reads prior pricing notes and reports any drift over time for a competitor.",
+      "instructions": "You report on how a competitor's pricing has shifted over time. Use recall_history to pull every note mentioning their pricing. Sort chronologically. Output: dates, the price/plan named at each date, and the delta. If no prior pricing data exists, say so plainly and stop.",
+      "tools": ["recall_history"]
+    }
+  ]
+}

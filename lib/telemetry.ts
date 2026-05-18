@@ -2,7 +2,7 @@
  * Fire-and-forget telemetry emitter.
  *
  * Phase 2 product analytics: we need first-value events
- * (`signup_completed`, `chippi_first_message`, `agent_first_action_completed`)
+ * (`signup_completed`, `charles_first_message`, `agent_first_action_completed`)
  * so the team can measure time-from-signup-to-first-useful-agent-action.
  * Until those land every conversion hypothesis is fiction.
  *
@@ -23,7 +23,7 @@ import { logger } from '@/lib/logger';
 
 export type TelemetryEventName =
   | 'signup_completed'
-  | 'chippi_first_message'
+  | 'charles_first_message'
   | 'agent_first_action_completed'
   // Per-tool-call observability for the chat agent. Payload carries the
   // tool name + reasoning sentence (the assistant text immediately
@@ -62,7 +62,7 @@ export async function emit(args: EmitArgs): Promise<void> {
 
 /**
  * Has this space already recorded a given first-time event? Used to gate
- * `chippi_first_message` and `agent_first_action_completed` so they fire
+ * `charles_first_message` and `agent_first_action_completed` so they fire
  * exactly once per space. Errors are swallowed and treated as "not emitted"
  * — a duplicate emit is cheaper than a missed first-value signal.
  */
@@ -182,7 +182,7 @@ export async function maybeEmitFirstAction(input: {
     if (await hasEmitted(spaceId, 'agent_first_action_completed')) return;
     const [signupAt, firstMsgAt] = await Promise.all([
       getFirstEmittedAt(spaceId, 'signup_completed'),
-      getFirstEmittedAt(spaceId, 'chippi_first_message'),
+      getFirstEmittedAt(spaceId, 'charles_first_message'),
     ]);
     const now = new Date();
     await emit({

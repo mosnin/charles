@@ -1,0 +1,34 @@
+{
+  "id": "daily-standup",
+  "name": "Daily Standup",
+  "version": "0.1.0",
+  "author": "Charles team",
+  "description": "Three-question daily standup ritual: what you did yesterday, what you're doing today, what's in your way. Synthesises a one-paragraph recap into your inbox.",
+  "slashCommands": [
+    {
+      "name": "standup",
+      "description": "Start today's standup. Charles asks three questions, then summarises.",
+      "prompt": "Run a daily standup with the founder. Ask three short questions in sequence: (1) What did you ship or learn yesterday? (2) What are you focused on today? (3) What is blocking you?\n\nAfter the founder answers all three, recall the last 3 days of standups using recall_history so you can spot patterns. Then write a one-paragraph synthesis: progress, today's focus, blockers. Post it as a note on the founder's profile via note_on_person.\n\nKeep questions terse. No coaching, no advice unless asked."
+    },
+    {
+      "name": "standup-summary",
+      "description": "Summarise the last N standups. Defaults to 7 days.",
+      "prompt": "Recall the last {{days}} days of standup entries from history. Identify: (1) shipped wins, (2) recurring blockers, (3) drift between stated focus and actual progress. Output as a tight bulleted brief — no padding.",
+      "args": [
+        {
+          "name": "days",
+          "description": "How many days to summarise. Default 7.",
+          "required": false
+        }
+      ]
+    }
+  ],
+  "skills": [
+    {
+      "name": "standup_synthesizer",
+      "description": "Reads recent standup notes and writes a one-paragraph progress recap.",
+      "instructions": "You synthesise daily standup notes into a single tight paragraph. Use recall_history to pull the last 3-7 days of standup entries. Output exactly one paragraph, 3-5 sentences, covering: what shipped, current focus, and any persisting blockers. No bullet points. No filler. No coaching tone.",
+      "tools": ["recall_history"]
+    }
+  ]
+}

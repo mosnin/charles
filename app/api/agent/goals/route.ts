@@ -12,7 +12,7 @@ const VALID_GOAL_TYPES = [
   'custom',
 ] as const;
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   const authResult = await requireAuth();
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
@@ -20,24 +20,16 @@ export async function GET(req: NextRequest) {
   const space = await getSpaceForUser(userId);
   if (!space) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  const status = req.nextUrl.searchParams.get('status') ?? 'active';
-  const limitParam = parseInt(req.nextUrl.searchParams.get('limit') ?? '20', 10);
-  const limit = Math.min(isNaN(limitParam) ? 20 : limitParam, 50);
-  const contactId = req.nextUrl.searchParams.get('contactId');
-
-  let query = supabase
+  const { data, error } = await supabase
     .from('AgentGoal')
-    .select('*, Contact:contactId(id,name)')
+    .select('*')
     .eq('spaceId', space.id)
-    .eq('status', status)
-    .order('priority', { ascending: false })
-    .order('createdAt', { ascending: false })
-    .limit(limit);
+    .order('createdAt', { ascending: false });
 
-  if (contactId) query = query.eq('contactId', contactId);
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
-  const { data, error } = await query;
-  if (error) throw error;
   return NextResponse.json(data ?? []);
 }
 
@@ -50,7 +42,7 @@ export async function POST(req: NextRequest) {
   if (!space) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const body = await req.json();
-  const { goalType, description, instructions, contactId, dealId, priority } = body;
+  const { goalType, description, instructions, priority } = body;
 
   if (!goalType || !(VALID_GOAL_TYPES as readonly string[]).includes(goalType)) {
     return NextResponse.json(
@@ -58,43 +50,28 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-
-  if (!description || typeof description !== 'string' || description.trim().length === 0) {
-    return NextResponse.json({ error: 'description is required' }, { status: 400 });
+  if (typeof description !== 'string' || description.length < 1 || description.length > 1000) {
+    return NextResponse.json(
+      { error: 'description must be between 1 and 1000 characters' },
+      { status: 400 },
+    );
   }
-
-  // Validate foreign keys belong to this space
-  if (contactId) {
-    const { data: c } = await supabase.from('Contact').select('id')
-      .eq('id', contactId).eq('spaceId', space.id).maybeSingle();
-    if (!c) return NextResponse.json({ error: 'Contact not found' }, { status: 400 });
-  }
-  if (dealId) {
-    const { data: d } = await supabase.from('Deal').select('id')
-      .eq('id', dealId).eq('spaceId', space.id).maybeSingle();
-    if (!d) return NextResponse.json({ error: 'Deal not found' }, { status: 400 });
-  }
-
-  const now = new Date().toISOString();
 
   const { data, error } = await supabase
     .from('AgentGoal')
     .insert({
-      id: crypto.randomUUID(),
       spaceId: space.id,
       goalType,
-      description: description.trim(),
+      description,
       instructions: instructions ?? null,
-      contactId: contactId ?? null,
-      dealId: dealId ?? null,
       priority: typeof priority === 'number' ? priority : 0,
-      status: 'active',
-      createdAt: now,
-      updatedAt: now,
     })
     .select()
     .single();
 
-  if (error) throw error;
+  if (error || !data) {
+    return NextResponse.json({ error: error?.message ?? 'Insert failed' }, { status: 500 });
+  }
+
   return NextResponse.json(data, { status: 201 });
 }

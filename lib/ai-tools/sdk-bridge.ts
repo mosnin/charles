@@ -90,7 +90,7 @@ export function toSdkTool<TArgs, TData>(def: ToolDefinition<TArgs, TData>, ctx: 
         // would land in the model's context — and from there, in the
         // realtor's chat. Reformat to the same `Error: ` prefix the
         // success/error paths use so the model continues normally and
-        // can paraphrase to the realtor in Chippi voice.
+        // can paraphrase to the realtor in Charles voice.
         //
         // We log the original at warn — the actual stack stays in our
         // server logs for debugging; only the friendly summary reaches
@@ -298,7 +298,7 @@ interface RunAgentInput {
  */
 export async function runAgent({ systemPrompt, input, tools, ctx, model = DEFAULT_MODEL }: RunAgentInput) {
   const agent = new Agent({
-    name: "Chippi",
+    name: "Charles",
     instructions: systemPrompt,
     tools: tools.map((t) => toSdkTool(t, ctx)),
     model,

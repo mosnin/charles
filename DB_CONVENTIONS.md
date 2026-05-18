@@ -162,11 +162,15 @@ const { data: spaceId } = await supabase.rpc('create_space_with_defaults', { ...
 
 | Function | Purpose | When to use |
 |----------|---------|-------------|
-| `reorder_deal` | Move deal to new stage + position with row locking | Kanban drag-and-drop |
-| `match_documents` | Cosine similarity search on embeddings | AI assistant RAG context |
-| `book_tour_atomic` | Insert tour with double-booking prevention | Tour booking endpoint |
-| `create_space_with_defaults` | Create space + settings + stages atomically | Onboarding space creation |
-| `create_brokerage_with_owner` | Create brokerage + owner membership | Brokerage creation endpoint |
+| `match_documents` | Cosine similarity search over `DocumentEmbedding` | AI assistant RAG context |
+| `match_agent_memory` | Cosine similarity search over `AgentMemory` with filters | Agent memory recall |
+| `increment_agent_task_cost` | Atomic token+cost rollup on `AgentTask` | After each ExecutionStep |
+| `rollup_cost_by_day` | Per-day totals over `CostEvent` grouped by dept+model | Usage dashboard |
+| `cleanup_agent_data` | Daily retention sweep (capped per table) | Cron `/api/cron/cleanup` |
+| `search_knowledge_docs` | Full-text search over `AppKnowledgeDoc` | Chippi knowledge recall |
+| `seed_charles_workspace` | Bootstrap a new Charles space (Mission, CoreMemory, Departments, gates) | Onboarding complete |
+| `seed_stage_gates` | Install canonical gate rows for one stage | Manager agent stage entry |
+| `seed_workspace_documents` | Insert the nine canonical Charles document shells | Onboarding complete |
 
 **Rule**: If an operation touches multiple tables or needs concurrency safety, create an RPC function. Don't do multi-step inserts in application code.
 
@@ -174,20 +178,28 @@ const { data: spaceId } = await supabase.rpc('create_space_with_defaults', { ...
 
 ## 6. Migration safety
 
+### Single canonical baseline
+
+The fresh-install schema lives in **`supabase/migrations/00000000000000_charles_baseline.sql`**.
+It is the single source of truth — there is no separate `schema.sql`, `setup.sql`, or
+`combined_migration_v2.sql`. `npx supabase db push` against a fresh project
+applies this file plus every later timestamped migration in order.
+
 ### Before writing a migration
 
-1. Check `supabase/schema.sql` — it's the source of truth for fresh installs
-2. Check existing migrations in `supabase/migrations/` — 14 files, chronologically ordered
-3. Verify column names against this doc and the schema
+1. Read the baseline file to confirm the current shape of the affected tables
+2. Check existing migrations in `supabase/migrations/` (chronologically ordered after the baseline)
+3. Verify column names against this doc
 
 ### Migration rules
 
-1. **Never rename columns** without an expand/contract plan (add new → migrate data → drop old)
-2. **Always use `IF NOT EXISTS`** / `IF EXISTS` for idempotent migrations
-3. **Always add defaults** for new NOT NULL columns on existing tables
-4. **Always update `supabase/schema.sql`** alongside migration files
-5. **Never drop tables** without explicit instruction
-6. **Test migrations** against a fresh database AND an existing database
+1. **Never edit the baseline file** once it has been applied to any environment — stack new timestamped migrations on top
+2. **Never rename columns** without an expand/contract plan (add new → migrate data → drop old)
+3. **Always use `IF NOT EXISTS`** / `IF EXISTS` for idempotent migrations
+4. **Always add defaults** for new NOT NULL columns on existing tables
+5. **Never use `CREATE INDEX CONCURRENTLY`** — Supabase wraps each migration in a transaction and CONCURRENTLY is rejected inside transactions
+6. **Never drop tables** without explicit instruction
+7. **Test migrations** against a fresh database AND an existing database
 
 ### Migration naming
 

@@ -26,10 +26,10 @@ class AgentContext:
 
     # Tokens consumed so far this run (mutable — updated after each LLM call)
     tokens_used: int = field(default=0, compare=False)
-    # Audit-log tag — fixed to "chippi" since there is one agent. Tools read
-    # this when stamping AgentActivityLog rows; keep the field so call sites
-    # don't have to special-case the single-agent world.
-    current_agent_type: str = field(default="chippi", compare=False)
+    # Audit-log tag — defaults to "charles" (the manager). Tools read this
+    # when stamping AgentActivityLog rows; department runs override it with
+    # their own slug.
+    current_agent_type: str = field(default="charles", compare=False)
 
     @classmethod
     def from_settings(cls, settings: AgentSettings, run_id: str, space_name: str) -> "AgentContext":

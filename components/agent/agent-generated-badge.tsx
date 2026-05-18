@@ -8,7 +8,7 @@ export function AgentGeneratedBadge({ className }: { className?: string }) {
       className,
     )}>
       <Bot size={8} />
-      Chippi
+      Charles
     </span>
   );
 }

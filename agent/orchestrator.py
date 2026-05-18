@@ -3,10 +3,10 @@
 There is no heartbeat. The agent wakes up only when something happens in the
 workspace: a new lead, a tour completed, a deal stage changed, an inbound
 message, a goal completed. Triggers are pushed to a Redis list by the Next.js
-side; this module pops them, builds the opening prompt, and runs Chippi.
+side; this module pops them, builds the opening prompt, and runs Charles.
 
 For manual sweeps (the Run-now button), the trigger list is empty and the
-prompt tells Chippi to look for stale leads / stalled deals on its own.
+prompt tells Charles to look for stale leads / stalled deals on its own.
 
 Security: spaceId is set once in AgentContext and flows through
 RunContextWrapper. No tool ever accepts spaceId as an argument.
@@ -30,7 +30,7 @@ from memory.store import format_memories_for_prompt, load_memories, prune_expire
 from schemas import AgentSettings, Space
 from security.budget import check_budget, record_usage
 from security.context import AgentContext
-from chippi import load_ai_profile, make_chippi_agent
+from manager.charles import CharlesManager
 from tools.streaming import publish_event
 
 # ---------------------------------------------------------------------------
@@ -205,7 +205,7 @@ def _build_opening_prompt(
     memory_context: str,
     triggers: list[dict],
 ) -> str:
-    """Frame the autonomous run for Chippi.
+    """Frame the autonomous run for Charles.
 
     The opening message either lists the triggers to act on or asks for a
     sweep when nothing specific fired.
@@ -307,12 +307,12 @@ async def run_agent_for_space(
     await publish_event(
         ctx, "info",
         f"Starting run for '{space.name}'" + (f" — {len(triggers)} trigger(s)" if triggers else " — sweep"),
-        agent_type="chippi",
+        agent_type="charles",
     )
 
-    # Load AI profile for personalization
-    db = await supabase()
-    ai_profile = await load_ai_profile(space.id, db)
+    # TODO(charles): re-fold AIUserProfile tone prefs into the manager prompt.
+    # The legacy load_ai_profile read realtor-specific fields; Charles runs
+    # fine without tone personalization for now.
 
     # Autonomous runs have no "current user" — the workspace OWNER's
     # Clerk userId is the entity whose Composio connections we use.
@@ -328,7 +328,8 @@ async def run_agent_for_space(
     except Exception as ie:  # noqa: BLE001
         log.warning("autonomous_load_integration_tools_failed", error=str(ie)[:200])
 
-    chippi = make_chippi_agent(ai_profile_text=ai_profile, extra_tools=integration_tools)
+    manager = CharlesManager(space_id=space.id, run_id=run_id)
+    charles = await manager.build_agent(extra_tools=integration_tools)
     prompt = _build_opening_prompt(space, memory_context, triggers)
 
     run_config = RunConfig(
@@ -350,7 +351,7 @@ async def run_agent_for_space(
     # so the realtor can greenlight the action before it executes.
     agent_tool_names = [
         getattr(t, "name", "") or getattr(t, "__name__", "") or ""
-        for t in (chippi.tools or [])
+        for t in (charles.tools or [])
     ]
     risky_tools = [name for name in agent_tool_names if name and _is_high_risk_tool(name)]
     if risky_tools:
@@ -363,9 +364,9 @@ async def run_agent_for_space(
                 "pendingAction": risky_tools[0],
                 "allRiskyTools": risky_tools,
             },
-            agent_type="chippi",
+            agent_type="charles",
         )
-        # Persist the paused state so the Next.js poller can surface it.
+        # Persist the paused state so the Next.js surface can read it.
         if task_id:
             try:
                 db = await supabase()
@@ -381,6 +382,13 @@ async def run_agent_for_space(
                 ).eq("id", task_id).execute()
             except Exception as exc:
                 log.warning("approval_gate_db_update_failed", error=str(exc))
+        # Push a realtime tick so the approval command center refreshes
+        # without polling.
+        try:
+            from tools.streaming import publish_realtime_tick
+            await publish_realtime_tick(space.id, "approval", risky_tools[0])
+        except Exception as exc:
+            log.debug("approval_gate_tick_failed", error=str(exc))
         # Emit to Redis for real-time notification.
         try:
             if settings.kv_rest_api_url and settings.kv_rest_api_token:
@@ -442,7 +450,7 @@ async def run_agent_for_space(
         # When initial_messages are present we pass them directly; the first
         # run uses the prompt string for a cleaner Runner.run() call.
         agent_input = prompt if not initial_messages else messages_to_run
-        result = await _run_with_fallback(chippi, agent_input, run_config, ctx)
+        result = await _run_with_fallback(charles, agent_input, run_config, ctx)
 
         usage = getattr(result, "usage", None)
         tokens_in: int = 0
@@ -477,15 +485,15 @@ async def run_agent_for_space(
 
         # Record the full agent run as a single LLM-call step in the ledger.
         await ledger.record_llm_call(
-            tool_name="chippi",
+            tool_name="charles",
             input_summary=prompt[:500],
             output_summary=final_summary or f"{total_tokens:,} tokens used",
-            model=chippi.model or settings.orchestrator_model,
+            model=charles.model or settings.orchestrator_model,
             tokens_in=tokens_in,
             tokens_out=tokens_out,
         )
 
-        log.info("agent_run_completed", total_tokens=total_tokens, model_used=chippi.model)
+        log.info("agent_run_completed", total_tokens=total_tokens, model_used=charles.model)
 
         # ── KR3: Critic — verify the agent accomplished the goal ────────────
         outcome_text = final_summary or f"{total_tokens:,} tokens used, no text output."
@@ -512,13 +520,13 @@ async def run_agent_for_space(
         await publish_event(
             ctx, "info",
             f"Run skipped — {pending} draft(s) awaiting review. Review your inbox first.",
-            agent_type="chippi",
+            agent_type="charles",
         )
         return
 
     except Exception as exc:
         log.exception("agent_run_failed")
-        await publish_event(ctx, "error", f"Agent error: {exc}", agent_type="chippi")
+        await publish_event(ctx, "error", f"Agent error: {exc}", agent_type="charles")
 
     finally:
         # ── KR5: Heartbeat — always stop the pinger ─────────────────────────

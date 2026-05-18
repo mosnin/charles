@@ -12,8 +12,6 @@ import {
   CAPTION,
   PRIMARY_PILL,
 } from '@/lib/typography';
-import { TemplatesEditor } from '@/components/settings/templates-editor';
-import type { MessageTemplate } from '@/lib/message-templates';
 
 type McpKey = {
   id: string;
@@ -71,7 +69,7 @@ function CredentialRow({
  * short surface and the realtor visits them rarely. Two sections, no tabs.
  */
 export function IntegrationsSection({ slug }: IntegrationsSectionProps) {
-  const MCP_ENDPOINT = 'https://my.usechippi.com/api/mcp';
+  const MCP_ENDPOINT = 'https://my.charles.app/api/mcp';
 
   // ── MCP state ──────────────────────────────────────────────────────────
   const [mcpKeys, setMcpKeys] = useState<McpKey[]>([]);
@@ -89,9 +87,6 @@ export function IntegrationsSection({ slug }: IntegrationsSectionProps) {
   const [mcpDeletingId, setMcpDeletingId] = useState<string | null>(null);
   const [mcpShowSecrets, setMcpShowSecrets] = useState(false);
 
-  // ── Templates state ────────────────────────────────────────────────────
-  const [templates, setTemplates] = useState<MessageTemplate[] | null>(null);
-
   useEffect(() => {
     if (!slug) return;
     fetch(`/api/mcp-keys?slug=${encodeURIComponent(slug)}`)
@@ -100,13 +95,6 @@ export function IntegrationsSection({ slug }: IntegrationsSectionProps) {
       .catch(() => setMcpKeys([]))
       .finally(() => setMcpKeysLoading(false));
   }, [slug]);
-
-  useEffect(() => {
-    fetch('/api/message-templates')
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data) => setTemplates(Array.isArray(data) ? data : data.templates ?? []))
-      .catch(() => setTemplates([]));
-  }, []);
 
   async function handleCreateMcpKey() {
     if (!mcpNewKeyName.trim()) return;
@@ -372,23 +360,6 @@ export function IntegrationsSection({ slug }: IntegrationsSectionProps) {
         )}
       </div>
 
-      {/* Message templates */}
-      <div
-        id="templates"
-        className="space-y-4 pt-6 border-t border-border/60 scroll-mt-24"
-      >
-        <p className={SECTION_LABEL}>Message templates</p>
-        <p className={BODY_MUTED}>
-          Canned SMS, email, and note bodies you can fire per deal or contact. Use{' '}
-          <code className="text-xs bg-foreground/[0.06] px-1 rounded">{'{{variable}}'}</code>{' '}
-          placeholders to personalize.
-        </p>
-        {templates === null ? (
-          <div className="h-40 bg-foreground/[0.04] rounded-md animate-pulse" />
-        ) : (
-          <TemplatesEditor initial={templates} />
-        )}
-      </div>
     </div>
   );
 }

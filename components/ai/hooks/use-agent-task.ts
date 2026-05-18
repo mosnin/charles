@@ -28,7 +28,7 @@ import type { AgentEvent } from '@/lib/ai-tools/events';
 import type { MessageBlock, ToolCallBlock } from '@/lib/ai-tools/blocks';
 import { SSEParser } from '@/lib/ai-tools/client/parse-sse';
 import type { PermissionPromptData } from '@/components/ai/blocks/permission-prompt-view';
-import { chippiErrorMessage, classifyError } from '@/lib/ai-tools/chippi-voice';
+import { charlesErrorMessage, classifyError } from '@/lib/ai-tools/charles-voice';
 
 export interface UiMessage {
   id: string;
@@ -195,17 +195,17 @@ export function useAgentTask(options: UseAgentTaskOptions): UseAgentTaskResult {
   const clearError = useCallback(() => setError(null), []);
 
   /**
-   * Land a Chippi-voiced error line as an assistant message in the transcript.
+   * Land a Charles-voiced error line as an assistant message in the transcript.
    * If we already have an open assistant bubble (the streaming target), we
    * drop its empty content and replace it with the error text so the error
-   * looks like Chippi talking, not like a system warning under a phantom
+   * looks like Charles talking, not like a system warning under a phantom
    * empty bubble.
    *
    * Also writes the same string into the `error` state so any banner-style
    * consumer still has something to render — but the visible affordance is
    * the inline assistant message.
    */
-  const landChippiError = useCallback((message: string) => {
+  const landCharlesError = useCallback((message: string) => {
     setError(message);
     const targetId = streamingMsgIdRef.current;
     const errorBlock: MessageBlock = { type: 'text', content: message };
@@ -398,17 +398,17 @@ export function useAgentTask(options: UseAgentTaskOptions): UseAgentTaskResult {
       }
 
       case 'error': {
-        // Server hands us a Chippi-voiced line in `message`; if it didn't
+        // Server hands us a Charles-voiced line in `message`; if it didn't
         // (older server, raw fallback), pick one from the code.
         const text =
           event.message && event.message.length < 400
             ? event.message
-            : chippiErrorMessage(event.code ?? 'internal');
-        landChippiError(text);
+            : charlesErrorMessage(event.code ?? 'internal');
+        landCharlesError(text);
         return;
       }
     }
-  }, [landChippiError]);
+  }, [landCharlesError]);
 
   /**
    * Shared stream consumer. Opens a POST to `url` with `body`, applies every
@@ -440,7 +440,7 @@ export function useAgentTask(options: UseAgentTaskOptions): UseAgentTaskResult {
               setRateLimitSeconds(retryAfter);
             }
           }
-          // Server already speaks Chippi for this route; if not, classify
+          // Server already speaks Charles for this route; if not, classify
           // by HTTP status as a fallback so the user never sees raw text.
           let message: string | undefined;
           try {
@@ -456,14 +456,14 @@ export function useAgentTask(options: UseAgentTaskOptions): UseAgentTaskResult {
                 : res.status === 401 || res.status === 403
                   ? 'auth'
                   : 'internal';
-            message = chippiErrorMessage(code);
+            message = charlesErrorMessage(code);
           }
-          landChippiError(message);
+          landCharlesError(message);
           return;
         }
 
         if (!res.body) {
-          landChippiError(chippiErrorMessage('network'));
+          landCharlesError(charlesErrorMessage('network'));
           return;
         }
 
@@ -479,7 +479,7 @@ export function useAgentTask(options: UseAgentTaskOptions): UseAgentTaskResult {
         const aborted = (err as { name?: string }).name === 'AbortError';
         if (!aborted) {
           const raw = err instanceof Error ? err.message : 'Network error';
-          landChippiError(chippiErrorMessage(classifyError(raw)));
+          landCharlesError(charlesErrorMessage(classifyError(raw)));
         } else {
           // Aborted: just tidy the trailing empty assistant bubble.
           const targetId = streamingMsgIdRef.current;
@@ -501,7 +501,7 @@ export function useAgentTask(options: UseAgentTaskOptions): UseAgentTaskResult {
         setStreamingReasoning('');
       }
     },
-    [abort, applyEvent, landChippiError],
+    [abort, applyEvent, landCharlesError],
   );
 
   /**
@@ -562,14 +562,14 @@ export function useAgentTask(options: UseAgentTaskOptions): UseAgentTaskResult {
       } catch (err) {
         // Conversation creation failed — pull the optimistic placeholders
         // back so the realtor doesn't see a hung user message + empty
-        // assistant bubble. landChippiError surfaces an error message in
+        // assistant bubble. landCharlesError surfaces an error message in
         // its place via a fresh assistant entry.
         setMessages((prev) =>
           prev.filter((m) => m.id !== userMsg.id && m.id !== assistantMsgId),
         );
         streamingMsgIdRef.current = null;
         const raw = err instanceof Error ? err.message : '';
-        landChippiError(chippiErrorMessage(classifyError(raw)));
+        landCharlesError(charlesErrorMessage(classifyError(raw)));
         return;
       }
 
@@ -580,7 +580,7 @@ export function useAgentTask(options: UseAgentTaskOptions): UseAgentTaskResult {
         ...(hasAttachments ? { attachmentIds } : {}),
       });
     },
-    [isStreaming, spaceSlug, ensureConversationId, consumeStream, landChippiError],
+    [isStreaming, spaceSlug, ensureConversationId, consumeStream, landCharlesError],
   );
 
   const approve = useCallback(

@@ -1,79 +1,100 @@
-# ROADMAP.md
+# Roadmap
 
-Prioritized work ahead for Chippi. Use this to avoid fixing things about to be replaced, and to prevent conflicting changes.
+What Charles is shipping, in order. Phases are commitments, not estimates with a buffer. If a phase slips, we cut scope, not standards.
 
----
-
-## Current phase: V1 Stabilization + Tour System
-
-The product is past initial build. Focus is on hardening existing systems, completing the tour booking feature, and preparing for billing.
+Total: roughly 11.5 weeks from Phase 0 to Phase 6.
 
 ---
 
-## 1. Active work (in progress)
+## Now (Phases 0–1)
 
-| Item | Status | Key files | Notes |
-|------|--------|-----------|-------|
-| Tour booking system | Building | `app/api/tours/*`, `app/s/[slug]/tours/*`, `supabase/migrations/` | Multi-property scheduling, waitlist, feedback, Google Calendar sync |
-| Broker/brokerage system | Building | `app/broker/*`, `lib/permissions.ts`, `app/api/broker/*` | Self-serve brokerage creation, invite flow, broker dashboard |
-| Audit logging | Building | `lib/audit.ts`, `AuditLog` table | SOC 2 prep, append-only event log |
-| Deal activity log | Building | `DealActivity` table, `app/api/deals/[id]/activities/*` | Notes, calls, emails, stage changes tracked per deal |
+### Phase 0 — Brand and doc reset (~0.5 wk)
 
-**Rule**: If your fix touches files in active work areas, coordinate — don't assume the current code is final.
+Reset the surface. Rename the product, rebuild the landing, rewrite the core docs. No new features. No new agents. The repo speaks with one voice before the rebuild begins.
 
----
+- New name, new logo, new landing page.
+- `PRODUCT_SCOPE.md`, `README.md`, `ROADMAP.md`, `AGENTS.md`, `STYLESHEET.md`, `WORKFLOW_BOUNDARIES.md` rewritten or refreshed.
+- Old vertical-CRM code marked for removal but not yet deleted.
 
-## 2. Next up (planned, not started)
+### Phase 1 — Manager and first department, end to end (~3 wk)
 
-| Item | Priority | Dependencies | Notes |
-|------|----------|--------------|-------|
-| Stripe billing integration | High | Billing field exists in SpaceSetting; no Stripe package yet | $97/mo, 7-day trial. Must not gate existing CRM features without product decision |
-| Automated test suite | High | None | Currently all manual validation. Need at minimum: contract tests, API route tests |
-| Contact import (CSV/bulk) | Medium | Rate limiting exists (5/hr import tier) | Bulk contact creation with dedup |
-| Email notifications expansion | Medium | Resend already integrated | Currently only lead notification; expand to tour confirmations, deal updates |
-| Google Calendar OAuth flow | Medium | `GoogleCalendarToken` table exists | Token storage ready, need OAuth consent + sync logic |
-| Tour feedback collection | Medium | `TourFeedback` table exists | Post-tour survey emails |
-| Waitlist notifications | Medium | `TourWaitlist` table exists | Notify waitlisted guests when slots open |
+The smallest version of Charles that is genuinely useful. One manager agent, one department (Engineering), one integration (GitHub), one memory system, one onboarding flow. The whole loop, working.
 
-**Rule**: Don't build these prematurely. If a bug fix would be obsoleted by planned work, note it and fix minimally.
+- **Manager agent.** Talks to the founder. Owns mission, roadmap, current stage. Delegates to Engineering.
+- **Engineering department.** Reads and writes code via the GitHub adapter. Opens PRs. Requests review through the approval gate.
+- **GitHub adapter.** Auth, repo access, PR creation, file read/write, branch management. Scoped tokens. Audit-logged.
+- **Memory.** Working + core + long-term, with pgvector. Core slots populated during onboarding.
+- **Onboarding.** Founder signs up, names the company, states the mission, picks the first move. Charles is ready.
+- **Approval gate.** All external writes routed through approvals. Per-tool autonomy levels enforced. Kill switch live.
+
+By the end of Phase 1, a solo founder can sign up, describe their idea, and have Charles open the first pull request against a real repo — with the founder approving every change.
 
 ---
 
-## 3. Future considerations (not committed)
+## Next (Phases 2–3)
 
-These are mentioned in product context but have no code or active plan:
+### Phase 2 — The other five departments and core integrations (~2 wk)
 
-- MLS integration
-- Transaction management
-- Document signing
-- Marketing campaign tools
-- SMS integration
-- Team workspaces (multi-user per space)
-- Advanced automation / workflow builder
-- Mobile app
+Sales, Marketing, Design, Support, Ops/Finance — each as a specialist agent with its own toolkit. The integrations the early departments need: Supabase, Vercel, Stripe.
 
-**Rule**: Do not build toward these. They are explicitly out of scope per `PRODUCT_SCOPE.md`.
+- Sales, Marketing, Design, Support, Ops/Finance agents shipped.
+- Supabase adapter (schema reads, migrations through approval).
+- Vercel adapter (deploy hooks, env vars).
+- Stripe adapter (read-only first; charges remain `ask`).
+- Per-department toolkits scoped at the runtime layer.
 
----
+### Phase 3 — Stages, roadmap UI, gates (~1.5 wk)
 
-## 4. Technical debt to address
+The company isn't just a chat. It's a journey through six stages with explicit exit gates. The founder sees where they are and what's next.
 
-| Item | Severity | Location | Notes |
-|------|----------|----------|-------|
-| Legacy Redis path | Medium | `app/actions.ts`, `lib/slugs.ts`, `lib/redis.ts` | Slug metadata in Redis diverges from Supabase source of truth. Plan: migrate fully to Supabase, deprecate Redis slug path |
-| Two space creation paths | Medium | `app/api/onboarding/route.ts` vs `app/actions.ts` | Different default stage names. Consolidate to onboarding API only |
-| Build error suppression | Medium | `next.config.ts` | TS and ESLint errors ignored during build. Re-enable after cleanup |
-| Onboarding auto-heal duplication | Low | `app/dashboard/page.tsx`, `app/s/[slug]/layout.tsx` | Both contain backfill logic. Consolidate to `lib/onboarding.ts` helpers |
-| Prisma remnants | Low | `prisma.config.ts`, postinstall shim | Prisma no longer used (migrated to Supabase). Clean up references |
-
-**Rule**: Tech debt fixes are lower priority than active work. Don't refactor tech debt as a side effect of unrelated fixes.
+- Roadmap UI: mission, current stage, open work, recent approvals.
+- Stage engine: `Idea → Initial → Identity → Building → Selling → Scaling`, with exit criteria.
+- Stage gates Charles enforces, founder can override.
+- Per-department autonomy controls in the UI.
 
 ---
 
-## 5. How to use this file
+## Later (Phases 4–6)
 
-1. **Before starting work**: Check if your target area is in active work or planned. If so, coordinate.
-2. **Before fixing a bug**: Check if the affected code is about to be replaced. If so, apply a minimal fix.
-3. **Before adding a feature**: Check that it's not in "future considerations" (out of scope).
-4. **After completing work**: Update this file if the roadmap status changed.
-5. **AI agents**: Read this file before making changes that touch multiple systems.
+### Phase 4 — Creative and growth rails (~1.5 wk)
+
+The tools Marketing and Design need to do real work, plus the rails for early go-to-market.
+
+- Image and video generation through Replicate, OpenAI, Anthropic.
+- Twitter and LinkedIn posting through the approval gate.
+- Domain purchase via Cloudflare or Namecheap.
+- Email rails through Resend and Loops.
+
+### Phase 5 — Multi-seat, platform billing, observability (~2 wk)
+
+The platform Charles runs on, not the product Charles makes.
+
+- Multi-seat teams (founder + small number of teammates), with per-seat permissions.
+- Platform billing on Stripe (Charles charges the founder, not the founder's customers).
+- Cost tracker dashboard: per-model, per-department, per-day.
+- Audit log explorer.
+- Observability for the agent runtime (traces, retries, failures).
+
+### Phase 6 — Open extension surface (~1 wk)
+
+Make Charles extensible by people who don't work here.
+
+- Public MCP server SDK for external clients.
+- Documented plugin format for slash-command packs and skill bundles.
+- Sample plugins published.
+
+---
+
+## Not on the roadmap
+
+The things Charles will not become, restated for clarity. Mirrors `PRODUCT_SCOPE.md`.
+
+- **No enterprise admin tooling.** No SSO directory sync, SCIM, or RBAC matrices.
+- **No vertical CRMs.** Charles is horizontal; it is not a real-estate, legal, or medical product.
+- **No team-of-50 collaboration.** Charles is for founding teams, not large orgs.
+- **No human services marketplace.** Charles does the work or asks; it does not broker freelancers.
+- **No autonomous incorporation, banking, or legal filings.** Those remain human.
+- **No general-purpose chatbot.** Without a mission and a stage, Charles refuses to do work.
+- **No no-code form builder.** Charles uses tools like Typeform and Notion; it does not replace them.
+- **No black-box autonomy.** Approval gates and the kill switch are permanent.
+- **No model training.** Charles uses frontier APIs; it does not fine-tune or host weights in v1.

@@ -39,48 +39,6 @@ function pickTools(names: readonly string[]): ToolDefinition[] {
 }
 
 /**
- * Pipeline analyst — surveys the deal pipeline and reports stuck deals,
- * quiet hot persons, and overdue follow-ups in one paragraph.
- */
-export function buildPipelineAnalystAgent(ctx: ToolContext, opts: { model?: string } = {}): Agent {
-  const tools = pickTools([
-    'pipeline_summary',
-    'find_stuck_deals',
-    'find_quiet_hot_persons',
-    'find_overdue_followups',
-    'find_deal',
-  ]).map((t) => toSdkTool(t, ctx));
-
-  return new Agent({
-    name: 'pipeline_analyst',
-    instructions:
-      'You analyze the pipeline. Surface stuck deals, quiet hot persons, and overdue follow-ups. Return one paragraph the realtor can act on.',
-    tools,
-    model: opts.model ?? DEFAULT_MODEL,
-  });
-}
-
-/**
- * Contact researcher — digs up everything we know about one person and
- * recommends the next reasonable action.
- */
-export function buildContactResearcherAgent(ctx: ToolContext, opts: { model?: string } = {}): Agent {
-  const tools = pickTools([
-    'find_person',
-    'find_deal',
-    'recall_history',
-  ]).map((t) => toSdkTool(t, ctx));
-
-  return new Agent({
-    name: 'contact_researcher',
-    instructions:
-      'You research a person across their notes, activities, and deals. Return one paragraph naming the next reasonable action.',
-    tools,
-    model: opts.model ?? DEFAULT_MODEL,
-  });
-}
-
-/**
  * Planner — decomposes a complex user task into a concrete multi-step
  * execution plan and surfaces it to the UI via `create_plan` before any
  * domain tools run.

@@ -18,7 +18,6 @@ import {
 import { cn } from '@/lib/utils';
 import { timeAgo } from '@/lib/formatting';
 import { ImportanceDot } from './importance-dot';
-import { ChippiAssessmentCard } from '@/components/agent/chippi-assessment-card';
 
 interface AgentMemory {
   id: string;
@@ -250,7 +249,6 @@ export function AgentContactPanel({ contactId, slug, contactName }: { contactId:
   if (loading) {
     return (
       <div className="space-y-3">
-        <ChippiAssessmentCard entityType="contact" entityId={contactId} entityName={contactName ?? 'this contact'} slug={slug} />
         <div className="rounded-lg border border-border/70 bg-card p-6">
           <div className="flex items-center gap-2 mb-4">
             <Brain size={14} className="text-primary animate-pulse" />
@@ -270,7 +268,6 @@ export function AgentContactPanel({ contactId, slug, contactName }: { contactId:
 
   return (
     <div className="space-y-3">
-      <ChippiAssessmentCard entityType="contact" entityId={contactId} entityName={contactName ?? 'this contact'} slug={slug} />
     <div className="rounded-lg border border-border/70 bg-card overflow-hidden">
       <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -284,11 +281,11 @@ export function AgentContactPanel({ contactId, slug, contactName }: { contactId:
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href={`/s/${slug}/chippi?q=${encodeURIComponent(`Tell me about ${contactName ?? 'this contact'} and suggest what I should do next`)}`}
+            href={`/s/${slug}/chat?q=${encodeURIComponent(`Tell me about ${contactName ?? 'this contact'} and suggest what I should do next`)}`}
             className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border border-border hover:bg-muted/60 transition-colors"
           >
             <Sparkles size={11} />
-            Ask Chippi
+            Ask Charles
           </Link>
           <button
             onClick={() => void load()}

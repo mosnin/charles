@@ -110,7 +110,10 @@ describe('every registered tool produces a strict-mode-compatible JSON schema', 
     },
   );
 
-  it('the registry has at least 30 tools to catch (sanity bound)', () => {
-    expect(tools.length).toBeGreaterThanOrEqual(30);
+  it('the registry exposes at least one tool', () => {
+    // Lower bound trimmed in the Charles cleanup: the realtor-era
+    // People/Pipeline/Properties/Communication tools were ripped out. The
+    // bound will climb again once Charles-shaped tools land.
+    expect(tools.length).toBeGreaterThanOrEqual(1);
   });
 });

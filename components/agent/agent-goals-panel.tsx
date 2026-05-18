@@ -133,7 +133,7 @@ function NewGoalForm({ onSubmit, onCancel }: { onSubmit: (goalType: string, desc
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
-          placeholder="Describe what Chippi should accomplish…"
+          placeholder="Describe what Charles should accomplish…"
           required
           className={cn(
             'w-full resize-none rounded-md border bg-background px-3 py-2.5 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring',
@@ -258,7 +258,7 @@ export function AgentGoalsPanel() {
 
       {!loading && goals.length === 0 && !showForm && (
         <div className="py-8 text-sm text-muted-foreground">
-          No active goals. Goals let you track multi-step objectives Chippi should work toward.
+          No active goals. Goals let you track multi-step objectives Charles should work toward.
         </div>
       )}
 

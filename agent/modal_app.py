@@ -1,7 +1,7 @@
-"""Modal entrypoint for Chippi.
+"""Modal entrypoint for Charles.
 
 Two web endpoints, no scheduled functions. The 15-minute heartbeat is gone —
-Chippi only wakes up on real triggers or explicit user action.
+Charles only wakes up on real triggers or explicit user action.
 
   POST  chat_turn        — interactive chat surface (called by /api/ai/task)
   POST  run_now_webhook  — autonomous run for a single space (or trigger-drain)
@@ -9,7 +9,7 @@ Chippi only wakes up on real triggers or explicit user action.
 Deployment:
   modal deploy agent/modal_app.py
 
-Secrets: a single Modal secret named "chippi-secrets" containing all env
+Secrets: a single Modal secret named "charles-secrets" containing all env
 vars listed in config.py.
 """
 
@@ -87,9 +87,9 @@ image = (
     .add_local_dir(_AGENT_DIR, remote_path="/app")
 )
 
-app = modal.App("chippi-agent", image=image)
+app = modal.App("charles-agent", image=image)
 
-secrets = [modal.Secret.from_name("chippi-secrets")]
+secrets = [modal.Secret.from_name("charles-secrets")]
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +98,7 @@ secrets = [modal.Secret.from_name("chippi-secrets")]
 
 @app.function(secrets=secrets, timeout=600)
 async def run_space(space_id: str) -> None:
-    """Run Chippi for one space. Useful for local testing / cron drains."""
+    """Run Charles for one space. Useful for local testing / cron drains."""
     import sys
     sys.path.insert(0, "/app")
 
@@ -142,7 +142,7 @@ async def run_space(space_id: str) -> None:
 @app.function(secrets=secrets, timeout=600)
 @modal.fastapi_endpoint(method="POST")
 async def run_now_webhook(item: dict) -> dict:
-    """HTTP webhook that runs Chippi autonomously for a space.
+    """HTTP webhook that runs Charles autonomously for a space.
 
     Set MODAL_WEBHOOK_URL in the Next.js env to the URL printed by
     `modal deploy`. Secured with AGENT_INTERNAL_SECRET.
@@ -193,7 +193,7 @@ async def run_now_webhook(item: dict) -> dict:
 
 @app.function(
     image=image,
-    secrets=[modal.Secret.from_name("chippi-secrets")],
+    secrets=[modal.Secret.from_name("charles-secrets")],
     timeout=600,  # 10 min max for swarm runs
     max_containers=10,
 )
@@ -212,7 +212,7 @@ async def run_swarm_endpoint(payload: dict) -> dict:
 # ---------------------------------------------------------------------------
 # Web endpoint — chat turn (called by /api/ai/task)
 # ---------------------------------------------------------------------------
-# Runs Chippi inline in this Modal function and streams SDK events back as
+# Runs Charles inline in this Modal function and streams SDK events back as
 # Server-Sent Events. The previous architecture spawned a fresh Sandbox per
 # call and piped JSONL through stdin/stdout — that bought no real isolation
 # (none of these tools shell out or write outside postgres) and cost 5–15s
@@ -268,7 +268,7 @@ async def chat_turn(item: dict):
     from openai.types.shared import Reasoning
     from schemas import AgentSettings, Space
     from security.context import AgentContext
-    from chippi import make_chippi_agent
+    from manager.charles import CharlesManager
 
     agent_settings = AgentSettings.model_validate(sr.data)
     space = Space(id=spr.data["id"], slug=spr.data["slug"], name=spr.data["name"])
@@ -439,7 +439,11 @@ async def chat_turn(item: dict):
 
     async def event_stream():
         try:
-            chippi = make_chippi_agent(extra_tools=integration_tools)
+            manager = CharlesManager(
+                space_id=space_id,
+                run_id=conversation_id or f"chat-{uuid.uuid4()}",
+            )
+            charles = await manager.build_agent(extra_tools=integration_tools)
         except Exception as e:
             err = json.dumps({"type": "error", "message": f"agent build failed: {e}"})
             yield f"data: {err}\n\n"
@@ -447,7 +451,7 @@ async def chat_turn(item: dict):
 
         try:
             result = Runner.run_streamed(
-                chippi, input=input_items, context=ctx, run_config=run_config
+                charles, input=input_items, context=ctx, run_config=run_config
             )
             async for event in result.stream_events():
                 try:
@@ -477,6 +481,105 @@ async def chat_turn(item: dict):
             yield f"data: {err}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+# ---------------------------------------------------------------------------
+# Web endpoints — TS chat bridge
+# ---------------------------------------------------------------------------
+# Four small endpoints the Next.js chat surface calls to drive the manager
+# without spinning up the conversational agent. Auth is a shared-secret
+# bearer token (MODAL_BRIDGE_SECRET on both sides). Each handler thin-wraps
+# the corresponding primitive in agent/web/bridge.py.
+
+def _bridge_secret() -> str:
+    import os
+    # Falls back to AGENT_INTERNAL_SECRET so a single secret can power both
+    # the existing webhook and the new bridge endpoints in dev. Production
+    # SHOULD set MODAL_BRIDGE_SECRET explicitly.
+    return os.environ.get("MODAL_BRIDGE_SECRET") or os.environ.get("AGENT_INTERNAL_SECRET", "")
+
+
+def _import_bridge_deps():
+    """Lazy-imports inside Modal containers — agent/ source isn't on sys.path
+    until we add /app, so push every import through here."""
+    import sys
+    sys.path.insert(0, "/app")
+    from fastapi import Header, HTTPException
+    from web import bridge as _bridge  # type: ignore
+    return Header, HTTPException, _bridge
+
+
+@app.function(secrets=secrets, timeout=600)
+@modal.fastapi_endpoint(method="POST", label="bridge-delegate")
+async def bridge_delegate(item: dict, authorization: str | None = None):
+    _, HTTPException, _bridge = _import_bridge_deps()
+
+    if not _bridge.check_auth(authorization, _bridge_secret()):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    space_id = (item.get("spaceId") or "").strip()
+    department = (item.get("department") or "").strip()
+    task = (item.get("task") or "").strip()
+    if not space_id or not department or not task:
+        raise HTTPException(status_code=400, detail="spaceId, department, task required")
+    return await _bridge.delegate(
+        space_id=space_id,
+        department=department,
+        task=task,
+        context=item.get("context") or "",
+        run_id=item.get("runId") or None,
+    )
+
+
+@app.function(secrets=secrets, timeout=120)
+@modal.fastapi_endpoint(method="POST", label="bridge-advance-stage")
+async def bridge_advance_stage(item: dict, authorization: str | None = None):
+    _, HTTPException, _bridge = _import_bridge_deps()
+
+    if not _bridge.check_auth(authorization, _bridge_secret()):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    space_id = (item.get("spaceId") or "").strip()
+    new_stage = (item.get("newStage") or "").strip()
+    if not space_id or not new_stage:
+        raise HTTPException(status_code=400, detail="spaceId, newStage required")
+    return await _bridge.advance_stage(
+        space_id=space_id,
+        new_stage=new_stage,
+        reason=item.get("reason") or "",
+    )
+
+
+@app.function(secrets=secrets, timeout=60)
+@modal.fastapi_endpoint(method="POST", label="bridge-get-mission")
+async def bridge_get_mission(item: dict, authorization: str | None = None):
+    _, HTTPException, _bridge = _import_bridge_deps()
+
+    if not _bridge.check_auth(authorization, _bridge_secret()):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    space_id = (item.get("spaceId") or "").strip()
+    if not space_id:
+        raise HTTPException(status_code=400, detail="spaceId required")
+    return await _bridge.get_mission(space_id=space_id)
+
+
+@app.function(secrets=secrets, timeout=60)
+@modal.fastapi_endpoint(method="POST", label="bridge-update-core-memory")
+async def bridge_update_core_memory(item: dict, authorization: str | None = None):
+    _, HTTPException, _bridge = _import_bridge_deps()
+
+    if not _bridge.check_auth(authorization, _bridge_secret()):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    space_id = (item.get("spaceId") or "").strip()
+    slot = (item.get("slot") or "").strip()
+    value = item.get("value")
+    if not space_id or not slot or value is None:
+        raise HTTPException(status_code=400, detail="spaceId, slot, value required")
+    return await _bridge.update_core_memory(
+        space_id=space_id, slot=slot, value=str(value)
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -6,7 +6,6 @@ import { Brain, Activity, Zap, CheckCircle2, XCircle, RefreshCw, Loader2, Sparkl
 import { cn } from '@/lib/utils';
 import { timeAgo } from '@/lib/formatting';
 import { ImportanceDot } from './importance-dot';
-import { ChippiAssessmentCard } from '@/components/agent/chippi-assessment-card';
 
 interface AgentMemory {
   id: string;
@@ -81,7 +80,6 @@ export function AgentDealPanel({ dealId, slug, dealTitle }: { dealId: string; sl
   if (loading) {
     return (
       <div className="space-y-3">
-        <ChippiAssessmentCard entityType="deal" entityId={dealId} entityName={dealTitle ?? 'this deal'} slug={slug} />
         <div className="rounded-lg border border-border/70 bg-card p-4">
           <div className="flex items-center gap-2 mb-3">
             <Brain size={13} className="text-primary animate-pulse" />
@@ -99,7 +97,6 @@ export function AgentDealPanel({ dealId, slug, dealTitle }: { dealId: string; sl
 
   return (
     <div className="space-y-3">
-      <ChippiAssessmentCard entityType="deal" entityId={dealId} entityName={dealTitle ?? 'this deal'} slug={slug} />
     <div className="rounded-lg border border-border/70 bg-card overflow-hidden">
       <div className="px-3 py-2.5 border-b border-border flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -108,11 +105,11 @@ export function AgentDealPanel({ dealId, slug, dealTitle }: { dealId: string; sl
         </div>
         <div className="flex items-center gap-1.5">
           <Link
-            href={`/s/${slug}/chippi?q=${encodeURIComponent(`Tell me about my deal "${dealTitle ?? 'this deal'}" and suggest next steps`)}`}
+            href={`/s/${slug}/chat?q=${encodeURIComponent(`Tell me about my deal "${dealTitle ?? 'this deal'}" and suggest next steps`)}`}
             className="flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] text-xs font-medium rounded-md border border-border hover:bg-muted/60 transition-colors"
           >
             <Sparkles size={11} />
-            Ask Chippi
+            Ask Charles
           </Link>
           <button
             onClick={() => void load()}

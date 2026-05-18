@@ -6,6 +6,8 @@ This file is read on every Claude Code session in addition to `AGENTS.md`. Where
 
 **Before any UI work, read `STYLESHEET.md`.** It is the single source of truth for typography, color, motion, components, and copy voice. If a screen disagrees with the stylesheet, the screen is wrong — fix it back, don't drift the system.
 
+**Never audit, assess, or describe this codebase from memory.** Always read the actual files first. Memory-based audits of this repo have been wrong repeatedly — claiming surfaces were missing when they existed, claiming things worked when they were broken. Before any audit, review, "what's missing" answer, or product assessment: open the files, grep the code, trace the imports. Ground every claim in something you just read this session. An assumption stated confidently is worse than no answer.
+
 ---
 
 ## Dual-persona operating mode

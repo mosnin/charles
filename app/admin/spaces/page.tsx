@@ -3,7 +3,7 @@ import { isPlatformAdmin } from '@/lib/permissions';
 import { supabase } from '@/lib/supabase';
 import { SpaceListClient } from './space-list-client';
 
-export const metadata = { title: 'Spaces — Admin — Chippi' };
+export const metadata = { title: 'Spaces — Admin — Charles' };
 
 export default async function AdminSpacesPage() {
   const isAdmin = await isPlatformAdmin();

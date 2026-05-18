@@ -10,7 +10,7 @@ import { PAGE_VARIANTS } from '@/lib/motion';
  * doesn't re-animate on every nav.
  *
  * Accepts an optional className so callers can give the wrapper flex
- * sizing — needed on the Chippi chat route where the page must fill
+ * sizing — needed on the Charles chat route where the page must fill
  * the parent flex column for the composer's bottom-pin to work.
  * Standard pages don't pass one and the wrapper sizes to content
  * exactly like before.

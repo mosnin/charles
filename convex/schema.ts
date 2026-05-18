@@ -1,0 +1,84 @@
+/**
+ * Convex schema for Charles' live-state layer.
+ *
+ * Four tables, each modeling something ephemeral that needs to fan out to
+ * every connected client in real time but does NOT need to survive a
+ * session: presence (who's here right now), liveMessages (chat in flight
+ * before it's audit-backfilled to Supabase), canvasActivity (transient
+ * "Engineering is building a prospect list" status pings), and
+ * realtimeTicks (tiny "refresh me" signals for surfaces that aggregate
+ * Supabase state). Durable state stays in Supabase — see docs/CONVEX.md.
+ */
+import { defineSchema, defineTable } from 'convex/server';
+import { v } from 'convex/values';
+
+export default defineSchema({
+  presence: defineTable({
+    spaceId: v.string(),
+    userId: v.string(),
+    userName: v.string(),
+    userImage: v.optional(v.string()),
+    surface: v.string(),
+    cursorX: v.optional(v.number()),
+    cursorY: v.optional(v.number()),
+    // Set when the user is actively typing into a specific task chat
+    // conversation. Cleared the instant they stop. Powers the typing
+    // indicator without a separate table. Additive + backwards compatible.
+    typingConversationId: v.optional(v.string()),
+    lastActiveAt: v.number(),
+  })
+    .index('by_space', ['spaceId'])
+    .index('by_space_active', ['spaceId', 'lastActiveAt']),
+
+  liveMessages: defineTable({
+    spaceId: v.string(),
+    conversationId: v.string(),
+    role: v.union(v.literal('user'), v.literal('assistant'), v.literal('system')),
+    content: v.string(),
+    metadata: v.optional(v.any()),
+    createdAt: v.number(),
+    persistedToSupabase: v.boolean(),
+  })
+    .index('by_conversation', ['conversationId'])
+    .index('by_space', ['spaceId']),
+
+  canvasActivity: defineTable({
+    spaceId: v.string(),
+    department: v.union(
+      v.literal('engineering'),
+      v.literal('sales'),
+      v.literal('marketing'),
+      v.literal('design'),
+      v.literal('support'),
+      v.literal('ops_finance'),
+    ),
+    kind: v.union(
+      v.literal('running'),
+      v.literal('queued'),
+      v.literal('done'),
+      v.literal('failed'),
+    ),
+    summary: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index('by_space', ['spaceId'])
+    .index('by_space_dept', ['spaceId', 'department']),
+
+  // Tiny "refresh me" signals. Surfaces that aggregate Supabase state
+  // (approvals queue, audit feed) subscribe to the most-recent tick per
+  // (spaceId, kind) and re-fetch their canonical data when it changes.
+  // The TICK itself carries no payload — keeping aggregation logic in
+  // one place trades a few extra refetches for not duplicating it into
+  // Convex. Rows TTL after five minutes; cleanup runs hourly.
+  realtimeTicks: defineTable({
+    spaceId: v.string(),
+    kind: v.union(v.literal('approval'), v.literal('audit')),
+    /** Free-form one-liner for debugging — never user-visible. */
+    summary: v.optional(v.string()),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index('by_space', ['spaceId'])
+    .index('by_space_kind', ['spaceId', 'kind']),
+});

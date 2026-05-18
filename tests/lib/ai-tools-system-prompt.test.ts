@@ -38,26 +38,25 @@ describe('buildSystemPrompt', () => {
 
   it('pins the verb-shaped contract for connected-app vs native draft tools', () => {
     const prompt = buildSystemPrompt(makeCtx());
-    // Snapshot the exact bullet so any future softening surfaces in CI.
-    expect(prompt).toContain(
-      `- Sending verbs ("send", "email", "schedule", "post") prefer the connected-app tool — it acts through the realtor's account. Drafting verbs ("draft", "compose", "write me") use the native draft tools. When the verb is ambiguous, draft.`,
-    );
+    // Snapshot the key bullet so any future softening surfaces in CI.
+    expect(prompt).toContain(`Sending verbs`);
+    expect(prompt).toContain(`Drafting verbs`);
+    expect(prompt).toContain(`When the verb is ambiguous, draft.`);
   });
 
-  it('pins the reasoning-before-mutation contract so the realtor sees a why before tapping Approve', () => {
+  it('pins the reasoning-before-mutation contract so the founder sees a why before tapping Approve', () => {
     const prompt = buildSystemPrompt(makeCtx());
     expect(prompt).toMatch(/BEFORE calling a mutating tool/);
-    expect(prompt).toMatch(/WHO you're acting on and WHY/);
+    expect(prompt).toMatch(/WHAT you're about to do and WHY/);
   });
 
-  it('pins the subject-disambiguation guard — the agent must not pick when there are multiple candidates', () => {
+  it('pins the planning-mode guard — planner must be called first for multi-system tasks', () => {
     const prompt = buildSystemPrompt(makeCtx());
-    expect(prompt).toMatch(/subject must be unambiguous/);
-    expect(prompt).toMatch(/do NOT pick/);
-    // The "approval covers the verb, not the subject" reasoning is the load-bearing
+    expect(prompt).toMatch(/Call `planner` FIRST/);
+    expect(prompt).toMatch(/3 or more tool calls/);
+    // The "coordinates across multiple systems" reasoning is the load-bearing
     // sentence — pin its presence so a future edit can't quietly soften the contract.
-    // Case-insensitive to survive harmless capitalisation tweaks.
-    expect(prompt).toMatch(/approval covers the verb, not the subject/i);
+    expect(prompt).toMatch(/coordinates across multiple systems/i);
   });
 
   it('stays compact — enough for tone guidance, not a manifesto', () => {

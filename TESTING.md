@@ -1,8 +1,8 @@
 # TESTING.md
 
-Manual validation playbook for Chippi.
+Manual validation playbook for Charles.
 
-No automated test framework is currently configured in this repository. All validation is manual. This playbook defines what to check after changes.
+The repo uses **vitest** for automated tests (run with `pnpm test`; evals with `pnpm eval`). This playbook covers the manual checks that complement those automated runs — use it after changes to confirm end-to-end workflows are intact.
 
 ---
 

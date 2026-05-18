@@ -16,14 +16,14 @@ export function OnboardingBrandMark({ size = 48 }: { size?: number }) {
       aria-hidden
     >
       <defs>
-        <linearGradient id="chippi-brand-grad" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id="charles-brand-grad" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#FFB056" />
           <stop offset="100%" stopColor="#F97316" />
         </linearGradient>
       </defs>
       <path
         d="M28 6 L46 18 V38 L28 50 L10 38 V18 Z"
-        fill="url(#chippi-brand-grad)"
+        fill="url(#charles-brand-grad)"
       />
     </svg>
   );

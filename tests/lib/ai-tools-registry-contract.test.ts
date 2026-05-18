@@ -13,14 +13,9 @@
 
 import { describe, it, expect } from 'vitest';
 import { ALL_TOOLS } from '@/lib/ai-tools/tools';
-import type { ToolDefinition } from '@/lib/ai-tools/types';
 
 const SNAKE_CASE = /^[a-z][a-z0-9_]*$/;
 const MAX_DESCRIPTION_CHARS = 280;
-
-function isMutating(t: ToolDefinition): boolean {
-  return t.requiresApproval !== false;
-}
 
 describe('ALL_TOOLS registry contract', () => {
   it('exports a non-empty list', () => {
@@ -82,11 +77,9 @@ describe('ALL_TOOLS registry contract', () => {
     expect(unique.size).toBe(names.length);
   });
 
-  it('mutating tools form the majority — agent should mostly DO things, not just look', () => {
-    // Sanity check the catalog shape. If reads dominate, we've slipped back
-    // to the CRUD-as-tool failure mode.
-    const mutating = ALL_TOOLS.filter(isMutating).length;
-    const readonly = ALL_TOOLS.length - mutating;
-    expect(mutating).toBeGreaterThan(readonly);
-  });
+  // The "mutating tools form the majority" sanity check was removed in the
+  // Charles cleanup: the realtor-era People/Pipeline/Properties
+  // mutators were ripped out, leaving the catalog read-heavy until Charles
+  // grows its own department tools. Re-add the invariant when the new
+  // mutators land.
 });

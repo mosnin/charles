@@ -7,15 +7,10 @@ import {
   LayoutDashboard,
   Users,
   Building,
-  Building2,
-  Mail,
   CreditCard,
   ScrollText,
   Megaphone,
   Send,
-  LineChart,
-  BarChart3,
-  Activity,
   Bot,
   Menu,
   Sun,
@@ -41,10 +36,8 @@ const navSections = [
     items: [
       { href: '/admin', label: 'Overview', icon: LayoutDashboard, exact: true },
       { href: '/admin/users', label: 'Users', icon: Users, exact: false },
-      { href: '/admin/brokerages', label: 'Brokerages', icon: Building2, exact: false },
       { href: '/admin/spaces', label: 'Spaces', icon: Building, exact: false },
       { href: '/admin/billing', label: 'Billing', icon: CreditCard, exact: false },
-      { href: '/admin/invitations', label: 'Invitations', icon: Mail, exact: false },
     ],
   },
   {
@@ -52,14 +45,11 @@ const navSections = [
     items: [
       { href: '/admin/broadcast', label: 'Broadcast', icon: Send, exact: false },
       { href: '/admin/announcements', label: 'Announcements', icon: Megaphone, exact: false },
-      { href: '/admin/cohorts', label: 'Cohorts', icon: LineChart, exact: false },
-      { href: '/admin/form-analytics', label: 'Form Analytics', icon: BarChart3, exact: false },
     ],
   },
   {
     label: 'System',
     items: [
-      { href: '/admin/scoring-health', label: 'Scoring Health', icon: Activity, exact: false },
       { href: '/admin/agent-stats', label: 'Agent Health', icon: Bot, exact: false },
       { href: '/admin/audit-log', label: 'Audit Log', icon: ScrollText, exact: false },
     ],
@@ -70,8 +60,8 @@ const navItems = navSections.flatMap((s) => s.items);
 const mobileNavItems = [
   navSections[0].items[0], // Overview
   navSections[0].items[1], // Users
-  navSections[0].items[2], // Brokerages
-  navSections[0].items[4], // Billing
+  navSections[0].items[2], // Spaces
+  navSections[0].items[3], // Billing
   navSections[2].items[1], // Audit Log
 ];
 
@@ -131,7 +121,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 Admin
               </p>
               <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-                Chippi Internal
+                Charles Internal
               </p>
             </div>
           </div>
@@ -161,7 +151,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             Back to app
           </Link>
           <div className="flex items-center gap-2 px-3 pt-3">
-            <BrandLogo className="h-4" alt="Chippi" />
+            <BrandLogo className="h-4" alt="Charles" />
           </div>
         </div>
       </aside>

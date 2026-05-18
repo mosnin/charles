@@ -1,41 +1,65 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
+import { Inter, Newsreader, JetBrains_Mono } from 'next/font/google';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { ClerkProvider } from '@clerk/nextjs';
+import { ConvexClientProvider } from '@/components/convex-client-provider';
 import { ThemeProvider } from '@/components/theme-provider';
 import { AmplitudeProvider } from '@/components/amplitude-provider';
 import { MotionProvider } from '@/components/motion/motion-provider';
 import { Toaster } from 'sonner';
 import './globals.css';
 
+// Fonts for the cofounder.co-style canvas system.
+// - Inter (sans) is the UI/body workhorse.
+// - Newsreader (serif) is the canvas centerpiece + hero serif.
+// - JetBrains Mono is for chips, status pills, zoom indicators, eyebrow text.
+// All three are loaded via next/font with `display: 'swap'` and exposed as
+// CSS variables so Tailwind v4's font-sans / font-serif / font-mono resolve
+// to them (see globals.css `@theme inline` block).
+const fontSans = Inter({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-sans-pro',
+  display: 'swap',
+});
+
+const fontSerif = Newsreader({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  variable: '--font-serif',
+  display: 'swap',
+});
+
+const fontMono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  variable: '--font-mono-pro',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
-  title: 'Chippi — AI-Powered CRM for Real Estate Agents',
-  description: 'Chippi helps real estate agents close deals faster with AI lead scoring, automated follow-ups, tour scheduling, and a deal pipeline built for how realtors work. Start your 7-day free trial.',
-  keywords: ['CRM', 'real estate', 'realtors', 'AI lead scoring', 'property management', 'deal pipeline', 'tour scheduling', 'brokerages'],
+  title: 'Charles — Your AI cofounder',
+  description: 'Charles is your AI cofounder — a manager agent that runs an entire company across engineering, sales, marketing, design, support, and Ops/Finance, so a solo founder can ship from idea to revenue without hiring.',
   openGraph: {
-    title: 'Chippi — AI-Powered CRM for Real Estate Agents',
-    description: 'Score leads with AI, automate follow-ups, and manage your pipeline. Join agents closing deals faster with Chippi.',
-    siteName: 'Chippi',
+    title: 'Charles — Your AI cofounder',
+    description: 'A manager agent that runs engineering, sales, marketing, design, support, and Ops/Finance, so a solo founder can ship from idea to revenue.',
+    siteName: 'Charles',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Chippi — AI-Powered CRM for Real Estate Agents',
-    description: 'Score leads with AI, automate follow-ups, and manage your pipeline. Join agents closing deals faster.',
+    title: 'Charles — Your AI cofounder',
+    description: 'A manager agent that runs engineering, sales, marketing, design, support, and Ops/Finance, so a solo founder can ship from idea to revenue.',
   },
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0c0c0d' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0f' },
   ],
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default' as const,
-    title: 'Chippi',
-  },
-  icons: {
-    icon: '/chip-avatar.png',
-    apple: '/chip-avatar.png',
-    shortcut: '/chip-avatar.png',
+    title: 'Charles',
   },
 };
 
@@ -50,15 +74,10 @@ export default async function RootLayout({
   const h = await headers();
   const isPublicPage = h.get('x-public-page') === '1';
 
+  const fontVars = `${fontSans.variable} ${fontSerif.variable} ${fontMono.variable}`;
+
   const renderShell = (body: React.ReactNode) => (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark')}else{document.documentElement.classList.remove('dark')}}catch(e){}})();`,
-          }}
-        />
-      </head>
+    <html lang="en" className={fontVars} suppressHydrationWarning>
       <body className="antialiased bg-background text-foreground">
         <ThemeProvider>
           <AmplitudeProvider>
@@ -97,5 +116,12 @@ export default async function RootLayout({
   );
 
   if (isPublicPage) return renderShell(children);
-  return <ClerkProvider>{renderShell(children)}</ClerkProvider>;
+  // ClerkProvider must wrap ConvexClientProvider so Clerk's `useAuth` is
+  // available to Convex's auth bridge. The live-state layer (Convex) sees
+  // the same authed user the durable layer (Supabase) does.
+  return (
+    <ClerkProvider>
+      <ConvexClientProvider>{renderShell(children)}</ConvexClientProvider>
+    </ClerkProvider>
+  );
 }

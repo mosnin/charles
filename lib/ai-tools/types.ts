@@ -49,7 +49,7 @@ export type RiskLevel = 'safe' | 'low' | 'high' | 'destructive';
 export interface ToolContext {
   /** Clerk userId of the caller. */
   userId: string;
-  /** The Chippi space the caller owns (or manages via broker role). */
+  /** The Charles space the caller owns (or manages via broker role). */
   space: {
     id: string;
     slug: string;

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { X, ChevronDown, Link2, Bot, Users, TrendingUp, BarChart3 } from 'lucide-react';
+import { X } from 'lucide-react';
 import { MenuToggleIcon } from '@/components/ui/menu-toggle-icon';
 import { AnimatePresence, motion, useScroll } from 'motion/react';
 
@@ -52,19 +52,12 @@ const drawerMenuVariants = {
   visible: { opacity: 1 }
 };
 
-const drawerFeatureLinks = [
-  { href: '/features/intake', icon: Link2, name: 'Intake Link' },
-  { href: '/features/ai-scoring', icon: Bot, name: 'AI Scoring' },
-  { href: '/features/crm', icon: Users, name: 'Contact CRM' },
-  { href: '/features/pipeline', icon: TrendingUp, name: 'Deal Pipeline' },
-  { href: '/features/analytics', icon: BarChart3, name: 'Analytics' },
-];
+// TODO: cleanup phase 1B — restore feature drawer once Charles marketing pages exist.
 
 export function Navbar() {
   const { scrollY } = useScroll();
   const [hasScrolled, setHasScrolled] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [featuresExpanded, setFeaturesExpanded] = useState(false);
   const pathname = usePathname();
 
   const activeHref = navLinks.find((n) => {
@@ -103,8 +96,8 @@ export function Navbar() {
           )}
         >
           <div className="flex h-[56px] items-center justify-between p-4">
-            <Link href="/" className="flex items-center gap-3" aria-label="Chippi home">
-              <BrandLogo className="h-6 w-auto" alt="Chippi" />
+            <Link href="/" className="flex items-center gap-3" aria-label="Charles home">
+              <BrandLogo className="text-base" alt="Charles" />
             </Link>
 
             <NavMenu />
@@ -113,7 +106,7 @@ export function Navbar() {
               <div className="flex items-center space-x-2">
                 <Link
                   className="hidden h-8 w-fit items-center justify-center rounded-full border border-border bg-background px-4 text-sm font-semibold text-foreground md:flex"
-                  href="/login/realtor"
+                  href="/sign-in"
                 >
                   Log in
                 </Link>
@@ -153,8 +146,8 @@ export function Navbar() {
             >
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
-                  <Link href="/" className="flex items-center gap-3" aria-label="Chippi home">
-                    <BrandLogo className="h-6 w-auto" alt="Chippi" />
+                  <Link href="/" className="flex items-center gap-3" aria-label="Charles home">
+                    <BrandLogo className="text-base" alt="Charles" />
                   </Link>
                   <button
                     onClick={toggleDrawer}
@@ -169,91 +162,31 @@ export function Navbar() {
                   variants={drawerMenuContainerVariants}
                 >
                   <AnimatePresence>
-                    {navLinks.map((item) => {
-                      const isFeatures = item.href === '/features';
-                      return (
-                        <motion.li
-                          key={item.id}
-                          className="border-border border-b last:border-b-0"
-                          variants={drawerMenuVariants}
+                    {navLinks.map((item) => (
+                      <motion.li
+                        key={item.id}
+                        className="border-border border-b last:border-b-0"
+                        variants={drawerMenuVariants}
+                      >
+                        <Link
+                          href={item.href}
+                          onClick={() => setIsDrawerOpen(false)}
+                          className={`block p-2.5 hover:text-primary/80 underline-offset-4 transition-colors ${
+                            activeHref === item.href
+                              ? 'text-primary font-medium'
+                              : 'text-primary/60'
+                          }`}
                         >
-                          {isFeatures ? (
-                            <div>
-                              <button
-                                onClick={() => setFeaturesExpanded((v) => !v)}
-                                className={`flex w-full items-center justify-between p-2.5 transition-colors ${
-                                  pathname.startsWith('/features')
-                                    ? 'text-primary font-medium'
-                                    : 'text-primary/60'
-                                }`}
-                              >
-                                <span>{item.name}</span>
-                                <motion.span
-                                  animate={{ rotate: featuresExpanded ? 180 : 0 }}
-                                  transition={{ duration: 0.2 }}
-                                >
-                                  <ChevronDown size={14} />
-                                </motion.span>
-                              </button>
-                              <AnimatePresence>
-                                {featuresExpanded && (
-                                  <motion.div
-                                    initial={{ height: 0, opacity: 0 }}
-                                    animate={{ height: 'auto', opacity: 1 }}
-                                    exit={{ height: 0, opacity: 0 }}
-                                    transition={{ duration: 0.2 }}
-                                    className="overflow-hidden"
-                                  >
-                                    <div className="pb-2 px-2 space-y-0.5">
-                                      <Link
-                                        href="/features"
-                                        onClick={() => setIsDrawerOpen(false)}
-                                        className="block px-2.5 py-1.5 text-xs text-primary font-medium hover:opacity-80"
-                                      >
-                                        Browse all features →
-                                      </Link>
-                                      {drawerFeatureLinks.map((f) => (
-                                        <Link
-                                          key={f.href}
-                                          href={f.href}
-                                          onClick={() => setIsDrawerOpen(false)}
-                                          className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors ${
-                                            pathname === f.href
-                                              ? 'bg-primary/8 text-primary'
-                                              : 'text-muted-foreground hover:bg-muted'
-                                          }`}
-                                        >
-                                          <f.icon size={13} className="flex-shrink-0" />
-                                          <span className="text-xs font-medium">{f.name}</span>
-                                        </Link>
-                                      ))}
-                                    </div>
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
-                            </div>
-                          ) : (
-                            <Link
-                              href={item.href}
-                              onClick={() => setIsDrawerOpen(false)}
-                              className={`block p-2.5 hover:text-primary/80 underline-offset-4 transition-colors ${
-                                activeHref === item.href
-                                  ? 'text-primary font-medium'
-                                  : 'text-primary/60'
-                              }`}
-                            >
-                              {item.name}
-                            </Link>
-                          )}
-                        </motion.li>
-                      );
-                    })}
+                          {item.name}
+                        </Link>
+                      </motion.li>
+                    ))}
                   </AnimatePresence>
                 </motion.ul>
 
                 <div className="flex flex-col gap-2">
                   <Link
-                    href="/login/realtor"
+                    href="/sign-in"
                     className="flex h-8 w-full items-center justify-center rounded-full border border-border bg-background px-4 text-sm font-semibold text-foreground transition-all ease-out active:scale-95"
                   >
                     Log in

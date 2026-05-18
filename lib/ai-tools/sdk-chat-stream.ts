@@ -24,7 +24,7 @@ import { createSeqCounter, encodeEvent } from '@/lib/ai-tools/events';
 import { saveAssistantMessage } from '@/lib/ai-tools/persistence';
 import type { ToolContext } from '@/lib/ai-tools/types';
 import type { MessageBlock } from '@/lib/ai-tools/blocks';
-import { chippiErrorMessage } from '@/lib/ai-tools/chippi-voice';
+import { charlesErrorMessage } from '@/lib/ai-tools/charles-voice';
 import { runChatTurn, resumeChatTurn } from '@/lib/ai-tools/sdk-chat';
 import { mapSdkEvent, type SdkStreamEventLike } from '@/lib/ai-tools/sdk-event-mapper';
 import { extractApprovals, serializeRunState } from '@/lib/ai-tools/sdk-bridge';
@@ -258,7 +258,7 @@ function buildSseStream(input: BuildStreamInput): ReadableStream<Uint8Array> {
           logger.error('[ai/task ts] start failed', { conversationId: input.conversationId }, err);
           pushEvent({
             type: 'error',
-            message: chippiErrorMessage('internal'),
+            message: charlesErrorMessage('internal'),
             code: 'internal',
           });
         }
@@ -329,7 +329,7 @@ function buildSseStream(input: BuildStreamInput): ReadableStream<Uint8Array> {
           logger.error('[ai/task ts] stream pump crashed', { conversationId: input.conversationId }, err);
           pushEvent({
             type: 'error',
-            message: chippiErrorMessage('internal'),
+            message: charlesErrorMessage('internal'),
             code: 'internal',
           });
         }

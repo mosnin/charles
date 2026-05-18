@@ -41,7 +41,7 @@ export default async function SettingsPage({
   const { slug } = await params;
   const sp = await searchParams;
   const { userId } = await auth();
-  if (!userId) redirect('/login/realtor');
+  if (!userId) redirect('/sign-in');
 
   const space = await getSpaceFromSlug(slug);
   if (!space) notFound();
@@ -136,6 +136,138 @@ export default async function SettingsPage({
         <GeneralSettingsForm space={space} settings={settings} />
       </section>
 
+      {/* DEPARTMENTS — per-department autonomy levels */}
+      <section
+        id="departments"
+        className="space-y-5 pt-10 border-t border-border/60 scroll-mt-24"
+      >
+        <p className={SECTION_LABEL}>Departments</p>
+        <div className="flex items-center justify-between gap-6">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">Autonomy levels</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Decide how much each part of Charles is allowed to do without you.
+            </p>
+          </div>
+          <a
+            href={`/s/${slug}/settings/departments`}
+            className={PRIMARY_PILL}
+          >
+            Open
+          </a>
+        </div>
+      </section>
+
+      {/* TEAM — multi-seat: invite teammates, set per-seat roles */}
+      <section
+        id="team"
+        className="space-y-5 pt-10 border-t border-border/60 scroll-mt-24"
+      >
+        <p className={SECTION_LABEL}>Team</p>
+        <div className="flex items-center justify-between gap-6">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">Teammates &amp; roles</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Invite teammates and decide what they can do.
+            </p>
+          </div>
+          <a
+            href={`/s/${slug}/settings/team`}
+            className={PRIMARY_PILL}
+          >
+            Open
+          </a>
+        </div>
+      </section>
+
+      {/* AUDIT LOG — unified feed of every consequential agent action */}
+      <section
+        id="audit"
+        className="space-y-5 pt-10 border-t border-border/60 scroll-mt-24"
+      >
+        <p className={SECTION_LABEL}>Audit log</p>
+        <div className="flex items-center justify-between gap-6">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">Every meaningful action, in one place.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Drafts, runs, approvals, connections — read top to bottom.
+            </p>
+          </div>
+          <a
+            href={`/s/${slug}/settings/audit`}
+            className={PRIMARY_PILL}
+          >
+            Open
+          </a>
+        </div>
+      </section>
+
+      {/* AGENT RUNS — per-invocation observability */}
+      <section
+        id="runs"
+        className="space-y-5 pt-10 border-t border-border/60 scroll-mt-24"
+      >
+        <p className={SECTION_LABEL}>Agent runs</p>
+        <div className="flex items-center justify-between gap-6">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">What each department tried and what happened.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Duration, retries, failures — for every run.
+            </p>
+          </div>
+          <a
+            href={`/s/${slug}/settings/runs`}
+            className={PRIMARY_PILL}
+          >
+            Open
+          </a>
+        </div>
+      </section>
+
+      {/* USAGE — per-model, per-department spend */}
+      <section
+        id="usage"
+        className="space-y-5 pt-10 border-t border-border/60 scroll-mt-24"
+      >
+        <p className={SECTION_LABEL}>Usage</p>
+        <div className="flex items-center justify-between gap-6">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">Cost tracker</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              See per-model and per-department spend.
+            </p>
+          </div>
+          <a
+            href={`/s/${slug}/settings/usage`}
+            className={PRIMARY_PILL}
+          >
+            Open
+          </a>
+        </div>
+      </section>
+
+      {/* BILLING — platform subscription */}
+      <section
+        id="billing"
+        className="space-y-5 pt-10 border-t border-border/60 scroll-mt-24"
+      >
+        <p className={SECTION_LABEL}>Billing</p>
+        <div className="flex items-center justify-between gap-6">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">Plan and payment</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Pick a plan. Update your card. Download invoices.
+            </p>
+          </div>
+          <a
+            href={`/s/${slug}/settings/billing`}
+            className={PRIMARY_PILL}
+          >
+            Open
+          </a>
+        </div>
+      </section>
+
       {/* PROFILE — identity, photo, bio, social */}
       <section
         id="profile"
@@ -150,7 +282,7 @@ export default async function SettingsPage({
         <div className="mb-6">
           <h2 className="text-base font-semibold">AI Personalization</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Tell Chippi about you so responses feel tailored, not generic.
+            Tell Charles about you so responses feel tailored, not generic.
           </p>
         </div>
         <AIProfileForm slug={slug} spaceId={space.id} />
@@ -196,12 +328,56 @@ export default async function SettingsPage({
         />
       </section>
 
-      {/* MCP KEYS + MESSAGE TEMPLATES */}
+      {/* LIBRARY — reference material Charles can read */}
+      <section
+        id="library"
+        className="space-y-5 pt-10 border-t border-border/60 scroll-mt-24"
+      >
+        <p className={SECTION_LABEL}>Library</p>
+        <div className="flex items-center justify-between gap-6">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">Reference material</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Docs, screenshots, brand assets — context Charles can pull on.
+            </p>
+          </div>
+          <a
+            href={`/s/${slug}/settings/library`}
+            className={PRIMARY_PILL}
+          >
+            Open
+          </a>
+        </div>
+      </section>
+
+      {/* MCP — external MCP clients (Claude Desktop, Cursor, custom agents) */}
+      <section
+        id="mcp"
+        className="space-y-5 pt-10 border-t border-border/60 scroll-mt-24"
+      >
+        <p className={SECTION_LABEL}>MCP</p>
+        <div className="flex items-center justify-between gap-6">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">Connect external clients via Model Context Protocol.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Read-only. Mint a key, point Claude Desktop or Cursor at it.
+            </p>
+          </div>
+          <a
+            href={`/s/${slug}/settings/mcp`}
+            className={PRIMARY_PILL}
+          >
+            Open
+          </a>
+        </div>
+      </section>
+
+      {/* MESSAGE TEMPLATES — legacy realtor surface, kept until Phase 7 cull */}
       <section
         id="api-keys"
         className="space-y-5 pt-10 border-t border-border/60 scroll-mt-24"
       >
-        <p className={SECTION_LABEL}>API keys &amp; templates</p>
+        <p className={SECTION_LABEL}>Templates</p>
         <IntegrationsSection slug={space.slug} />
       </section>
 

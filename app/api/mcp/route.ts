@@ -1,3 +1,14 @@
+/**
+ * Public MCP server for Charles — read-only, space-scoped.
+ *
+ * External clients (Claude Desktop, Cursor, custom agents) connect with a
+ * `chs_` bearer or an OAuth JWT, both of which resolve to a single spaceId.
+ * Tools never accept a spaceId argument — scope is bound at server build
+ * time so a leaked-but-correctly-scoped key can't cross workspaces.
+ *
+ * Phase 6 contract: READ-ONLY. No mutating tools. If a future phase
+ * exposes writes, they must flow through the approval gates.
+ */
 import { NextRequest } from 'next/server';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
@@ -6,8 +17,23 @@ import { supabase } from '@/lib/supabase';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import crypto from 'crypto';
 import { jwtVerify } from 'jose';
+import { loadAuditFeed } from '@/lib/observability/audit-feed';
+import { loadRollup } from '@/lib/observability/cost-events';
+import { STAGES, type Stage } from '@/lib/stages/catalog';
+import {
+  getAllDepartmentAutonomy,
+  DEPARTMENT_NAMES,
+  ALL_DEPARTMENTS,
+} from '@/lib/departments/autonomy';
 
-// JWT_SECRET is resolved per-request; see authenticateKey() below.
+function baseUrl(): string {
+  const url = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL;
+  if (url) return url.replace(/\/$/, '');
+  if (process.env.NEXT_PUBLIC_ROOT_DOMAIN) {
+    return `https://${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`;
+  }
+  return 'https://app.charles.dev';
+}
 
 // ---------------------------------------------------------------------------
 // Auth – validate Bearer token (supports both raw API keys and OAuth JWTs)
@@ -54,298 +80,334 @@ async function authenticateKey(req: NextRequest): Promise<{ spaceId: string; ip:
   return { spaceId: data.spaceId, ip };
 }
 
+function asText(value: unknown) {
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: typeof value === 'string' ? value : JSON.stringify(value, null, 2),
+      },
+    ],
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Build an McpServer scoped to a given spaceId (READ-ONLY tools)
 // ---------------------------------------------------------------------------
 function buildServer(spaceId: string): McpServer {
   const server = new McpServer({
-    name: 'Chippi CRM',
+    name: 'Charles',
     version: '1.0.0',
   });
 
-  // ── list_contacts ──
+  // ── get_mission ──
   server.tool(
-    'list_contacts',
-    'List contacts in your CRM. Optionally filter by type, lead type, or search query.',
-    {
-      query: z.string().optional().describe('Search by name, email, or phone'),
-      type: z
-        .enum(['QUALIFICATION', 'TOUR', 'APPLICATION'])
-        .optional()
-        .describe('Filter by contact type'),
-      leadType: z.enum(['rental', 'buyer']).optional().describe('Filter by lead type'),
-      limit: z.number().int().positive().max(200).optional().default(50).describe('Max results (default 50)'),
-    },
-    async ({ query, type, leadType, limit }) => {
-      let q = supabase
-        .from('Contact')
-        .select(
-          'id, name, email, phone, type, leadType, leadScore, scoreLabel, budget, followUpAt, tags, createdAt',
-        )
-        .eq('spaceId', spaceId)
-        .order('createdAt', { ascending: false })
-        .limit(limit ?? 50);
-      if (type) q = q.eq('type', type);
-      if (leadType) q = q.eq('leadType', leadType);
-      const { data, error } = await q;
-      if (error)
-        return { content: [{ type: 'text' as const, text: 'Query failed' }] };
-      return { content: [{ type: 'text' as const, text: JSON.stringify(data ?? [], null, 2) }] };
+    'get_mission',
+    'Return the company mission, one-line pitch, target customer, stage, and core memory slots.',
+    {},
+    async () => {
+      const [missionRes, coreRes] = await Promise.all([
+        supabase
+          .from('Mission')
+          .select('title, oneLinePitch, targetCustomer, stage, description')
+          .eq('spaceId', spaceId)
+          .maybeSingle(),
+        supabase
+          .from('CoreMemory')
+          .select('slot, value')
+          .eq('spaceId', spaceId),
+      ]);
+      const core: Record<string, string | null> = {};
+      for (const row of (coreRes.data ?? []) as Array<{ slot: string; value: string | null }>) {
+        core[row.slot] = row.value;
+      }
+      return asText({
+        mission: missionRes.data ?? null,
+        core,
+      });
     },
   );
 
-  // ── get_contact ──
+  // ── list_departments ──
   server.tool(
-    'get_contact',
-    'Get full details for a specific contact by ID.',
-    { id: z.string().describe('Contact ID') },
-    async ({ id }) => {
-      const { data, error } = await supabase
-        .from('Contact')
-        .select('*')
-        .eq('id', id)
-        .eq('spaceId', spaceId)
-        .maybeSingle();
-      if (error || !data)
-        return { content: [{ type: 'text' as const, text: 'Contact not found' }] };
-      return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
+    'list_departments',
+    'List the six Charles departments with their current autonomy levels.',
+    {},
+    async () => {
+      const autonomy = await getAllDepartmentAutonomy(spaceId);
+      const departments = ALL_DEPARTMENTS.map((slug) => ({
+        slug,
+        name: DEPARTMENT_NAMES[slug],
+        autonomyLevel: autonomy[slug],
+      }));
+      return asText({ departments });
     },
   );
 
-  // ── list_deals ──
+  // ── get_current_stage ──
   server.tool(
-    'list_deals',
-    'List deals in the pipeline. Optionally filter by status.',
-    {
-      status: z
-        .enum(['active', 'won', 'lost', 'on_hold'])
-        .optional()
-        .describe('Filter by deal status'),
-      limit: z.number().int().positive().max(200).optional().default(30).describe('Max results'),
-    },
-    async ({ status, limit }) => {
-      let q = supabase
-        .from('Deal')
-        .select(
-          'id, title, value, address, priority, status, stageId, followUpAt, createdAt',
-        )
-        .eq('spaceId', spaceId)
-        .order('createdAt', { ascending: false })
-        .limit(limit ?? 30);
-      if (status) q = q.eq('status', status);
-      const { data, error } = await q;
-      if (error)
-        return { content: [{ type: 'text' as const, text: 'Query failed' }] };
-      return { content: [{ type: 'text' as const, text: JSON.stringify(data ?? [], null, 2) }] };
-    },
-  );
-
-  // ── get_deal ──
-  server.tool(
-    'get_deal',
-    'Get full details for a specific deal by ID.',
-    { id: z.string().describe('Deal ID') },
-    async ({ id }) => {
-      const { data, error } = await supabase
-        .from('Deal')
-        .select('*, DealStage(name, color)')
-        .eq('id', id)
+    'get_current_stage',
+    'Return the current workspace stage, its purpose, and the exit gates with completion status.',
+    {},
+    async () => {
+      const { data: mission } = await supabase
+        .from('Mission')
+        .select('stage')
         .eq('spaceId', spaceId)
         .maybeSingle();
-      if (error || !data)
-        return { content: [{ type: 'text' as const, text: 'Deal not found' }] };
-      return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
-    },
-  );
+      const current = ((mission as { stage?: string } | null)?.stage ?? 'idea') as Stage;
+      const def = STAGES[current] ?? STAGES.idea;
 
-  // ── list_tours ──
-  server.tool(
-    'list_tours',
-    'List upcoming and recent tours.',
-    {
-      status: z
-        .enum(['scheduled', 'confirmed', 'completed', 'cancelled', 'no_show'])
-        .optional(),
-      limit: z.number().int().positive().max(200).optional().default(20),
-    },
-    async ({ status, limit }) => {
-      let q = supabase
-        .from('Tour')
-        .select(
-          'id, guestName, guestEmail, guestPhone, propertyAddress, startsAt, endsAt, status, createdAt',
-        )
+      const { data: gateRows } = await supabase
+        .from('StageGate')
+        .select('title, isComplete, completedAt')
         .eq('spaceId', spaceId)
-        .order('startsAt', { ascending: false })
-        .limit(limit ?? 20);
-      if (status) q = q.eq('status', status);
-      const { data, error } = await q;
-      if (error)
-        return { content: [{ type: 'text' as const, text: 'Query failed' }] };
-      return { content: [{ type: 'text' as const, text: JSON.stringify(data ?? [], null, 2) }] };
+        .eq('stage', current)
+        .order('order', { ascending: true });
+
+      const gates = def.gates.map((title) => {
+        const row = (gateRows ?? []).find(
+          (g) => (g as { title: string }).title === title,
+        ) as { title: string; isComplete: boolean; completedAt: string | null } | undefined;
+        return {
+          title,
+          isComplete: row?.isComplete ?? false,
+          completedAt: row?.completedAt ?? null,
+        };
+      });
+
+      return asText({
+        slug: def.slug,
+        label: def.label,
+        purpose: def.purpose,
+        gates,
+      });
     },
   );
 
-  // ── list_notes ──
+  // ── list_recent_runs ──
   server.tool(
-    'list_notes',
-    'List notes in the workspace.',
-    { limit: z.number().int().positive().max(200).optional().default(20) },
+    'list_recent_runs',
+    'List recent agent runs across all departments. Cap 50.',
+    {
+      limit: z.number().int().positive().max(50).optional().default(20).describe('Max results (1-50)'),
+    },
     async ({ limit }) => {
+      const cap = Math.min(50, Math.max(1, limit ?? 20));
       const { data, error } = await supabase
-        .from('Note')
-        .select('id, title, content, updatedAt')
+        .from('SwarmMember')
+        .select(
+          'id, name, role, task, status, startedAt, completedAt, createdAt, swarmRun:SwarmRun!inner(spaceId)',
+        )
+        .eq('swarmRun.spaceId', spaceId)
+        .order('createdAt', { ascending: false })
+        .limit(cap);
+      if (error) return asText({ error: 'Query failed' });
+      const runs = (data ?? []).map((r: Record<string, unknown>) => {
+        const startedAt = r.startedAt as string | null;
+        const completedAt = r.completedAt as string | null;
+        const durationMs =
+          startedAt && completedAt
+            ? new Date(completedAt).getTime() - new Date(startedAt).getTime()
+            : null;
+        const task = ((r.task as string | null) ?? '').slice(0, 120);
+        return {
+          id: r.id,
+          name: r.name,
+          department: r.role,
+          task,
+          status: r.status,
+          durationMs,
+          startedAt,
+        };
+      });
+      return asText({ runs });
+    },
+  );
+
+  // ── list_pending_approvals ──
+  server.tool(
+    'list_pending_approvals',
+    'List pending drafts and paused runs awaiting founder approval.',
+    {},
+    async () => {
+      const [drafts, paused] = await Promise.all([
+        supabase
+          .from('AgentDraft')
+          .select('id, channel, subject, status, createdAt')
+          .eq('spaceId', spaceId)
+          .eq('status', 'pending')
+          .order('createdAt', { ascending: false })
+          .limit(50),
+        supabase
+          .from('AgentPausedRun')
+          .select('id, status, createdAt, expiresAt')
+          .eq('spaceId', spaceId)
+          .eq('status', 'pending')
+          .order('createdAt', { ascending: false })
+          .limit(50),
+      ]);
+      return asText({
+        drafts: (drafts.data ?? []).map((d: Record<string, unknown>) => ({
+          id: d.id,
+          channel: d.channel,
+          summary: d.subject ?? `${d.channel} draft`,
+          createdAt: d.createdAt,
+        })),
+        pausedRuns: (paused.data ?? []).map((p: Record<string, unknown>) => ({
+          id: p.id,
+          createdAt: p.createdAt,
+          expiresAt: p.expiresAt,
+        })),
+      });
+    },
+  );
+
+  // ── list_integrations ──
+  server.tool(
+    'list_integrations',
+    'List active third-party integrations. No secrets are returned.',
+    {},
+    async () => {
+      const { data, error } = await supabase
+        .from('IntegrationConnection')
+        .select('toolkit, label, createdAt')
+        .eq('spaceId', spaceId)
+        .eq('status', 'active')
+        .order('createdAt', { ascending: false });
+      if (error) return asText({ error: 'Query failed' });
+      const integrations = (data ?? []).map((r: Record<string, unknown>) => ({
+        toolkit: r.toolkit,
+        label: r.label ?? null,
+        connectedAt: r.createdAt,
+      }));
+      return asText({ integrations });
+    },
+  );
+
+  // ── cost_rollup ──
+  server.tool(
+    'cost_rollup',
+    'Per-day cost rollup grouped by department and model. Default 30 days, cap 90.',
+    {
+      days: z.number().int().positive().max(90).optional().default(30).describe('Days to include (1-90)'),
+    },
+    async ({ days }) => {
+      const window = Math.min(90, Math.max(1, days ?? 30));
+      const rows = await loadRollup(spaceId, window);
+      let total = 0;
+      const byDept: Record<string, number> = {};
+      const byModel: Record<string, number> = {};
+      const byDay: Record<string, number> = {};
+      for (const r of rows) {
+        total += r.totalCostUsd;
+        byDept[r.department] = (byDept[r.department] ?? 0) + r.totalCostUsd;
+        byModel[r.model] = (byModel[r.model] ?? 0) + r.totalCostUsd;
+        byDay[r.day] = (byDay[r.day] ?? 0) + r.totalCostUsd;
+      }
+      return asText({
+        days: window,
+        totalUsd: Number(total.toFixed(4)),
+        byDepartment: byDept,
+        byModel,
+        byDay,
+      });
+    },
+  );
+
+  // ── audit_feed ──
+  server.tool(
+    'audit_feed',
+    'Recent audit events across runs, drafts, approvals, integrations, and stages.',
+    {
+      limit: z.number().int().positive().max(200).optional().default(50).describe('Max events (1-200)'),
+      type: z
+        .enum([
+          'agent_run_started',
+          'agent_run_completed',
+          'agent_run_failed',
+          'draft_created',
+          'draft_accepted',
+          'draft_declined',
+          'paused_run_approved',
+          'paused_run_declined',
+          'integration_connected',
+          'integration_disconnected',
+          'stage_advanced',
+          'gate_completed',
+        ])
+        .optional()
+        .describe('Filter to one event type'),
+    },
+    async ({ limit, type }) => {
+      const events = await loadAuditFeed(spaceId, {
+        limit: Math.min(200, limit ?? 50),
+        type,
+      });
+      return asText({ events });
+    },
+  );
+
+  // ── recent_drafts ──
+  server.tool(
+    'recent_drafts',
+    'Last 20 agent drafts, optionally filtered by status.',
+    {
+      status: z.enum(['pending', 'approved', 'dismissed', 'sent']).optional(),
+    },
+    async ({ status }) => {
+      let q = supabase
+        .from('AgentDraft')
+        .select('id, channel, subject, status, createdAt, updatedAt')
         .eq('spaceId', spaceId)
         .order('updatedAt', { ascending: false })
-        .limit(limit ?? 20);
-      if (error)
-        return { content: [{ type: 'text' as const, text: 'Query failed' }] };
-      return { content: [{ type: 'text' as const, text: JSON.stringify(data ?? [], null, 2) }] };
+        .limit(20);
+      if (status) q = q.eq('status', status);
+      const { data, error } = await q;
+      if (error) return asText({ error: 'Query failed' });
+      return asText({ drafts: data ?? [] });
     },
   );
 
-  // ── get_note ──
+  // ── workspace_health ──
   server.tool(
-    'get_note',
-    'Get a specific note by ID.',
-    { id: z.string().describe('Note ID') },
-    async ({ id }) => {
-      const { data, error } = await supabase
-        .from('Note')
-        .select('*')
-        .eq('id', id)
-        .eq('spaceId', spaceId)
-        .maybeSingle();
-      if (error || !data)
-        return { content: [{ type: 'text' as const, text: 'Note not found' }] };
-      return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
-    },
-  );
-
-  // ── follow_ups_due ──
-  server.tool(
-    'follow_ups_due',
-    'Get contacts and deals with follow-ups due today or overdue.',
+    'workspace_health',
+    'First-load snapshot: stage, open gates, pending approvals, 7-day cost, active integrations.',
     {},
     async () => {
-      const now = new Date().toISOString();
-      const [{ data: contacts }, { data: deals }] = await Promise.all([
+      const [missionRes, gatesRes, draftsRes, pausedRes, integrationsRes, rollup] = await Promise.all([
+        supabase.from('Mission').select('stage').eq('spaceId', spaceId).maybeSingle(),
         supabase
-          .from('Contact')
-          .select('id, name, phone, email, followUpAt')
+          .from('StageGate')
+          .select('*', { count: 'exact', head: true })
           .eq('spaceId', spaceId)
-          .not('followUpAt', 'is', null)
-          .lte('followUpAt', now)
-          .order('followUpAt')
-          .limit(30),
+          .eq('isComplete', false),
         supabase
-          .from('Deal')
-          .select('id, title, followUpAt')
+          .from('AgentDraft')
+          .select('*', { count: 'exact', head: true })
           .eq('spaceId', spaceId)
-          .not('followUpAt', 'is', null)
-          .lte('followUpAt', now)
-          .order('followUpAt')
-          .limit(20),
+          .eq('status', 'pending'),
+        supabase
+          .from('AgentPausedRun')
+          .select('*', { count: 'exact', head: true })
+          .eq('spaceId', spaceId)
+          .eq('status', 'pending'),
+        supabase
+          .from('IntegrationConnection')
+          .select('*', { count: 'exact', head: true })
+          .eq('spaceId', spaceId)
+          .eq('status', 'active'),
+        loadRollup(spaceId, 7),
       ]);
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify(
-              { contacts: contacts ?? [], deals: deals ?? [] },
-              null,
-              2,
-            ),
-          },
-        ],
-      };
-    },
-  );
-
-  // ── dashboard_summary ──
-  server.tool(
-    'dashboard_summary',
-    'Get a high-level summary: lead count, deal pipeline value, upcoming tours, overdue follow-ups.',
-    {},
-    async () => {
-      const now = new Date().toISOString();
-      const [contactCount, dealAgg, tourCount, followUpCount, buyerLeadCount] = await Promise.all([
-        supabase
-          .from('Contact')
-          .select('*', { count: 'exact', head: true })
-          .eq('spaceId', spaceId)
-          .then((r) => r.count ?? 0),
-        supabase
-          .from('Deal')
-          .select('value')
-          .eq('spaceId', spaceId)
-          .eq('status', 'active')
-          .then((r) => ({
-            count: (r.data ?? []).length,
-            totalValue: (r.data ?? []).reduce(
-              (s: number, d: any) => s + (d.value ?? 0),
-              0,
-            ),
-          })),
-        supabase
-          .from('Tour')
-          .select('*', { count: 'exact', head: true })
-          .eq('spaceId', spaceId)
-          .in('status', ['scheduled', 'confirmed'])
-          .gte('startsAt', now)
-          .then((r) => r.count ?? 0),
-        supabase
-          .from('Contact')
-          .select('*', { count: 'exact', head: true })
-          .eq('spaceId', spaceId)
-          .not('followUpAt', 'is', null)
-          .lte('followUpAt', now)
-          .then((r) => r.count ?? 0),
-        supabase
-          .from('Contact')
-          .select('*', { count: 'exact', head: true })
-          .eq('spaceId', spaceId)
-          .eq('leadType', 'buyer')
-          .then((r) => r.count ?? 0),
-      ]);
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify(
-              {
-                totalContacts: contactCount,
-                buyerLeads: buyerLeadCount,
-                rentalLeads: (contactCount as number) - (buyerLeadCount as number),
-                activeDeals: dealAgg.count,
-                pipelineValue: dealAgg.totalValue,
-                upcomingTours: tourCount,
-                overdueFollowUps: followUpCount,
-              },
-              null,
-              2,
-            ),
-          },
-        ],
-      };
-    },
-  );
-
-  // ── list_calendar_events ──
-  server.tool(
-    'list_calendar_events',
-    'List custom calendar events.',
-    { limit: z.number().int().positive().max(200).optional().default(20) },
-    async ({ limit }) => {
-      const { data } = await supabase
-        .from('CalendarEvent')
-        .select('id, title, description, date, time, color')
-        .eq('spaceId', spaceId)
-        .gte('date', new Date().toISOString().slice(0, 10))
-        .order('date')
-        .limit(limit ?? 20);
-      return {
-        content: [{ type: 'text' as const, text: JSON.stringify(data ?? [], null, 2) }],
-      };
+      const stage = ((missionRes.data as { stage?: string } | null)?.stage ?? 'idea') as Stage;
+      const last7Usd = rollup.reduce((sum, r) => sum + r.totalCostUsd, 0);
+      return asText({
+        stage,
+        gatesRemaining: gatesRes.count ?? 0,
+        pendingApprovals: (draftsRes.count ?? 0) + (pausedRes.count ?? 0),
+        last7DaysCostUsd: Number(last7Usd.toFixed(4)),
+        activeIntegrations: integrationsRes.count ?? 0,
+      });
     },
   );
 
@@ -366,9 +428,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const BASE_URL = process.env.NEXT_PUBLIC_ROOT_DOMAIN
-    ? `https://${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`
-    : 'https://my.usechippi.com';
+  const BASE_URL = baseUrl();
 
   const authResult = await authenticateKey(req);
   if (!authResult) {
@@ -403,7 +463,7 @@ export async function POST(req: NextRequest) {
   try {
     const response = await transport.handleRequest(req as unknown as Request);
     return response;
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[mcp] error:', err);
     return new Response(
       JSON.stringify({
@@ -421,9 +481,7 @@ export async function POST(req: NextRequest) {
 // DELETE /api/mcp — session termination (no-op in stateless)
 // ---------------------------------------------------------------------------
 export async function GET(req: NextRequest) {
-  const BASE_URL = process.env.NEXT_PUBLIC_ROOT_DOMAIN
-    ? `https://${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`
-    : 'https://my.usechippi.com';
+  const BASE_URL = baseUrl();
 
   // If no auth, return 401 with resource metadata link (MCP OAuth discovery)
   const auth = req.headers.get('authorization');

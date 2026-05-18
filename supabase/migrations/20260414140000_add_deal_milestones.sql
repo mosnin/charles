@@ -1,1 +1,0 @@
-ALTER TABLE "Deal" ADD COLUMN IF NOT EXISTS "milestones" JSONB DEFAULT '[]'::jsonb;
