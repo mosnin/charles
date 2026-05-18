@@ -46,6 +46,7 @@ export default async function SpacePage({
     latestConvResult,
     briefingResult,
     activePlanResult,
+    pendingApprovalsResult,
   ] = await Promise.allSettled([
     supabase
       .from('Mission')
@@ -70,6 +71,12 @@ export default async function SpacePage({
       .maybeSingle(),
     buildDailyBriefing(space.id),
     loadActivePlan(space.id),
+    supabase
+      .from('AgentTask')
+      .select('id', { count: 'exact', head: true })
+      .eq('spaceId', space.id)
+      .eq('status', 'paused')
+      .not('metadata->approvalRequired', 'is', null),
   ]);
 
   const mission: Mission | null =
@@ -137,6 +144,11 @@ export default async function SpacePage({
   const activePlan =
     activePlanResult.status === 'fulfilled' ? activePlanResult.value : null;
 
+  const pendingApprovalsCount =
+    pendingApprovalsResult.status === 'fulfilled' && typeof pendingApprovalsResult.value.count === 'number'
+      ? pendingApprovalsResult.value.count
+      : 0;
+
   const workspaceName = mission?.title?.trim().length
     ? mission!.title
     : space.name;
@@ -156,6 +168,7 @@ export default async function SpacePage({
         initialMessages={initialMessages}
         briefing={briefing}
         activePlan={activePlan}
+        pendingApprovalsCount={pendingApprovalsCount}
       />
     </div>
   );

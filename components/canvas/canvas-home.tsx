@@ -46,8 +46,6 @@ import { DeptNode } from './dept-node';
 import { ChatDock } from './chat-dock';
 import { Sapling } from './sapling';
 import { StatusDot } from './status-dot';
-import { MorningBriefing } from './morning-briefing';
-import { ActivePlanIndicator } from './active-plan-indicator';
 import { ORBIT_ORDER, orbitPoint } from '@/lib/canvas/orbit';
 import type { DeptCounts } from '@/lib/canvas/dept-counts';
 import type { MessageBlock } from '@/lib/ai-tools/blocks';
@@ -71,17 +69,20 @@ export interface CanvasHomeProps {
   initialConversationId: string | null;
   /** Messages for `initialConversationId`, in chronological order. */
   initialMessages: { role: 'user' | 'assistant'; content: string; blocks?: MessageBlock[] | null }[];
-  /** Daily briefing snapshot — null if it couldn't be built. */
+  /** Daily briefing snapshot — null if it couldn't be built. Charles
+   *  speaks this as his first message of the day inside the dock. */
   briefing: DailyBriefingData | null;
   /** Plan currently in flight (status in planning/running/auditing),
-   *  null when nothing's active. Powers the canvas "Working on..."
-   *  pill that links to the live Plan View. */
+   *  null when nothing's active. The dock surfaces this as a pill at
+   *  the top of the transcript, linking through to the live Plan View. */
   activePlan: {
     id: string;
     goal: string;
     totalSteps: number;
     completedSteps: number;
   } | null;
+  /** Server-fetched count of pending approvals for this space. */
+  pendingApprovalsCount: number;
 }
 
 const ORBIT_RADIUS = 220;
@@ -105,6 +106,7 @@ export function CanvasHome({
   initialMessages,
   briefing,
   activePlan,
+  pendingApprovalsCount,
 }: CanvasHomeProps) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -287,15 +289,6 @@ export function CanvasHome({
           >
             Z {zoomPct}%
           </span>
-          {activePlan && (
-            <ActivePlanIndicator
-              slug={slug}
-              runId={activePlan.id}
-              goal={activePlan.goal}
-              completedSteps={activePlan.completedSteps}
-              totalSteps={activePlan.totalSteps}
-            />
-          )}
         </div>
 
         {/* Top-right controls (fixed) */}
@@ -428,16 +421,19 @@ export function CanvasHome({
           </div>
         </div>
 
-        {/* Daily briefing — what happened overnight. Self-suppresses on a
-            rest day and once seen today. */}
-        {briefing && <MorningBriefing slug={slug} data={briefing} variant="canvas" />}
       </section>
 
-      {/* Desktop chat dock — hidden on mobile via its own md: classes. */}
+      {/* Desktop chat dock — hidden on mobile via its own md: classes.
+          The dock is the command center: it holds the conversation, the
+          approvals badge, the active-plan pill, and the daily briefing
+          (Charles speaks the briefing as his first message of the day). */}
       <ChatDock
         slug={slug}
         initialConversationId={initialConversationId}
         initialMessages={initialMessages}
+        initialPendingApprovalsCount={pendingApprovalsCount}
+        activePlan={activePlan}
+        briefing={briefing}
       />
 
       {/* ─── Mobile (< md): vertical stack ─────────────────────────────── */}
@@ -478,8 +474,6 @@ export function CanvasHome({
               );
             })}
           </div>
-
-          {briefing && <MorningBriefing slug={slug} data={briefing} variant="inline" />}
 
           {githubRepo && (
             <div className="text-center">
@@ -526,6 +520,9 @@ export function CanvasHome({
                 slug={slug}
                 initialConversationId={initialConversationId}
                 initialMessages={initialMessages}
+                initialPendingApprovalsCount={pendingApprovalsCount}
+                activePlan={activePlan}
+                briefing={briefing}
                 variant="mobile"
               />
             </div>

@@ -16,13 +16,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Plus, Maximize2, Loader2, RotateCcw } from 'lucide-react';
+import { ArrowRight, Plus, Loader2, RotateCcw, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAgentTask } from '@/components/ai/hooks/use-agent-task';
 import { Transcript } from '@/components/ai/blocks/transcript';
 import { ThinkingIndicator } from '@/components/ai/blocks/thinking-indicator';
 import { blocksFromLegacyContent, type MessageBlock } from '@/lib/ai-tools/blocks';
 import { Sapling } from './sapling';
+import { CAPTION } from '@/lib/typography';
+import type { DailyBriefingData } from '@/lib/briefing/build-daily-briefing';
 
 const STORAGE_KEY_PREFIX = 'charles:chat-dock:conv:';
 
@@ -32,6 +34,13 @@ interface InitialMessage {
   blocks?: MessageBlock[] | null;
 }
 
+interface ActivePlanSummary {
+  id: string;
+  goal: string;
+  totalSteps: number;
+  completedSteps: number;
+}
+
 interface Props {
   slug: string;
   /** Most-recent conversation id when one exists. The dock picks this up
@@ -39,6 +48,16 @@ interface Props {
   initialConversationId: string | null;
   /** Server-loaded messages for `initialConversationId`, in order. */
   initialMessages: InitialMessage[];
+  /** Server-hydrated count of pending approvals for this space. The dock
+   *  keeps this live as `permission_required` / approve / deny events fire. */
+  initialPendingApprovalsCount?: number;
+  /** Plan in flight (planning/running/auditing), or null. When present
+   *  the dock renders a pill at the top of the transcript that links
+   *  through to the live Plan View. */
+  activePlan?: ActivePlanSummary | null;
+  /** Daily briefing snapshot. When set and not yet read today, Charles
+   *  speaks it as his first message of the day. */
+  briefing?: DailyBriefingData | null;
   /**
    * "desktop" (default): right-docked sidebar at md+, hidden on mobile.
    * "mobile": full-width, used inside the mobile overlay.
@@ -50,6 +69,9 @@ export function ChatDock({
   slug,
   initialConversationId,
   initialMessages,
+  initialPendingApprovalsCount = 0,
+  activePlan = null,
+  briefing = null,
   variant = 'desktop',
 }: Props) {
   const isMobile = variant === 'mobile';
@@ -57,6 +79,9 @@ export function ChatDock({
   const lsKey = `${STORAGE_KEY_PREFIX}${slug}`;
   const [activeConversationId, setActiveConversationId] = useState<string | null>(
     initialConversationId,
+  );
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState(
+    initialPendingApprovalsCount,
   );
 
   const {
@@ -85,6 +110,31 @@ export function ChatDock({
     },
   });
 
+  // Reconcile `pendingApprovalsCount` against the dock's own pendingApproval
+  // edges. The server-hydrated count is the source of truth at mount; from
+  // then on, each new prompt bumps the badge and each resolution (approve
+  // or deny by this founder, in this dock) decrements it. Other tabs and
+  // server-side scheduled fans are still observed via the existing realtime
+  // refresher on the approvals page — this is the cheap inline signal that
+  // keeps the chrome honest until then.
+  const lastPendingRequestIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const current = pendingApproval?.requestId ?? null;
+    const last = lastPendingRequestIdRef.current;
+    if (current && current !== last) {
+      setPendingApprovalsCount((n) => n + 1);
+    } else if (!current && last) {
+      setPendingApprovalsCount((n) => Math.max(0, n - 1));
+    }
+    lastPendingRequestIdRef.current = current;
+  }, [pendingApproval]);
+
+  // Briefing injection: when the dock would otherwise be empty AND we
+  // have today's briefing AND the founder hasn't read it yet, Charles
+  // speaks the briefing as the first message of the day. Per-day,
+  // per-space localStorage gate prevents re-injection on remount.
+  const [briefingInjected, setBriefingInjected] = useState(false);
+
   // Hydrate the initial transcript exactly once. After this the streaming
   // hook owns the message list — we don't re-seed on every render or the
   // streamed deltas would get clobbered.
@@ -103,8 +153,38 @@ export function ChatDock({
               : blocksFromLegacyContent(typeof m.content === 'string' ? m.content : ''),
         })),
       );
+      return;
     }
-  }, [initialMessages, setMessages]);
+    // No prior conversation today → consider briefing injection.
+    if (!briefing) return;
+    let readToday = false;
+    try {
+      readToday = localStorage.getItem(briefingReadKey(slug)) === todayLocalISO();
+    } catch {
+      // localStorage unavailable — treat as unread.
+    }
+    if (readToday) return;
+    const text = composeBriefingMessage(briefing);
+    if (!text) return;
+    setMessages([
+      {
+        id: 'briefing_today',
+        role: 'assistant',
+        blocks: blocksFromLegacyContent(text),
+      },
+    ]);
+    setBriefingInjected(true);
+  }, [initialMessages, setMessages, briefing, slug]);
+
+  // Once the founder sends a reply (or starts a new chat), mark today's
+  // briefing as read so it doesn't reappear on remount.
+  const markBriefingRead = useCallback(() => {
+    try {
+      localStorage.setItem(briefingReadKey(slug), todayLocalISO());
+    } catch {
+      // best-effort
+    }
+  }, [slug]);
 
   const hydrateConversation = useCallback(
     async (convId: string) => {
@@ -178,8 +258,9 @@ export function ChatDock({
     if (!text || isStreaming || pendingApproval !== null) return;
     setValue('');
     lastUserMsgRef.current = text;
+    if (briefingInjected) markBriefingRead();
     await send(text);
-  }, [value, isStreaming, pendingApproval, send]);
+  }, [value, isStreaming, pendingApproval, send, briefingInjected, markBriefingRead]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -204,13 +285,15 @@ export function ChatDock({
   const handleNewChat = useCallback(() => {
     setActiveConversationId(null);
     setMessages([]);
+    setBriefingInjected(false);
+    if (briefingInjected) markBriefingRead();
     try {
       localStorage.removeItem(lsKey);
     } catch {
       // Best-effort.
     }
     inputRef.current?.focus();
-  }, [setMessages, lsKey]);
+  }, [setMessages, lsKey, briefingInjected, markBriefingRead]);
 
   const retry = useCallback(async () => {
     if (!lastUserMsgRef.current || isStreaming) return;
@@ -256,7 +339,7 @@ export function ChatDock({
     >
       <DockHeader
         slug={slug}
-        conversationId={activeConversationId}
+        pendingApprovalsCount={pendingApprovalsCount}
         onNewChat={handleNewChat}
       />
 
@@ -266,8 +349,34 @@ export function ChatDock({
         className="flex-1 overflow-y-auto px-4 py-4"
         data-testid="chat-dock-thread"
       >
+        {activePlan && (
+          <Link
+            href={`/s/${slug}/plans/${activePlan.id}`}
+            data-testid="chat-dock-active-plan"
+            className={cn(
+              'mb-4 inline-flex w-full max-w-full items-center gap-2',
+              'rounded-md border border-border/70 bg-background px-2.5 py-1.5',
+              'transition-colors hover:bg-foreground/[0.02]',
+            )}
+          >
+            <Sparkles
+              size={12}
+              strokeWidth={2}
+              className="shrink-0 text-amber-600 dark:text-amber-400"
+            />
+            <span className="min-w-0 flex-1 truncate text-xs text-foreground">
+              <span className="font-medium">Working on: </span>
+              <span className="font-normal text-muted-foreground">{activePlan.goal}</span>
+            </span>
+            <span
+              className={cn(CAPTION, 'shrink-0 tabular-nums text-muted-foreground/80')}
+            >
+              {activePlan.completedSteps}/{activePlan.totalSteps}
+            </span>
+          </Link>
+        )}
         {isEmpty ? (
-          <EmptyState onSuggest={(text) => setValue(text)} />
+          <EmptyState />
         ) : (
           <div className="space-y-5">
             {messages.map((msg, i) => {
@@ -395,21 +504,33 @@ export function ChatDock({
 
 function DockHeader({
   slug,
-  conversationId,
+  pendingApprovalsCount,
   onNewChat,
 }: {
   slug: string;
-  conversationId: string | null;
+  pendingApprovalsCount: number;
   onNewChat: () => void;
 }) {
-  const fullscreenHref = conversationId
-    ? `/s/${slug}/chat?conversationId=${conversationId}`
-    : `/s/${slug}/chat`;
   return (
     <div className="flex h-10 items-center justify-between border-b border-border/70 px-3">
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2">
         <Sapling size={14} />
         <span className="text-[12px] font-medium text-foreground">Charles</span>
+        {pendingApprovalsCount > 0 && (
+          <Link
+            href={`/s/${slug}/chat/approvals`}
+            data-testid="chat-dock-approvals-badge"
+            className={cn(
+              CAPTION,
+              'inline-flex items-center gap-1 rounded-full border border-border/70 bg-background px-1.5 py-0.5',
+              'tabular-nums hover:text-foreground hover:border-border transition-colors',
+            )}
+            aria-label={`${pendingApprovalsCount} pending ${pendingApprovalsCount === 1 ? 'approval' : 'approvals'}`}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+            {pendingApprovalsCount} waiting
+          </Link>
+        )}
       </div>
       <div className="flex items-center gap-0.5">
         <button
@@ -422,28 +543,12 @@ function DockHeader({
         >
           <Plus size={13} />
         </button>
-        <Link
-          href={fullscreenHref}
-          aria-label="Open fullscreen"
-          title="Open fullscreen"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04] transition-colors duration-150"
-          data-testid="chat-dock-fullscreen"
-        >
-          <Maximize2 size={12} />
-        </Link>
       </div>
     </div>
   );
 }
 
-function EmptyState({ onSuggest }: { onSuggest: (text: string) => void }) {
-  // The dock is the founder's cofounder. The empty state is the welcome —
-  // one calm sentence, one nudge toward the first move.
-  const starters = [
-    'plan this week',
-    'what should we ship first?',
-    'check on the team',
-  ];
+function EmptyState() {
   return (
     <div
       className="flex h-full flex-col items-start justify-end gap-4 pb-2"
@@ -455,26 +560,55 @@ function EmptyState({ onSuggest }: { onSuggest: (text: string) => void }) {
           <p className="text-sm font-medium text-foreground">Let&rsquo;s get to work.</p>
         </div>
         <p className="text-sm leading-[1.55] text-muted-foreground">
-          Tell me what you want to build, ship, or figure out. I&rsquo;ll take it from there.
+          Tell me what we&rsquo;re working on.
         </p>
-      </div>
-      <div className="flex flex-wrap gap-1.5" data-testid="chat-dock-starters">
-        {starters.map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => onSuggest(s)}
-            className={cn(
-              'inline-flex items-center rounded-full',
-              'border border-border/70 bg-background hover:bg-foreground/[0.04] hover:border-border',
-              'px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground',
-              'transition-colors duration-150',
-            )}
-          >
-            {s}
-          </button>
-        ))}
       </div>
     </div>
   );
+}
+
+// ── Briefing helpers ────────────────────────────────────────────────────
+// Local calendar date (not UTC) — the briefing turns over at the founder's
+// midnight, same convention as MorningBriefing.todayLocal.
+function todayLocalISO(now: Date = new Date()): string {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function briefingReadKey(slug: string): string {
+  return `charles:briefing-read:${slug}:${todayLocalISO()}`;
+}
+
+/**
+ * Compose the briefing as Charles speaking — three short paragraphs, no
+ * bullets, no exclamation marks. Rest day collapses to one sentence.
+ * Returns null when there's literally nothing to say (which shouldn't
+ * happen with a non-null briefing, but defensive).
+ */
+export function composeBriefingMessage(data: DailyBriefingData): string | null {
+  const name = data.founderFirstName?.trim();
+  const greeting = name ? `Morning, ${name}.` : 'Morning.';
+
+  if (data.isRestDay) {
+    return `${greeting} Nothing's flagged. Use the hour for the work only you can do.`;
+  }
+
+  const paragraphs: string[] = [greeting];
+
+  if (data.yesterdayHighlights.length > 0) {
+    const recap = data.yesterdayHighlights.join(' ');
+    paragraphs.push(`While you were away: ${recap}`);
+  }
+
+  if (data.needsYouToday.length > 0) {
+    const actions = data.needsYouToday.map((a) => a.label).join(' ');
+    paragraphs.push(`What needs you today: ${actions}`);
+  } else if (data.pendingApprovalsCount === 0 && data.openTasksCount === 0) {
+    paragraphs.push("Nothing on your plate this morning. Tell me what we're chasing today.");
+  }
+
+  if (paragraphs.length === 1) return null;
+  return paragraphs.join('\n\n');
 }

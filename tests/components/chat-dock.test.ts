@@ -85,6 +85,58 @@ describe('chat dock — empty state', () => {
     // Allow the HTML-entity apostrophe (Let&rsquo;s) or a literal one.
     expect(DOCK).toMatch(/Let(?:&rsquo;|')s get to work/);
   });
+
+  it("invites the founder in one sentence — names the 'we', no enumeration", () => {
+    // Allow the entity apostrophe (we&rsquo;re) or a literal one.
+    expect(DOCK).toMatch(/Tell me what we(?:&rsquo;|')re working on\./);
+    // No taking-a-ticket assistant voice.
+    expect(DOCK).not.toMatch(/I.?ll take it from there/);
+    // No three-things enumeration.
+    expect(DOCK).not.toMatch(/build, ship, or figure out/);
+  });
+
+  it('does not ship a three-chip starter menu', () => {
+    // Starter chips were a multi-choice template — gone.
+    expect(DOCK).not.toMatch(/chat-dock-starters/);
+    expect(DOCK).not.toMatch(/plan this week/);
+    expect(DOCK).not.toMatch(/check on the team/);
+  });
+});
+
+describe('chat dock — command center hooks', () => {
+  it('renders the approvals badge only when count > 0', () => {
+    // Conditional render, not always-on chrome.
+    expect(DOCK).toMatch(/pendingApprovalsCount > 0/);
+    expect(DOCK).toMatch(/chat-dock-approvals-badge/);
+  });
+
+  it('links the approvals badge to the existing command center', () => {
+    expect(DOCK).toMatch(/\/s\/\$\{slug\}\/chat\/approvals/);
+  });
+
+  it('surfaces an active-plan pill at the top of the transcript', () => {
+    expect(DOCK).toMatch(/chat-dock-active-plan/);
+    expect(DOCK).toMatch(/Working on:/);
+  });
+
+  it('does not duplicate the active-plan pill on the canvas chrome', () => {
+    expect(CANVAS).not.toMatch(/ActivePlanIndicator/);
+  });
+
+  it('Charles speaks the briefing as his first message of the day', () => {
+    // The briefing voice lives inline in the dock, not as a canvas card.
+    expect(DOCK).toMatch(/composeBriefingMessage/);
+    expect(DOCK).toMatch(/briefingReadKey/);
+    expect(CANVAS).not.toMatch(/MorningBriefing/);
+  });
+});
+
+describe('chat dock — fullscreen escape hatch', () => {
+  it('no longer ships a fullscreen icon in the header', () => {
+    // The dock IS the chat surface — no "open elsewhere" affordance.
+    expect(DOCK).not.toMatch(/Maximize2/);
+    expect(DOCK).not.toMatch(/chat-dock-fullscreen/);
+  });
 });
 
 describe('chat dock — input placeholder', () => {
