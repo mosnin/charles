@@ -12,10 +12,10 @@ import { getSpaceFromSlug } from '@/lib/space';
 import { supabase } from '@/lib/supabase';
 import { getAllDepartmentAutonomy } from '@/lib/departments/autonomy';
 import { loadDeptCounts } from '@/lib/canvas/dept-counts';
-import { loadAuditFeed } from '@/lib/observability/audit-feed';
 import { buildDailyBriefing, type DailyBriefingData } from '@/lib/briefing/build-daily-briefing';
 import { loadActivePlan } from '@/lib/plans/plan-repo';
 import { CanvasHome } from '@/components/canvas/canvas-home';
+import type { MessageBlock } from '@/lib/ai-tools/blocks';
 
 interface Mission {
   title: string;
@@ -34,15 +34,16 @@ export default async function SpacePage({
   const space = await getSpaceFromSlug(slug);
   if (!space) notFound();
 
-  // Pull mission, autonomy levels, the GitHub slot, dept counts, the audit
-  // feed for the chat dock, and the daily briefing — all in parallel. Any
-  // single failure is absorbed; the page still renders.
+  // Pull mission, autonomy levels, the GitHub slot, dept counts, the most-
+  // recent conversation (for the dock's hydrated transcript), the daily
+  // briefing, and the active plan — all in parallel. Any single failure is
+  // absorbed; the page still renders.
   const [
     missionResult,
     autonomyResult,
     githubResult,
     deptCountsResult,
-    auditFeedResult,
+    latestConvResult,
     briefingResult,
     activePlanResult,
   ] = await Promise.allSettled([
@@ -59,7 +60,14 @@ export default async function SpacePage({
       .eq('slot', 'github_repo')
       .maybeSingle(),
     loadDeptCounts(space.id),
-    loadAuditFeed(space.id, { limit: 8 }),
+    supabase
+      .from('Conversation')
+      .select('id')
+      .eq('spaceId', space.id)
+      .not('title', 'like', '[BROKERAGE_CHAT]%')
+      .order('updatedAt', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
     buildDailyBriefing(space.id),
     loadActivePlan(space.id),
   ]);
@@ -98,8 +106,30 @@ export default async function SpacePage({
           ops_finance: { running: 0, queued: 0, idle: 1 },
         } as const);
 
-  const initialAuditFeed =
-    auditFeedResult.status === 'fulfilled' ? auditFeedResult.value : [];
+  const initialConversationId: string | null =
+    latestConvResult.status === 'fulfilled' && latestConvResult.value.data
+      ? ((latestConvResult.value.data as { id: string }).id ?? null)
+      : null;
+
+  let initialMessages: { role: 'user' | 'assistant'; content: string; blocks?: MessageBlock[] | null }[] = [];
+  if (initialConversationId) {
+    try {
+      const { data } = await supabase
+        .from('Message')
+        .select('role, content, blocks')
+        .eq('conversationId', initialConversationId)
+        .order('createdAt', { ascending: true })
+        .limit(50);
+      initialMessages = ((data ?? []) as { role: string; content: string; blocks: MessageBlock[] | null }[])
+        .map((m) => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+          blocks: m.blocks,
+        }));
+    } catch {
+      // Empty transcript on failure — the dock will show its empty state.
+    }
+  }
 
   const briefing: DailyBriefingData | null =
     briefingResult.status === 'fulfilled' ? briefingResult.value : null;
@@ -122,7 +152,8 @@ export default async function SpacePage({
         autonomyBySlug={autonomyBySlug}
         githubRepo={githubRepo}
         deptCounts={deptCounts}
-        initialAuditFeed={initialAuditFeed}
+        initialConversationId={initialConversationId}
+        initialMessages={initialMessages}
         briefing={briefing}
         activePlan={activePlan}
       />

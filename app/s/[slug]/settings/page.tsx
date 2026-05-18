@@ -328,6 +328,28 @@ export default async function SettingsPage({
         />
       </section>
 
+      {/* LIBRARY — reference material Charles can read */}
+      <section
+        id="library"
+        className="space-y-5 pt-10 border-t border-border/60 scroll-mt-24"
+      >
+        <p className={SECTION_LABEL}>Library</p>
+        <div className="flex items-center justify-between gap-6">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">Reference material</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Docs, screenshots, brand assets — context Charles can pull on.
+            </p>
+          </div>
+          <a
+            href={`/s/${slug}/settings/library`}
+            className={PRIMARY_PILL}
+          >
+            Open
+          </a>
+        </div>
+      </section>
+
       {/* MCP — external MCP clients (Claude Desktop, Cursor, custom agents) */}
       <section
         id="mcp"
